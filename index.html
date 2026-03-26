@@ -4998,6 +4998,21 @@
       }
 
       function switchMode(mode) {
+        // Reset admin flag when leaving admin
+        if (mode !== 'admin') _isAdmin = false;
+        
+        // Admin password check
+        if (mode === 'admin' && !_isAdmin) {
+          if (appSettings.adminPass) {
+            const pwd = prompt('🔒 Introdu parola de administrator:');
+            if (!pwd || pwd !== appSettings.adminPass) {
+              toast('❌ Parolă incorectă.');
+              return; // Don't switch to admin
+            }
+          }
+          _isAdmin = true;
+        }
+        
         document.getElementById("screen-landing").style.display = "none";
         document
           .querySelectorAll(".screen")
