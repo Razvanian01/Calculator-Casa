@@ -2059,6 +2059,37 @@
               </option>
             </select>
           </div>
+
+          <div class="form-section-title">Suport Pardoseală — Șapă</div>
+          <div class="edit-field">
+            <label class="label">Grosime șapă (cm)</label>
+            <select class="input" id="t-sapa-gros" onchange="totalCalc()">
+              <option value="5">5 cm (standard)</option>
+              <option value="6" selected>6 cm</option>
+              <option value="7">7 cm (recomandat încălzire pardoseală)</option>
+              <option value="8">8 cm</option>
+              <option value="10">10 cm (premium)</option>
+            </select>
+          </div>
+
+          <div class="form-section-title">Pereți & Tavane Gips-Carton</div>
+          <div class="edit-field">
+            <label class="label">GC în proiect?</label>
+            <select class="input" id="t-gc-activ" onchange="toggleGCTotal();totalCalc()">
+              <option value="nu">Nu — fără GC</option>
+              <option value="da">Da — pereți și/sau tavane GC</option>
+            </select>
+          </div>
+          <div id="t-gc-options" style="display:none">
+            <div class="edit-field">
+              <label class="label">Sistem GC</label>
+              <select class="input" id="t-gc-sistem" onchange="totalCalc()"></select>
+            </div>
+            <div class="edit-field">
+              <label class="label">Suprafață GC (m²)</label>
+              <input type="number" class="input" id="t-gc-sup" value="40" min="5" oninput="totalCalc()"/>
+            </div>
+          </div>
           <div class="form-section-title">KPI-uri calculate</div>
           <div class="kpi-grid">
             <div class="kpi-card">
@@ -2080,6 +2111,11 @@
               <div class="kpi-label">Beton est.</div>
               <div class="kpi-value" id="tk-bet">—</div>
               <div class="kpi-unit">m³ total</div>
+            </div>
+            <div class="kpi-card" style="border-color:#bbf7d0;background:var(--green-l)">
+              <div class="kpi-label" style="color:var(--green)">Potențial Valoare</div>
+              <div class="kpi-value" id="tk-val" style="color:var(--green)">—</div>
+              <div class="kpi-unit" style="color:var(--green)">lei materiale MatHaus</div>
             </div>
           </div>
           <button
@@ -2417,17 +2453,17 @@
           ],
           calcInputs: [
             {
-              id: "fPerimetru",
-              label: "Perimetru fundații (ml)",
-              def: 40,
-              min: 10,
+              id: "fLung",
+              label: "Lungime clădire (m)",
+              def: 12,
+              min: 4,
               type: "number",
             },
             {
-              id: "fLatime",
-              label: "Lățime fundație (m)",
-              def: 0.4,
-              min: 0.3,
+              id: "fLat2",
+              label: "Lățime clădire (m)",
+              def: 8,
+              min: 4,
               type: "number",
             },
             {
@@ -2437,19 +2473,13 @@
               min: 0.5,
               type: "number",
             },
-            {
-              id: "fAmprenta",
-              label: "Amprentă placă sol (m²)",
-              def: 100,
-              min: 40,
-              type: "number",
-            },
           ],
           calcFn: (inp) => {
-            const p = inp.fPerimetru || 40,
-              lat = inp.fLatime || 0.4,
-              ad = inp.fAdancime || 0.9,
-              amp = inp.fAmprenta || 100;
+            const fL = inp.fLung || 12, fW = inp.fLat2 || 8;
+            const p = 2 * (fL + fW); // perimetru auto
+            const amp = fL * fW; // amprenta auto
+            const lat = 0.4, // lățime fundație standard
+              ad = inp.fAdancime || 0.9;
             const volFunda = p * lat * ad;
             const volPlaca = amp * 0.12;
             return [
@@ -3904,58 +3934,29 @@
             ];
           },
           totalFn: (c) => {
-            const sp = c.suprafataGC,
-              st = c.suprafataTavan * 0.4;
-            return [
-              {
-                name: "Profil UW 75mm",
-                qty: C(sp * 0.8),
-                um: "ml",
-                formula: "",
-                pkg: "bară 3m",
-                link: "https://mathaus.ro/p/profil-uw-pentru-gips-carton-75-x-3000-x-05-mm/000000000010600138",
-              },
-              {
-                name: "Profil CW 75mm",
-                qty: C(sp * 2.0),
-                um: "ml",
-                formula: "",
-                pkg: "bară 3m",
-                link: "https://mathaus.ro/p/-profil-cw-tabla-zincata-pentru-gips-carton-75-x-3000-x-05-mm/000000000010604690",
-              },
-              {
-                name: "Placă GC standard 12.5mm",
-                qty: C((sp * 2.05) / 3.125),
-                um: "buc",
-                formula: "",
-                pkg: "buc 1.2×2.6m",
-                link: "https://mathaus.ro/p/placa-gips-carton-norgips-gkb-grosime-125-mm-1200-x-2600-mm/000000000010600095",
-              },
-              {
-                name: "Vata Minerala",
-                qty: C(sp * 1.02),
-                um: "m²",
-                formula: "",
-                pkg: "16.8m²/pachet",
-                link: "https://mathaus.ro/p/vata-minerala-de-sticla-termofix-necaserata-2-x-7000-x-1200-x-50-mm/000000000010606268",
-              },
-              {
-                name: "Șuruburi autofiletant 3.5×25mm",
-                qty: C((sp * 26) / 1000),
-                um: "cutii",
-                formula: "",
-                pkg: "cutie 1000",
-                link: "https://mathaus.ro/p/surub-autofiletant-norgips-system-35-x-25-mm-1000-buc/000000000010605430",
-              },
-              {
-                name: "Pastă îmbinare Rigips Super",
-                qty: C((sp * 0.3) / 25),
-                um: "găleți",
-                formula: "",
-                pkg: "găleată 25kg",
-                link: "https://mathaus.ro/p/ipsos-imbinare-rigips-super-25kg/000000000010604671",
-              },
-            ];
+            if (!c.gcActiv || c.suprafataGC <= 0) return [];
+            // Use selected GC system data
+            const sys = GC_SYSTEMS[c.gcSistem];
+            if (!sys) return [];
+            const sup = c.gcSup || 40;
+            return sys.items.map(item => {
+              let qty = 0;
+              if (item.um === 'm²') qty = C(sup * (item.rate || 1));
+              else if (item.um === 'ml') {
+                const ml = sup * (item.rate || 1);
+                qty = C(ml);
+              } else if (item.um === 'buc') qty = C(sup * (item.rate || 1));
+              else if (item.um === 'kg') qty = C(sup * (item.rate || 0.5));
+              else qty = C(sup * (item.rate || 1));
+              return {
+                name: item.name,
+                qty: qty,
+                um: item.um,
+                formula: (item.rate || '') + ' ' + item.um + '/m²',
+                pkg: item.pkg || '—',
+                link: item.link || '',
+              };
+            });
           },
         },
         {
@@ -4008,22 +4009,7 @@
             "Total per baie: 2–3 zile",
             "Total etapă 2 băi (3–4 pers): ~4–6 zile",
           ],
-          calcInputs: [
-            {
-              id: "hNrBai",
-              label: "Număr băi",
-              def: 2,
-              min: 1,
-              type: "number",
-            },
-            {
-              id: "hSupBaie",
-              label: "Suprafață per baie (m²)",
-              def: 8,
-              min: 3,
-              type: "number",
-            },
-          ],
+          calcInputs: [], // Custom calculator handles inputs
           calcFn: (inp) => {
             const nb = inp.hNrBai || 2,
               sb = inp.hSupBaie || 8,
@@ -4572,42 +4558,7 @@
             "Total activ echipă (3–4 pers): 4–6 zile",
             "Total etapă cu aclimatizare + uscare adeziv: 6–9 zile",
           ],
-          calcInputs: [
-            {
-              id: "pkSup",
-              label: "Suprafață parchet (m²)",
-              def: 60,
-              min: 10,
-              type: "number",
-            },
-            {
-              id: "pkTip",
-              label: "Tip parchet",
-              def: "laminat",
-              type: "select",
-              options: ["laminat", "spc", "triplu"],
-              labels: [
-                "Laminat (flotant clic)",
-                "SPC (impermeabil, flotant)",
-                "Triplustratificat (lipit sau flotant)",
-              ],
-            },
-            {
-              id: "pkMontaj",
-              label: "Montaj triplustratificat",
-              def: "flotant",
-              type: "select",
-              options: ["flotant", "lipit"],
-              labels: ["Flotant (clic)", "Lipit (adeziv)"],
-            },
-            {
-              id: "pkPer",
-              label: "Perimetru camere (ml)",
-              def: 80,
-              min: 10,
-              type: "number",
-            },
-          ],
+          calcInputs: [], // Custom calculator handles inputs
           timpiByTip: {
             laminat: [
               "Verificare umiditate șapă (max 3% flotant): 0.5 zi",
@@ -4849,14 +4800,14 @@
           calcInputs: [
             {
               id: "vpSup",
-              label: "Suprafață totală (m²)",
+              label: "Suprafață totală Lavabilă Standard (m²)",
               def: 280,
               min: 50,
               type: "number",
             },
             {
               id: "vpBai",
-              label: "Suprafață zone umede (m²)",
+              label: "Suprafață totală Lavabilă Rez. Umezeală (m²)",
               def: 30,
               min: 0,
               type: "number",
@@ -4867,8 +4818,8 @@
               def: 2,
               min: 1,
               type: "select",
-              options: ["2", "3"],
-              labels: ["2 straturi (standard)", "3 straturi (premium)"],
+              options: ["1", "2", "3"],
+              labels: ["1 strat", "2 straturi (standard)", "3 straturi (premium)"],
             },
           ],
           calcFn: (inp) => {
@@ -4886,9 +4837,9 @@
               },
               {
                 name: "Vopsea lavabilă albă premium + Amorsa",
-                qty: C((s - sb) / 80),
+                qty: C(((s - sb) / 80) * str),
                 um: "găleți",
-                formula: "kit 15L+4L amorsă / 80m²/kit",
+                formula: `kit 15L+4L / 80m² × ${str} straturi`,
                 pkg: "kit 15L+4L amorsă",
                 link: "https://mathaus.ro/p/vopsea-ultra-lavabila-interior-savana-ultra-rezist-alb-15-l-amorsa-4-l/000000000010706528",
               },
@@ -4978,48 +4929,19 @@
             "Asamblare Carte Tehnică a construcției: 2–5 zile",
             "Total etapă administrativă: ~3–6 săptămâni",
           ],
-          calcInputs: [
-            {
-              id: "rcGresie",
-              label: "Rezervă gresie/faianță (m²)",
-              def: 15,
-              min: 0,
-              type: "number",
-            },
-            {
-              id: "rcBai",
-              label: "Număr băi (silicon)",
-              def: 2,
-              min: 1,
-              type: "number",
-            },
-          ],
-          calcFn: (inp) => [
-            {
-              name: "Gresie rezervă (10% din total)",
-              qty: inp.rcGresie || 0,
-              um: "m²",
-              formula: "10% din suprafată ceramică",
-              pkg: "la lot inițial",
-              link: "https://mathaus.ro/search?pb=true&text=gresie",
-            },
-            {
-              name: "Silicon sanitar întreținere",
-              qty: (inp.rcBai || 2) * 2,
-              um: "tuburi",
-              formula: "2/baie",
-              pkg: "tub 280ml",
-              link: "https://mathaus.ro/search?pb=true&text=silicon+sanitar",
-            },
-            {
-              name: "Lac parchet / curățitor gresie",
-              qty: 2,
-              um: "buc",
-              formula: "set întreținere",
-              pkg: "bidon",
-              link: "https://mathaus.ro/search?pb=true&text=lac+parchet",
-            },
-          ],
+          calcInputs: [],
+          calcFn: null,
+          calcNote: `<div style="padding:16px;background:var(--amber-l);border:1px solid #fde68a;border-radius:var(--r-sm);margin-top:12px">
+            <div style="font-size:14px;font-weight:700;color:#92400e;margin-bottom:10px">📋 Rezerve recomandate la recepție</div>
+            <div style="font-size:13px;color:#78350f;line-height:1.8">
+              <div>🔶 <strong>Gresie + Chit Rosturi</strong> — rezervă <strong>10% din total</strong> (modelul nu va mai fi disponibil peste 2-3 ani)</div>
+              <div>🔶 <strong>Parchet</strong> — rezervă <strong>10% din total</strong> (lot de producție unic, nu se mai poate potrivi culoarea)</div>
+              <div>🔶 <strong>Alte materiale de design</strong> — faianță, borduri, decoruri — risc mare să nu mai existe în piață</div>
+            </div>
+            <div style="margin-top:12px;font-size:11px;color:#92400e;padding:8px;background:#fef3c7;border-radius:4px">
+              💡 <strong>Argument pentru client:</strong> „Din experiență, 9 din 10 clienți regretă că nu au luat rezervă. Peste 2-3 ani, când trebuie să schimbi o placă crăpată sau o lamelă de parchet, modelul nu mai există. Costul unei cutii de rezervă acum e neglijabil față de costul de a rechebuie toată camera peste 3 ani."
+            </div>
+          </div>`,
           totalFn: (c) => [
             {
               name: "Rezervă gresie 10%",
@@ -5228,6 +5150,22 @@
           const defIdx = CAR_DB.findIndex((p) => p.name.includes("Robust"));
           if (defIdx >= 0) carSel.value = defIdx;
         }
+        // Populate GC system dropdown
+        const gcSel = $("t-gc-sistem");
+        if (gcSel && !gcSel.options.length) {
+          Object.entries(GC_SYSTEMS).forEach(([k, sys]) => {
+            const o = document.createElement("option");
+            o.value = k;
+            o.textContent = sys.label;
+            gcSel.appendChild(o);
+          });
+        }
+      }
+
+      function toggleGCTotal() {
+        const activ = $("t-gc-activ")?.value === "da";
+        const opts = $("t-gc-options");
+        if (opts) opts.style.display = activ ? "block" : "none";
       }
 
       function buildCtx() {
@@ -5241,6 +5179,10 @@
         const termoGros = parseInt($("t-termo-gros")?.value || 100);
         const bcaProdIdx = parseInt($("t-bca-prod")?.value || 0);
         const carProdIdx = parseInt($("t-car-prod")?.value || 0);
+        const sapaGros = parseInt($("t-sapa-gros")?.value || 6);
+        const gcActiv = $("t-gc-activ")?.value === "da";
+        const gcSistem = $("t-gc-sistem")?.value || Object.keys(GC_SYSTEMS)[0];
+        const gcSup = parseFloat($("t-gc-sup")?.value) || 40;
 
         const side = Math.sqrt(amprenta);
         const perimetru = 4 * side;
@@ -5263,11 +5205,11 @@
         const volumPlacaEtaj = niveluri > 1 ? amprenta * 0.12 : 0;
         const volumBeton = volumFunda + volumPlacaSol + volumPlacaEtaj;
         const suprafataZidExt = ariaPeretiExt;
-        const suprafataGC =
-          niveluri > 1 ? totalConstruit * 0.3 : amprenta * 0.25;
+        const suprafataGC = gcActiv ? gcSup : 0;
         const suprafataTavan = totalConstruit * 0.6;
         const suprafataHidroInt = bai * 8;
         const suprafataSapa = totalConstruit;
+        const sapaVolum = totalConstruit * (sapaGros / 100); // m³ of sapa
         const suprafataTencuiala = totalConstruit * 1.8;
         const suprafataGresie = totalConstruit * 0.45;
         const suprafataFaianta = bai * 18 + 10;
@@ -5285,6 +5227,11 @@
           termoGros,
           bcaProdIdx,
           carProdIdx,
+          sapaGros,
+          sapaVolum,
+          gcActiv,
+          gcSistem,
+          gcSup,
           perimetru,
           totalConstruit,
           ariaPeretiExt,
@@ -5342,13 +5289,26 @@
         }</div></div>
   </div>`;
 
+        let totalValoareMatHaus = 0;
+
         STAGES_DEFAULT.forEach((stageDef, idx) => {
           if (stageDef.id === "planseu" && c.niveluri <= 1) return;
           const s = getStage(stageDef.id);
           const mats = stageDef.totalFn(c);
           applyMatDB(stageDef.id, mats);
+          // Sum cost for non-extern materials (MatHaus products only)
+          mats.forEach(m => {
+            if (!m.ext) {
+              const pret = getPret(m.name);
+              if (pret > 0 && m.qty > 0) totalValoareMatHaus += pret * (parseFloat(m.qty) || 0);
+            }
+          });
           html += renderTotalStageCard(s, stageDef, mats, idx);
         });
+
+        // Update KPI
+        const valEl = $('tk-val');
+        if (valEl) valEl.textContent = totalValoareMatHaus > 0 ? fmtN(totalValoareMatHaus) : '—';
 
         html += `<div style="margin-top:16px;padding:12px 16px;background:var(--amber-l);border:1px solid #FDE68A;border-radius:var(--r-sm);font-size:11px;color:var(--amber);line-height:1.7">
     ⚠ <strong>Notă orientativă:</strong> Cantitățile sunt estimări simplificate. Valorile reale se confirmă cu proiectantul, dirigintele și executantul.
@@ -5361,23 +5321,7 @@
         const hasPrices = mats.some((m) => getPret(m.name) > 0);
         const costBadge = "";
 
-        const scriptHtml =
-          stageDef.scriptShort?.length || stageDef.obiective?.length
-            ? (stageDef.scriptShort?.length
-                ? '<div class="client-expect" style="margin-bottom:10px"><div class="ce-title">🧑 Ce caută și așteaptă clientul</div><ul class="expect-list">' +
-                  stageDef.scriptShort
-                    .map((l) => '<li class="expect-item">' + l + "</li>")
-                    .join("") +
-                  "</ul></div>"
-                : "") +
-              (stageDef.obiective?.length
-                ? '<div class="agent-obj"><div class="info-block-title" style="margin-bottom:8px;color:#1E40AF">🎯 Obiective agent în această etapă</div><ul class="obj-list">' +
-                  stageDef.obiective
-                    .map((o) => '<li class="obj-item">' + o + "</li>")
-                    .join("") +
-                  "</ul></div>"
-                : "")
-            : "";
+        const scriptHtml = ""; // Simplified Total view — no client/agent sections
 
         const matRows = mats
           .map((m, mi) => {
@@ -5605,7 +5549,7 @@
       <div id="ecalc-result-${id}"></div>
     </div>
   `
-            : '<div style="padding:8px 0 14px;font-size:12px;color:var(--txt3)">Etapă administrativă — consultați proiectul pentru detalii.</div>');
+            : (stageDef.calcNote || '<div style="padding:8px 0 14px;font-size:12px;color:var(--txt3)">Etapă administrativă — consultați proiectul pentru detalii.</div>'));
 
         det.innerHTML = `<div class="stage-detail">
     <div class="sdp-hero">
@@ -5713,7 +5657,10 @@
         }
         if (id === "parchet") {
           // Initial state: hide montaj row if not triplu, set timpi for default tip
-          setTimeout(() => toggleParchetMontaj(id), 0);
+          setTimeout(() => { toggleParchetMontaj(id); pkBuildCamere(); }, 0);
+        }
+        if (id === "hidro-int") {
+          setTimeout(() => hiBuildBai(), 0);
         }
       }
 
@@ -5737,24 +5684,15 @@
       }
 
       function toggleParchetMontaj(id) {
-        const tipEl = document.getElementById("einp-" + id + "-pkTip");
-        const montajRow = document.getElementById(
-          "einp-row-" + id + "-pkMontaj"
-        );
-        if (tipEl && montajRow) {
-          montajRow.style.display = tipEl.value === "triplu" ? "" : "none";
-        }
+        const tipEl = $("pk-tip");
         // Update dynamic timpi block
         const stageDef = STAGES_DEFAULT.find((s) => s.id === id);
         if (!stageDef || !stageDef.timpiByTip) return;
         const tip = tipEl ? tipEl.value : "laminat";
-        const montajEl = document.getElementById("einp-" + id + "-pkMontaj");
-        const montaj = montajEl ? montajEl.value : "flotant";
+        const montaj = "flotant";
         const key =
           tip === "triplu"
-            ? montaj === "lipit"
-              ? "triplu_lipit"
-              : "triplu_flotant"
+            ? "triplu_flotant"
             : tip;
         const timpiArr = stageDef.timpiByTip[key] || stageDef.timpi || [];
         const tipLabel =
@@ -6066,65 +6004,30 @@
 
         const cards = db.map((p, i) => {
           const gar = p.garantiePalet;
-          const garHtml = gar ? `<div class="db-gar-box">
-      <div style="display:flex;align-items:center;justify-content:space-between">
-        <div style="font-size:10px;font-weight:700;color:var(--green);font-family:var(--mono)">📦 GARANȚIE PALET (se adaugă automat 1:1 cu nr. paleți)</div>
-        <button class="btn btn-danger btn-sm" onclick="dbRemoveGar('${type}',${i})">🗑 Șterge</button>
-      </div>
-      <div class="db-gar-fields">
-        <div><div class="sm-field-label">Denumire garanție</div><input class="input" value="${escHtml(gar.name||'')}" id="db-${type}-${i}-garName"/></div>
-        <div><div class="sm-field-label">Preț garanție (lei)</div><input class="input" type="number" step="0.01" value="${gar.pret||0}" id="db-${type}-${i}-garPret"/></div>
-        <div><div class="sm-field-label">Cheie SAP</div><input class="input" value="${escHtml(gar.sapKey||'')}" id="db-${type}-${i}-garSap"/></div>
-        <div><div class="sm-field-label">Link</div><input class="input" value="${escHtml(gar.link||'')}" id="db-${type}-${i}-garLink"/></div>
-      </div>
-    </div>` : `<div style="margin-top:4px"><button class="btn btn-ghost btn-sm" style="color:var(--green);border-color:#bbf7d0" onclick="dbAddGar('${type}',${i})">📦 ➕ Adaugă Garanție Palet</button></div>`;
-
-          return `<div class="db-card">
-    <div class="db-card-header">
-      <div class="flex-c gap-8">
-        <span class="sm-mat-num">${i+1}</span>
-        <strong style="font-size:13px">${escHtml(p.name)}</strong>
-        ${hasPortant ? (p.portant ? '<span class="tag tag-green" style="font-size:9px">✓ Portant</span>' : '<span class="tag tag-gray" style="font-size:9px">Neportant</span>') : ''}
-        ${gar ? '<span class="tag tag-green" style="font-size:9px">📦 Garanție palet</span>' : ''}
-        <span style="font-size:10px;font-weight:600;color:var(--blue);font-family:var(--mono);background:var(--blue-l);padding:2px 8px;border-radius:99px;border:1px solid #bfdbfe">${(1/((p.L/1000)*(p.H/1000))).toFixed(1)} buc/m²</span>
-        <span style="font-size:10px;font-weight:600;color:#D97706;font-family:var(--mono);background:var(--amber-l);padding:2px 8px;border-radius:99px;border:1px solid #fde68a">${(p.pcsPerPal * (p.L/1000) * (p.H/1000)).toFixed(1)} m²/palet</span>
-        ${p.pretUM > 0 ? `<span style="font-size:10px;font-weight:600;color:var(--green);font-family:var(--mono);background:var(--green-l);padding:2px 8px;border-radius:99px;border:1px solid #bbf7d0">${p.pretUM.toFixed(2)} ${umPret}</span>` : '<span style="font-size:10px;color:var(--txt3);font-style:italic">fără preț</span>'}
+          const face = p.L>0&&p.H>0 ? (p.L/1000)*(p.H/1000) : 0;
+          const bucM2 = face > 0 ? (1/face).toFixed(1) : '?';
+          const m2Pal = face > 0 && p.pcsPerPal > 0 ? (p.pcsPerPal*face).toFixed(1) : '?';
+          return `<div class="sm-mat-card" style="margin-bottom:6px">
+    <div class="sm-mat-header">
+      <div class="flex-c gap-8" style="flex-wrap:wrap">
+        <span class="sm-mat-num">${i+1}</span><strong style="font-size:13px">${escHtml(p.name)}</strong>
+        ${hasPortant?(p.portant?'<span class="tag tag-green" style="font-size:9px">Portant</span>':'<span class="tag tag-gray" style="font-size:9px">Neportant</span>'):''}
+        ${p.sapKey?'<span style="font-size:9px;color:var(--blue);font-family:var(--mono)">SAP:'+escHtml(p.sapKey)+'</span>':''}
+        <span style="font-size:9px;color:var(--blue);font-family:var(--mono);background:var(--blue-l);padding:2px 6px;border-radius:99px">${bucM2} buc/m2</span>
+        <span style="font-size:9px;color:#D97706;font-family:var(--mono);background:var(--amber-l);padding:2px 6px;border-radius:99px">${m2Pal} m2/pal</span>
+        ${p.pretUM>0?'<span style="font-size:10px;font-weight:600;color:var(--green);font-family:var(--mono);background:var(--green-l);padding:2px 8px;border-radius:99px">'+p.pretUM.toFixed(2)+' '+umPret+'</span>':''}
+        ${gar?'<span class="tag tag-green" style="font-size:9px">Garantie</span>':''}
       </div>
       <div class="sm-actions">
-        <button class="btn btn-ghost btn-sm" onclick="adminSaveDBRow('${type}',${i})">💾</button>
+        <button class="btn btn-secondary btn-sm" onclick="openMatEditor('${type}-edit','${type}',${i})">✏</button>
         <button class="btn btn-danger btn-sm" onclick="adminDeleteDBRow('${type}',${i})">🗑</button>
       </div>
     </div>
-    <div class="db-card-body">
-      <div class="db-fields-row db-fields-main">
-        <div><div class="sm-field-label">Denumire</div><input class="input" value="${escHtml(p.name)}" id="db-${type}-${i}-name"/></div>
-        <div><div class="sm-field-label">L (mm)</div><input class="input" type="number" value="${p.L}" id="db-${type}-${i}-L"/></div>
-        <div><div class="sm-field-label">H (mm)</div><input class="input" type="number" value="${p.H}" id="db-${type}-${i}-H"/></div>
-        <div><div class="sm-field-label">Buc/palet</div><input class="input" type="number" value="${p.pcsPerPal}" id="db-${type}-${i}-pcsPerPal"/></div>
-        ${hasPortant ? `<div><div class="sm-field-label">Portant</div><select class="input" id="db-${type}-${i}-portant"><option value="true" ${p.portant?'selected':''}>✓ Da</option><option value="false" ${!p.portant?'selected':''}>✗ Nu</option></select></div>` : `<div><div class="sm-field-label">&nbsp;</div><div></div></div>`}
-        <div><div class="sm-field-label">Preț (${umPret})</div><input class="input" type="number" step="0.01" value="${p.pretUM||0}" id="db-${type}-${i}-pretUM"/></div>
-        <div><div class="sm-field-label">Cheie SAP</div><input class="input" value="${escHtml(p.sapKey||'')}" id="db-${type}-${i}-sapKey"/></div>
-      </div>
-      <div class="db-fields-row db-fields-extra">
-        <div><div class="sm-field-label">Link mathaus.ro</div><input class="input" value="${escHtml(p.link)}" id="db-${type}-${i}-link"/></div>
-        <div style="display:flex;align-items:end;gap:6px">
-          <div style="flex:1"><div class="sm-field-label">UV (Ambalaj vânzare)</div><input class="input" value="${escHtml(p.uv || ('palet ' + p.pcsPerPal + ' buc'))}" id="db-${type}-${i}-uv"/></div>
-        </div>
-      </div>
-      <div style="display:flex;gap:10px;padding:6px 12px 10px;flex-wrap:wrap">
-        <div style="padding:6px 12px;background:var(--blue-l);border:1px solid #bfdbfe;border-radius:6px;font-size:11px">
-          <span style="color:var(--txt3)">Consum:</span> <strong style="color:var(--blue);font-family:var(--mono)">${(1/((p.L/1000)*(p.H/1000))).toFixed(1)} buc/m²</strong>
-          <span style="color:var(--txt3);margin-left:4px">(${p.L}×${p.H}mm = ${((p.L/1000)*(p.H/1000)).toFixed(3)} m²/buc)</span>
-        </div>
-        <div style="padding:6px 12px;background:var(--amber-l);border:1px solid #fde68a;border-radius:6px;font-size:11px">
-          <span style="color:var(--txt3)">Acoperire palet:</span> <strong style="color:#D97706;font-family:var(--mono)">${(p.pcsPerPal * (p.L/1000) * (p.H/1000)).toFixed(1)} m²/palet</strong>
-          <span style="color:var(--txt3);margin-left:4px">(${p.pcsPerPal} buc × ${((p.L/1000)*(p.H/1000)).toFixed(3)} m²)</span>
-        </div>
-        ${type === "bca" ? `<div style="padding:6px 12px;background:var(--green-l);border:1px solid #bbf7d0;border-radius:6px;font-size:11px">
-          <span style="color:var(--txt3)">Volum/buc:</span> <strong style="color:var(--green);font-family:var(--mono)">${((p.L/1000) * (p.H/1000) * parseInt(p.name.match(/\d+(?=×\d+mm|×\d+$)/)?.[0] || p.name.match(/(\d{2,3})(?=×)/g)?.[1] || 200) / 1000).toFixed(4)} m³/buc</strong>
-        </div>` : ''}
-      </div>
-      ${garHtml}
+    <div style="padding:4px 12px 6px;display:flex;gap:8px;flex-wrap:wrap;font-size:11px;color:var(--txt2)">
+      <span>${p.L}x${p.H}mm</span><span>${p.pcsPerPal} buc/pal</span>
+      ${p.uv?'<span>'+escHtml(p.uv)+'</span>':''}
+      ${gar?'<span style="color:var(--green)">Gar: '+escHtml(gar.name||'')+'</span>':''}
+      ${p.link?'<a href="'+escHtml(p.link)+'" target="_blank" style="color:var(--blue);text-decoration:none">mathaus.ro</a>':''}
     </div>
   </div>`;
         }).join('');
@@ -6138,8 +6041,7 @@
     </p>
     ${cards}
     <div style="display:flex;gap:10px;margin-top:14px;flex-wrap:wrap">
-      <button class="btn btn-primary" onclick="adminSaveAllDB('${type}')">💾 Salvează Tot</button>
-      <button class="btn btn-secondary btn-sm" onclick="adminAddDBRow('${type}')">+ Adaugă produs</button>
+      <button class="btn btn-secondary btn-sm" onclick="openMatEditor('${type}-add','${type}')">+ Adaugă produs</button>
     </div>
     <div style="margin-top:10px;padding:10px;background:var(--surface2);border-radius:var(--r-sm);font-size:11px;color:var(--txt2);line-height:1.6">
       <strong>UM</strong> = ${type==='bca'?'m³ (metru cub)':'buc (bucată)'} &nbsp;|&nbsp;
@@ -6278,51 +6180,27 @@
         const isBpm = arr[0] && arr[0].bpm !== undefined;
         const isSimpleCov = arr[0] && typeof arr[0].cov === "number";
 
-        const rows = arr
-          .map((p, i) => {
-            let covCol = "";
-            let covHeader = "";
-            if (isCov) {
-              covCol = `<td><input class="input" style="width:160px;font-size:10px" value="${JSON.stringify(p.cov)}" id="tvg-${sub}-${i}-cov" title="JSON: {50:5,100:2.5}"/></td>`;
-              covHeader = "<th>Acoperire/grosime</th>";
-            } else if (isRoll) {
-              covCol = `<td><input class="input" style="width:65px" type="number" step="0.1" value="${p.rollM2}" id="tvg-${sub}-${i}-rollM2"/></td>`;
-              covHeader = "<th>m²/rolă</th>";
-            } else if (isBpm) {
-              covCol = `<td><input class="input" style="width:55px" type="number" value="${p.bpm}" id="tvg-${sub}-${i}-bpm"/></td>`;
-              covHeader = "<th>buc/m²</th>";
-            } else if (isSimpleCov) {
-              covCol = `<td><input class="input" style="width:55px" type="number" step="0.5" value="${p.cov}" id="tvg-${sub}-${i}-cov"/></td>`;
-              covHeader = "<th>m²/un.</th>";
-            }
-            const pretVal = p.pretUM || getPret(p.name) || 0;
-            return `<tr>
-      <td><input class="input" style="min-width:170px" value="${escHtml(p.name)}" id="tvg-${sub}-${i}-name"/></td>
-      ${covCol}
-      <td><input class="input" style="width:70px" value="${escHtml(p.pkg || "")}" id="tvg-${sub}-${i}-pkg"/></td>
-      <td><input class="input" style="width:70px" type="number" step="0.01" value="${pretVal}" id="tvg-${sub}-${i}-pretUM"/></td>
-      <td><input class="input" style="width:80px" value="${escHtml(p.sapKey || "")}" id="tvg-${sub}-${i}-sapKey" placeholder="SAP"/></td>
-      <td>
-        <select class="input" style="width:65px;font-size:10px" id="tvg-${sub}-${i}-uvUM">
-          <option value="" ${!p.uvUM?'selected':''}>= UM</option>
-          <option value="buc" ${p.uvUM==='buc'?'selected':''}>buc</option>
-          <option value="sac" ${p.uvUM==='sac'?'selected':''}>sac</option>
-          <option value="rolă" ${p.uvUM==='rolă'?'selected':''}>rolă</option>
-          <option value="pachet" ${p.uvUM==='pachet'?'selected':''}>pachet</option>
-          <option value="găleată" ${p.uvUM==='găleată'?'selected':''}>găleată</option>
-          <option value="cutie" ${p.uvUM==='cutie'?'selected':''}>cutie</option>
-        </select>
-      </td>
-      <td><input class="input" style="width:50px" type="number" step="0.01" value="${p.factorConv||0}" id="tvg-${sub}-${i}-factorConv" title="UM/UV"/></td>
-      <td><input class="input" style="width:60px" type="number" step="0.01" value="${p.pretUV||0}" id="tvg-${sub}-${i}-pretUV"/></td>
-      <td><input class="input" style="width:160px;font-size:10px" value="${escHtml(p.link)}" id="tvg-${sub}-${i}-link"/></td>
-      <td style="white-space:nowrap">
-        <button class="btn btn-ghost btn-sm" onclick="adminSaveTVGRow('${sub}',${i})">💾</button>
+        const rows = arr.map((p, i) => {
+            const pretVal = p.pretUM||getPret(p.name)||0;
+            let covInfo='';
+            if(typeof p.cov==='object')covInfo='Acop: JSON';
+            else if(p.rollM2)covInfo=p.rollM2+' m2/rola';
+            else if(p.bpm)covInfo=p.bpm+' buc/m2';
+            else if(typeof p.cov==='number')covInfo=p.cov+' m2/un';
+            return `<div class="sm-mat-card" style="padding:6px 12px;display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:4px">
+      <div class="flex-c gap-8" style="flex-wrap:wrap;flex:1;min-width:0">
+        <strong style="font-size:12px;color:var(--navy)">${escHtml(p.name)}</strong>
+        ${p.sapKey?'<span style="font-size:9px;color:var(--blue);font-family:var(--mono)">SAP:'+escHtml(p.sapKey)+'</span>':''}
+        ${covInfo?'<span style="font-size:9px;color:#D97706;font-family:var(--mono);background:var(--amber-l);padding:1px 5px;border-radius:99px">'+covInfo+'</span>':''}
+        ${pretVal>0?'<span style="font-size:9px;font-weight:600;color:var(--green);font-family:var(--mono);background:var(--green-l);padding:1px 6px;border-radius:99px">'+pretVal.toFixed(2)+' lei</span>':''}
+        ${p.pkg?'<span style="font-size:9px;color:var(--txt3)">'+escHtml(p.pkg)+'</span>':''}
+      </div>
+      <div class="sm-actions" style="flex-shrink:0">
+        <button class="btn btn-secondary btn-sm" onclick="openMatEditor('tvg-edit','${sub}',${i})">✏</button>
         <button class="btn btn-danger btn-sm" onclick="adminDeleteTVGRow('${sub}',${i})">🗑</button>
-      </td>
-    </tr>`;
-          })
-          .join("");
+      </div>
+    </div>`;
+          }).join("");
 
         let covHeader = "";
         if (isCov) covHeader = "<th>Acoperire/grosime</th>";
@@ -6334,14 +6212,13 @@
     <h3>🌡 Catalog Produse TVG — ${subLabels[adminTvgSub]}</h3>
     <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px">${subBtns}</div>
     <div style="overflow-x:auto">
-      <table class="mat-table" style="min-width:1100px;font-size:11px">
-        <thead><tr><th>Denumire</th>${covHeader}<th>Ambalaj</th><th>Preț/UM</th><th>SAP</th><th>UV vânz.</th><th>Factor</th><th>Preț/UV</th><th>Link</th><th></th></tr></thead>
+      <table class="mat-table" style="min-width:500px;font-size:11px">
+        <thead><tr><th>Denumire</th><th>Acoperire</th><th>Ambalaj</th><th>Preț</th><th>SAP</th><th></th></tr></thead>
         <tbody>${rows}</tbody>
       </table>
     </div>
     <div style="display:flex;gap:10px;margin-top:14px;flex-wrap:wrap">
-      <button class="btn btn-primary" onclick="adminSaveAllTVG('${sub}')">💾 Salvează ${subLabels[sub]}</button>
-      <button class="btn btn-secondary btn-sm" onclick="adminAddTVGRow('${sub}')">+ Adaugă produs</button>
+      <button class="btn btn-secondary btn-sm" onclick="openMatEditor('tvg-add','${adminTvgSub}')">+ Adaugă produs</button>
     </div>
     ${isCov ? '<div style="margin-top:10px;padding:10px;background:var(--amber-l);border-radius:var(--r-sm);font-size:11px;color:var(--amber)">Format câmp <strong>Acoperire</strong>: JSON cu grosimi în mm ca chei: <code>{"50":5,"100":2.5,"150":1.67}</code> = m²/pachet per grosime</div>' : ''}
     <div style="margin-top:8px;padding:10px;background:var(--surface2);border-radius:var(--r-sm);font-size:11px;color:var(--txt2);line-height:1.5">
@@ -6462,7 +6339,7 @@
     <td><input class="input" style="width:65px" type="number" step="0.01" value="${item.pretUV||0}" id="gc-${adminGCSub}-${i}-pretUV" style="${item.pretUV>0?'color:var(--green);font-weight:600':''}"/></td>
     <td><input class="input" style="width:180px;font-size:10px" value="${escHtml(item.link)}" id="gc-${adminGCSub}-${i}-link"/></td>
     <td style="white-space:nowrap">
-      <button class="btn btn-ghost btn-sm" onclick="adminSaveGCRow('${adminGCSub}',${i})">💾</button>
+      <button class="btn btn-secondary btn-sm" onclick="openMatEditor('gc-edit','${adminGCSub}',${i})">✏</button>
       <button class="btn btn-danger btn-sm" onclick="adminDeleteGCRow('${adminGCSub}',${i})">🗑</button>
     </td>
   </tr>`; })
@@ -6471,15 +6348,9 @@
         return `<div class="admin-card" style="margin-top:16px;border:2px solid var(--blue);border-radius:var(--r)">
     <h3>🔳 Catalog Sisteme Gips-Carton — ${sys.label}</h3>
     <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px">${subBtns}</div>
-    <div style="overflow-x:auto">
-      <table class="mat-table" style="min-width:1100px;font-size:11px">
-        <thead><tr><th>Produs</th><th>UM</th><th>Cons/m²</th><th>Ambalaj</th><th>Preț/UM</th><th>SAP</th><th>UV vânz.</th><th>Factor</th><th>Preț/UV</th><th>Link</th><th></th></tr></thead>
-        <tbody>${rows}</tbody>
-      </table>
-    </div>
+    <div>${rows}</div>
     <div style="display:flex;gap:10px;margin-top:14px;flex-wrap:wrap">
-      <button class="btn btn-primary" onclick="adminSaveAllGC('${adminGCSub}')">💾 Salvează Sistemul</button>
-      <button class="btn btn-secondary btn-sm" onclick="adminAddGCRow('${adminGCSub}')">+ Adaugă material</button>
+      <button class="btn btn-secondary btn-sm" onclick="openMatEditor('gc-add','${adminGCSub}')">+ Adaugă material</button>
     </div>
     <div style="margin-top:8px;padding:8px 10px;background:var(--surface2);border-radius:var(--r-sm);font-size:10px;color:var(--txt2);line-height:1.5">
       <strong>UV vânz.</strong> = unitate de vânzare (buc, sac, rolă) &nbsp;|&nbsp; <strong>Factor</strong> = câte UM intră într-o UV (ex: 3 ml = 1 bară) &nbsp;|&nbsp; <strong>Preț/UV</strong> = preț per unitate de vânzare (lei/bară)
@@ -6626,6 +6497,8 @@
         ],
         "zidarie": [
           {name:"Mortar adeziv Termofix Poren BCA 25kg", um:"sac", uv:"sac 25 kg", link:"https://mathaus.ro/search?pb=true&text=adeziv+bca", formula:"1 sac / 6.5 m²", pretUM:0, sapKey:"", variants:[{name:"Mortar zidarie caramida Termofix Brick MZ50", link:"https://mathaus.ro/search?pb=true&text=mortar+zidarie+M5", uv:"sac 40 kg"}], ext:false},
+          {name:"Beton C20/25 stâlpi & centuri", um:"m³", uv:"m³", link:"", formula:"0.025 m³/m² supraf. perete", consumM2:0.025, pretUM:0, sapKey:"", variants:[], ext:true},
+          {name:"Oțel beton PC52 stâlpi & centuri", um:"kg", uv:"kg", link:"", formula:"2.5 kg/m² supraf. perete", consumM2:2.5, pretUM:0, sapKey:"", variants:[], ext:true},
           {name:"Buiandrugi prefabricați", um:"buc", uv:"buc", link:"https://mathaus.ro/search?text=buiandrug+prefabricat", formula:"1 per goluri ferestre/uși", pretUM:0, sapKey:"", variants:[], ext:false},
         ],
         "termosistem": [
@@ -6659,7 +6532,8 @@
             if (!m.uvUM) m.uvUM = '';
             if (!m.factorConv) m.factorConv = 0;
             if (!m.pretUV) m.pretUV = 0;
-            m.variants.forEach(v => { if (!v.uv && v.pkg) v.uv = v.pkg; if (!v.uv) v.uv = ''; if (!v.sapKey) v.sapKey = ''; if (v.pretUM === undefined) v.pretUM = 0; if (!v.uvUM) v.uvUM = ''; if (!v.factorConv) v.factorConv = 0; if (!v.pretUV) v.pretUV = 0; if (!v.um) v.um = m.um || ''; if (!v.link) v.link = ''; if (v.ext === undefined) v.ext = false; if (!v.formula) v.formula = ''; });
+            if (m.consumM2 === undefined) m.consumM2 = 0;
+            m.variants.forEach(v => { if (!v.uv && v.pkg) v.uv = v.pkg; if (!v.uv) v.uv = ''; if (!v.sapKey) v.sapKey = ''; if (v.pretUM === undefined) v.pretUM = 0; if (!v.uvUM) v.uvUM = ''; if (!v.factorConv) v.factorConv = 0; if (!v.pretUV) v.pretUV = 0; if (!v.um) v.um = m.um || ''; if (!v.link) v.link = ''; if (v.ext === undefined) v.ext = false; if (!v.formula) v.formula = ''; if (v.consumM2 === undefined) v.consumM2 = 0; });
           });
         });
       }
@@ -6715,6 +6589,7 @@
             if (dbMat.uvUM) m.uvUM = dbMat.uvUM;
             if (dbMat.factorConv) m.factorConv = dbMat.factorConv;
             if (dbMat.pretUV) m.pretUV = dbMat.pretUV;
+            if (dbMat.consumM2) m.consumM2 = dbMat.consumM2;
           }
         });
         // Add extra materials from DB (marked _extra)
@@ -8197,42 +8072,18 @@
 
         const cards = db.map((m,i) => {
           const vars = m.variants || [];
-          const varRows = vars.map((v,vi) => `<div style="border:1px solid #bfdbfe;border-radius:var(--r-sm);margin-bottom:8px;background:var(--blue-l)">
-      <div style="display:flex;align-items:center;justify-content:space-between;padding:6px 10px;border-bottom:1px solid #bfdbfe">
-        <div class="flex-c gap-8">
-          <span style="font-size:10px;font-weight:700;color:var(--blue);font-family:var(--mono);background:#fff;padding:2px 8px;border-radius:99px">V${vi+1}</span>
-          <strong style="font-size:12px;color:var(--navy)">${escHtml(v.name||'Varianta nouă')}</strong>
-          ${v.pretUV > 0 && v.uvUM ? '<span style="font-size:9px;font-weight:600;color:var(--green);font-family:var(--mono);background:var(--green-l);padding:1px 6px;border-radius:99px">' + v.pretUV.toFixed(2) + ' lei/' + v.uvUM + '</span>' : v.pretUM > 0 ? '<span style="font-size:9px;font-weight:600;color:var(--green);font-family:var(--mono);background:var(--green-l);padding:1px 6px;border-radius:99px">' + v.pretUM.toFixed(2) + ' lei/' + (v.um||m.um||'u') + '</span>' : ''}
-          ${v.uvUM && v.factorConv > 0 ? '<span style="font-size:8px;color:var(--blue);font-family:var(--mono)">1 ' + v.uvUM + ' = ' + v.factorConv + ' ' + (v.um||m.um) + '</span>' : ''}
-        </div>
-        <button class="btn btn-danger btn-sm" onclick="smDelVariant('${sid}',${i},${vi})" title="Șterge varianta">🗑</button>
+          const varRows = vars.map((v,vi) => `<div style="border:1px solid #bfdbfe;border-radius:var(--r-sm);margin-bottom:4px;background:var(--blue-l);display:flex;align-items:center;justify-content:space-between;padding:6px 10px;gap:8px">
+      <div class="flex-c gap-8" style="flex-wrap:wrap;flex:1;min-width:0">
+        <span style="font-size:10px;font-weight:700;color:var(--blue);font-family:var(--mono);background:#fff;padding:2px 8px;border-radius:99px">V${vi+1}</span>
+        <strong style="font-size:12px;color:var(--navy);overflow:hidden;text-overflow:ellipsis">${escHtml(v.name||'Varianta nouă')}</strong>
+        ${v.sapKey?`<span style="font-size:9px;color:var(--blue);font-family:var(--mono)">SAP:${escHtml(v.sapKey)}</span>`:''}
+        ${v.consumM2 > 0 ? `<span style="font-size:9px;color:#D97706;font-family:var(--mono);background:var(--amber-l);padding:1px 5px;border-radius:99px">${v.consumM2} ${v.um||m.um||''}/m²</span>` : ''}
+        ${v.pretUV > 0 && v.uvUM ? '<span style="font-size:9px;font-weight:600;color:var(--green);font-family:var(--mono);background:var(--green-l);padding:1px 6px;border-radius:99px">' + v.pretUV.toFixed(2) + ' lei/' + v.uvUM + '</span>' : ''}
+        ${v.uv||v.pkg ? `<span style="font-size:9px;color:var(--txt3)">📦 ${escHtml(v.uv||v.pkg)}</span>` : ''}
       </div>
-      <div class="sm-grid-main" style="padding:6px 10px 4px">
-        <div><div class="sm-field-label">Denumire</div><input class="input" value="${escHtml(v.name||'')}" id="sm-${sid}-${i}-v${vi}-name"/></div>
-        <div><div class="sm-field-label">UM calc</div><input class="input" value="${escHtml(v.um||m.um||'')}" id="sm-${sid}-${i}-v${vi}-um" placeholder="${m.um||''}"/></div>
-        <div><div class="sm-field-label">Preț/UM</div><input class="input" type="number" step="0.01" value="${v.pretUM||0}" id="sm-${sid}-${i}-v${vi}-pretUM"/></div>
-        <div><div class="sm-field-label">Cheie SAP</div><input class="input" value="${escHtml(v.sapKey||'')}" id="sm-${sid}-${i}-v${vi}-sapKey"/></div>
-        <div><div class="sm-field-label">UV (ambalaj)</div><input class="input" value="${escHtml(v.uv||v.pkg||'')}" id="sm-${sid}-${i}-v${vi}-uv"/></div>
-        <div><div class="sm-field-label">Extern</div><select class="input" id="sm-${sid}-${i}-v${vi}-ext" style="font-size:10px"><option value="false" ${!v.ext?'selected':''}>Nu</option><option value="true" ${v.ext?'selected':''}>Da</option></select></div>
-      </div>
-      <div class="sm-grid-uv" style="padding:0 10px 4px">
-        <div><div class="sm-field-label">Link</div><input class="input" value="${escHtml(v.link||'')}" id="sm-${sid}-${i}-v${vi}-link" style="font-size:10px"/></div>
-        <div><div class="sm-field-label">UV vânzare</div>
-          <select class="input" id="sm-${sid}-${i}-v${vi}-uvUM" style="font-size:10px">
-            <option value="" ${!v.uvUM?'selected':''}>= UM</option>
-            <option value="buc" ${v.uvUM==='buc'?'selected':''}>buc</option>
-            <option value="sac" ${v.uvUM==='sac'?'selected':''}>sac</option>
-            <option value="rolă" ${v.uvUM==='rolă'?'selected':''}>rolă</option>
-            <option value="pachet" ${v.uvUM==='pachet'?'selected':''}>pachet</option>
-            <option value="găleată" ${v.uvUM==='găleată'?'selected':''}>găleată</option>
-            <option value="cutie" ${v.uvUM==='cutie'?'selected':''}>cutie</option>
-          </select>
-        </div>
-        <div><div class="sm-field-label">Factor</div><input class="input" type="number" step="0.01" value="${v.factorConv||0}" id="sm-${sid}-${i}-v${vi}-factorConv"/></div>
-        <div><div class="sm-field-label">Preț/UV</div><input class="input" type="number" step="0.01" value="${v.pretUV||0}" id="sm-${sid}-${i}-v${vi}-pretUV"/></div>
-      </div>
-      <div style="padding:0 10px 6px">
-        <div><div class="sm-field-label">Formulă calcul</div><input class="input" value="${escHtml(v.formula||m.formula||'')}" id="sm-${sid}-${i}-v${vi}-formula" style="font-size:10px"/></div>
+      <div class="sm-actions" style="flex-shrink:0">
+        <button class="btn btn-secondary btn-sm" onclick="openMatEditor('editvar','${sid}',${i},${vi})" title="Editează varianta">✏</button>
+        <button class="btn btn-danger btn-sm" onclick="smDelVariant('${sid}',${i},${vi})">🗑</button>
       </div>
     </div>`).join('');
 
@@ -8243,46 +8094,24 @@
 
           return `<div class="sm-mat-card">
     <div class="sm-mat-header">
-      <div class="flex-c gap-8"><span class="sm-mat-num">${i+1}</span><strong style="font-size:13px">${escHtml(m.name)}</strong>
+      <div class="flex-c gap-8" style="flex-wrap:wrap"><span class="sm-mat-num">${i+1}</span><strong style="font-size:13px">${escHtml(m.name)}</strong>
         ${m.ext?'<span style="font-size:10px;color:var(--amber);font-weight:600">⚠ EXTERN</span>':''}
-        ${vars.length?`<span class="tag tag-blue" style="font-size:9px">${vars.length} variante</span>`:''}
-        ${m.pretUV > 0 && m.uvUM ? `<span style="font-size:10px;font-weight:600;color:var(--green);font-family:var(--mono);background:var(--green-l);padding:2px 8px;border-radius:99px;border:1px solid #bbf7d0">${m.pretUV.toFixed(2)} lei/${m.uvUM}</span>` : m.pretUM > 0 ? `<span style="font-size:10px;font-weight:600;color:var(--green);font-family:var(--mono);background:var(--green-l);padding:2px 8px;border-radius:99px;border:1px solid #bbf7d0">${m.pretUM.toFixed(2)} lei/${m.um||'u'}</span>` : '<span style="font-size:10px;color:var(--txt3);font-style:italic">fără preț</span>'}
+        ${m.sapKey?`<span style="font-size:9px;color:var(--blue);font-family:var(--mono)">SAP:${escHtml(m.sapKey)}</span>`:''}
+        ${m.consumM2 > 0 ? `<span style="font-size:9px;color:#D97706;font-family:var(--mono);background:var(--amber-l);padding:2px 6px;border-radius:99px;border:1px solid #fde68a">${m.consumM2} ${m.um||''}/m²</span>` : '<span style="font-size:9px;color:var(--red);font-style:italic">⚠ fără consum</span>'}
         ${m.uvUM && m.factorConv > 0 ? `<span style="font-size:9px;color:var(--blue);font-family:var(--mono);background:var(--blue-l);padding:2px 6px;border-radius:99px;border:1px solid #bfdbfe">1 ${m.uvUM} = ${m.factorConv} ${m.um}</span>` : ''}
+        ${m.pretUV > 0 && m.uvUM ? `<span style="font-size:10px;font-weight:600;color:var(--green);font-family:var(--mono);background:var(--green-l);padding:2px 8px;border-radius:99px;border:1px solid #bbf7d0">${m.pretUV.toFixed(2)} lei/${m.uvUM}</span>` : m.pretUM > 0 ? `<span style="font-size:10px;font-weight:600;color:var(--green);font-family:var(--mono);background:var(--green-l);padding:2px 8px;border-radius:99px;border:1px solid #bbf7d0">${m.pretUM.toFixed(2)} lei/${m.um||'u'}</span>` : '<span style="font-size:9px;color:var(--txt3)">fără preț</span>'}
+        ${vars.length?`<span class="tag tag-blue" style="font-size:9px">${vars.length} var.</span>`:''}
       </div>
       <div class="sm-actions">
-        <button class="btn btn-ghost btn-sm" onclick="smAddVariant('${sid}',${i})" title="Adaugă o variantă alternativă">➕ Varianta</button>
-        <button class="btn btn-ghost btn-sm" onclick="smSaveRow('${sid}',${i})">💾</button>
+        <button class="btn btn-ghost btn-sm" onclick="openMatEditor('variant','${sid}',${i})" title="Adaugă variantă">➕ Var.</button>
+        <button class="btn btn-secondary btn-sm" onclick="openMatEditor('edit','${sid}',${i})" title="Editează material">✏</button>
         <button class="btn btn-danger btn-sm" onclick="smDeleteRow('${sid}',${i})">🗑</button>
       </div>
     </div>
-    <div class="sm-grid-main">
-      <div><div class="sm-field-label">Denumire</div><input class="input" value="${escHtml(m.name)}" id="sm-${sid}-${i}-name"/></div>
-      <div><div class="sm-field-label">UM calc</div><input class="input" value="${escHtml(m.um||'')}" id="sm-${sid}-${i}-um" placeholder="ml, m², kg"/></div>
-      <div><div class="sm-field-label">Preț/UM</div><input class="input" type="number" step="0.01" value="${m.pretUM||0}" id="sm-${sid}-${i}-pretUM"/></div>
-      <div><div class="sm-field-label">Cheie SAP</div><input class="input" value="${escHtml(m.sapKey||'')}" id="sm-${sid}-${i}-sapKey"/></div>
-      <div><div class="sm-field-label">UV (ambalaj)</div><input class="input" value="${escHtml(m.uv||m.pkg||'')}" id="sm-${sid}-${i}-uv"/></div>
-      <div><div class="sm-field-label">Extern</div><select class="input" id="sm-${sid}-${i}-ext"><option value="false" ${!m.ext?'selected':''}>Nu</option><option value="true" ${m.ext?'selected':''}>Da</option></select></div>
-    </div>
-    <div class="sm-grid-uv" style="background:${m.uvUM?'#f0fdf4':'var(--surface)'}">
-      <div><div class="sm-field-label">Link MatHaus.ro</div><input class="input" value="${escHtml(m.link||'')}" id="sm-${sid}-${i}-link"/></div>
-      <div><div class="sm-field-label">UV vânzare</div>
-        <select class="input" id="sm-${sid}-${i}-uvUM" style="font-size:11px">
-          <option value="" ${!m.uvUM?'selected':''}>= UM</option>
-          <option value="buc" ${m.uvUM==='buc'?'selected':''}>buc</option>
-          <option value="sac" ${m.uvUM==='sac'?'selected':''}>sac</option>
-          <option value="rolă" ${m.uvUM==='rolă'?'selected':''}>rolă</option>
-          <option value="pachet" ${m.uvUM==='pachet'?'selected':''}>pachet</option>
-          <option value="găleată" ${m.uvUM==='găleată'?'selected':''}>găleată</option>
-          <option value="bidon" ${m.uvUM==='bidon'?'selected':''}>bidon</option>
-          <option value="cutie" ${m.uvUM==='cutie'?'selected':''}>cutie</option>
-          <option value="palet" ${m.uvUM==='palet'?'selected':''}>palet</option>
-        </select>
-      </div>
-      <div><div class="sm-field-label">Factor conv</div><input class="input" type="number" step="0.01" value="${m.factorConv||0}" id="sm-${sid}-${i}-factorConv" placeholder="UM/UV" title="Câte UM intră într-o UV (ex: 3 ml/bară, 25 kg/sac)"/></div>
-      <div><div class="sm-field-label">Preț/UV</div><input class="input" type="number" step="0.01" value="${m.pretUV||0}" id="sm-${sid}-${i}-pretUV" placeholder="lei/UV" style="${m.pretUV>0?'color:var(--green);font-weight:600':''}"/></div>
-    </div>
-    <div style="padding:0 12px 10px">
-      <div><div class="sm-field-label">Formulă calcul</div><input class="input" value="${escHtml(m.formula||'')}" id="sm-${sid}-${i}-formula"/></div>
+    <div style="padding:4px 12px 8px;display:flex;gap:8px;flex-wrap:wrap;font-size:11px;color:var(--txt2)">
+      ${m.uv||m.pkg ? `<span>📦 ${escHtml(m.uv||m.pkg)}</span>` : ''}
+      ${m.formula ? `<span>📐 ${escHtml(m.formula)}</span>` : ''}
+      ${m.link ? `<a href="${escHtml(m.link)}" target="_blank" style="color:var(--blue);text-decoration:none">→ mathaus.ro</a>` : ''}
     </div>
     ${varBlock}
   </div>`;
@@ -8298,7 +8127,7 @@
     ${cards}
     <div style="display:flex;gap:10px;margin-top:10px;flex-wrap:wrap;${hasSpecialCatalog ? 'margin-bottom:4px' : ''}">
       <button class="btn btn-ghost btn-sm" onclick="smSaveAll('${sid}')">💾 Salvează Materiale</button>
-      <button class="btn btn-ghost btn-sm" onclick="smAddRow('${sid}')">+ Adaugă Material</button>
+      <button class="btn btn-ghost btn-sm" onclick="openMatEditor('add','${sid}')">+ Adaugă Material</button>
       <button class="btn btn-ghost btn-sm" onclick="smResetStage('${sid}')" style="color:var(--txt3)">↩ Reset</button>
     </div>
     ${!hasSpecialCatalog ? `<div style="margin-top:10px;padding:10px;background:var(--surface2);border-radius:var(--r-sm);font-size:11px;color:var(--txt2);line-height:1.6">
@@ -8317,6 +8146,325 @@
         }
       }
 
+
+      // ── Material Editor Modal ──
+      let _meContext = null; // {mode:'edit'|'add'|'variant', sid, idx, vidx}
+
+      function openMatEditor(mode, sid, idx, vidx, catalogType, catalogSub) {
+        _meContext = {mode, sid, idx, vidx, catalogType, catalogSub};
+        const overlay = $('mat-edit-overlay');
+        if (!overlay) return;
+
+        // Set title
+        const titleEl = $('mat-edit-title');
+        const subEl = $('mat-edit-subtitle');
+        if (mode === 'add') {
+          titleEl.textContent = '➕ Material Nou';
+          subEl.textContent = 'Completează informațiile pentru noul material.';
+        } else if (mode === 'variant') {
+          const parentName = STAGE_MATS_DB[sid]?.[idx]?.name || '';
+          titleEl.textContent = '➕ Variantă Nouă';
+          subEl.textContent = 'Variantă alternativă pentru: ' + parentName;
+        } else {
+          titleEl.textContent = '✏ Editare Material';
+          subEl.textContent = 'Modifică informațiile materialului.';
+        }
+
+        // Get data based on catalog type
+        let m = {};
+        const ct = catalogType || '';
+        if (ct === 'bca' || ct === 'car') {
+          const db = ct === 'bca' ? BCA_DB : CAR_DB;
+          m = mode === 'edit' ? (db[idx] || {}) : {};
+          titleEl.textContent = mode === 'edit' ? '✏ Editare Produs ' + (ct==='bca'?'BCA':'Cărămidă') : '➕ Produs ' + (ct==='bca'?'BCA':'Cărămidă') + ' Nou';
+          subEl.textContent = ct === 'bca' ? 'Preț se setează per m³' : 'Preț se setează per bucată';
+        } else if (ct === 'tvg') {
+          const arr = TVG[catalogSub] || [];
+          m = mode === 'edit' ? (arr[idx] || {}) : {};
+          titleEl.textContent = mode === 'edit' ? '✏ Editare Produs TVG' : '➕ Produs TVG Nou';
+          subEl.textContent = 'Subcategorie: ' + (catalogSub || '');
+        } else if (ct === 'gc') {
+          const sys = GC_SYSTEMS[catalogSub];
+          m = mode === 'edit' ? (sys?.items?.[idx] || {}) : {};
+          titleEl.textContent = mode === 'edit' ? '✏ Editare Material GC' : '➕ Material GC Nou';
+          subEl.textContent = 'Sistem: ' + (sys?.label || catalogSub);
+        } else if (mode === 'edit') {
+          m = STAGE_MATS_DB[sid]?.[idx] || {};
+        } else if (mode === 'editvar') {
+          m = STAGE_MATS_DB[sid]?.[idx]?.variants?.[vidx] || {};
+          titleEl.textContent = '✏ Editare Variantă';
+          const parentName = STAGE_MATS_DB[sid]?.[idx]?.name || '';
+          subEl.textContent = 'Variantă de: ' + parentName;
+        } else if (mode === 'variant') {
+          const parent = STAGE_MATS_DB[sid]?.[idx] || {};
+          m = {name:'', um:parent.um||'buc', consumM2:parent.consumM2||0, uvUM:parent.uvUM||'', factorConv:parent.factorConv||0, formula:parent.formula||''};
+        }
+
+        // Fill common fields
+        $('me-name').value = m.name || '';
+        $('me-sapKey').value = m.sapKey || '';
+        $('me-ext').value = m.ext ? 'true' : 'false';
+        $('me-link').value = m.link || '';
+        $('me-um').value = m.um || (ct==='bca'?'m³':ct==='car'?'buc':'kg');
+        $('me-consumM2').value = m.consumM2 || '';
+        $('me-formula').value = m.formula || '';
+        $('me-uvUM').value = m.uvUM || '';
+        $('me-factorConv').value = m.factorConv || '';
+        $('me-pretUV').value = m.pretUV || '';
+        $('me-pretUM').value = m.pretUM || '';
+        $('me-uv').value = m.uv || m.pkg || '';
+
+        // Show/hide type-specific sections
+        $('me-section-bca').style.display = (ct==='bca'||ct==='car') ? 'block' : 'none';
+        $('me-section-tvg').style.display = ct==='tvg' ? 'block' : 'none';
+        $('me-section-gc').style.display = ct==='gc' ? 'block' : 'none';
+
+        // BCA/CAR specific
+        if (ct==='bca'||ct==='car') {
+          $('me-L').value = m.L || '';
+          $('me-H').value = m.H || '';
+          $('me-pcsPerPal').value = m.pcsPerPal || '';
+          $('me-bca-portant').style.display = ct==='car' ? 'block' : 'none';
+          if (ct==='car') $('me-portant').value = m.portant ? 'true' : 'false';
+          const gar = m.garantiePalet || {};
+          $('me-garName').value = gar.name || '';
+          $('me-garPret').value = gar.pret || '';
+          $('me-garSap').value = gar.sapKey || '';
+          $('me-garLink').value = gar.link || '';
+          updateBcaCalcPreview();
+        }
+
+        // TVG specific
+        if (ct==='tvg') {
+          const hasCovObj = typeof m.cov === 'object' && m.cov !== null;
+          const hasCovNum = typeof m.cov === 'number';
+          const hasRoll = m.rollM2 !== undefined;
+          const hasBpm = m.bpm !== undefined;
+          $('me-tvg-cov-row').style.display = hasCovObj ? 'block' : 'none';
+          $('me-tvg-roll-row').style.display = hasRoll ? 'block' : 'none';
+          $('me-tvg-bpm-row').style.display = hasBpm ? 'block' : 'none';
+          $('me-tvg-simplecov-row').style.display = (hasCovNum && !hasCovObj) ? 'block' : 'none';
+          if (hasCovObj) $('me-tvgCov').value = JSON.stringify(m.cov);
+          if (hasRoll) $('me-tvgRollM2').value = m.rollM2;
+          if (hasBpm) $('me-tvgBpm').value = m.bpm;
+          if (hasCovNum && !hasCovObj) $('me-tvgSimpleCov').value = m.cov;
+          // For new TVG products, detect from existing items
+          if (mode === 'add' && catalogSub) {
+            const sample = (TVG[catalogSub]||[])[0] || {};
+            $('me-tvg-cov-row').style.display = typeof sample.cov === 'object' ? 'block' : 'none';
+            $('me-tvg-roll-row').style.display = sample.rollM2 !== undefined ? 'block' : 'none';
+            $('me-tvg-bpm-row').style.display = sample.bpm !== undefined ? 'block' : 'none';
+            $('me-tvg-simplecov-row').style.display = (typeof sample.cov === 'number') ? 'block' : 'none';
+          }
+        }
+
+        // GC specific
+        if (ct==='gc') {
+          $('me-gcRate').value = m.rate || '';
+        }
+
+        // Show/hide type-specific sections
+        const secBca=$('me-section-bca'),secTvg=$('me-section-tvg'),secGc=$('me-section-gc');
+        const ct2=_meContext.catType;
+        if(secBca)secBca.style.display=(ct2==='bca'||ct2==='car')?'block':'none';
+        if(secTvg)secTvg.style.display=ct2==='tvg'?'block':'none';
+        if(secGc)secGc.style.display=ct2==='gc'?'block':'none';
+        const pw=$('me-portant-wrap');if(pw)pw.style.display=ct2==='car'?'block':'none';
+        // Fill BCA/CAR extra
+        if(ct2==='bca'||ct2==='car'){
+          $('me-L').value=m.L||'';$('me-H').value=m.H||'';$('me-pcsPerPal').value=m.pcsPerPal||'';
+          if(ct2==='car')$('me-portant').value=m.portant?'true':'false';
+          const gar=m.garantiePalet||{};$('me-garName').value=gar.name||'';$('me-garPret').value=gar.pret||'';$('me-garSap').value=gar.sapKey||'';
+        }
+        // Fill TVG extra
+        if(ct2==='tvg'){
+          ['me-tvg-cov-wrap','me-tvg-roll-wrap','me-tvg-bpm-wrap','me-tvg-simpcov-wrap'].forEach(id=>{const e=$(id);if(e)e.style.display='none';});
+          if(typeof m.cov==='object'){const e=$('me-tvg-cov-wrap');if(e){e.style.display='block';$('me-tvgCov').value=JSON.stringify(m.cov);}}
+          else if(m.rollM2!==undefined){const e=$('me-tvg-roll-wrap');if(e){e.style.display='block';$('me-tvgRollM2').value=m.rollM2||'';}}
+          else if(m.bpm!==undefined){const e=$('me-tvg-bpm-wrap');if(e){e.style.display='block';$('me-tvgBpm').value=m.bpm||'';}}
+          else if(typeof m.cov==='number'){const e=$('me-tvg-simpcov-wrap');if(e){e.style.display='block';$('me-tvgSimpCov').value=m.cov||'';}}
+        }
+        // Fill GC extra
+        if(ct2==='gc'){$('me-gcRate').value=m.rate||'';}
+        
+        updateMatEditorPreview();
+        overlay.style.display = 'flex';
+        $('me-name').focus();
+      }
+      function updateBcaCalcPreview(){const el=$('me-bca-calc');if(!el)return;const L=parseFloat($('me-L')?.value)||0,H=parseFloat($('me-H')?.value)||0,pcs=parseFloat($('me-pcsPerPal')?.value)||0;if(L>0&&H>0){const f=(L/1000)*(H/1000);el.innerHTML='Sup/buc: <strong>'+f.toFixed(3)+' m2</strong> = <strong>'+(1/f).toFixed(1)+' buc/m2</strong>'+(pcs>0?' = <strong>'+(pcs*f).toFixed(1)+' m2/palet</strong>':'');}else el.innerHTML='';}
+
+      function closeMatEditor() {
+        const overlay = $('mat-edit-overlay');
+        if (overlay) overlay.style.display = 'none';
+        _meContext = null;
+      }
+
+      function saveMatEditor() {
+        if (!_meContext) return;
+        const {mode, sid, idx, vidx, catalogType, catalogSub} = _meContext;
+        const ct = catalogType || '';
+
+        const data = {
+          name: $('me-name').value.trim() || 'Material',
+          sapKey: $('me-sapKey').value.trim(),
+          ext: $('me-ext').value === 'true',
+          link: $('me-link').value.trim(),
+          um: $('me-um').value,
+          consumM2: parseFloat($('me-consumM2').value) || 0,
+          formula: $('me-formula').value.trim(),
+          uvUM: $('me-uvUM').value,
+          factorConv: parseFloat($('me-factorConv').value) || 0,
+          pretUV: parseFloat($('me-pretUV').value) || 0,
+          pretUM: parseFloat($('me-pretUM').value) || 0,
+          uv: $('me-uv').value.trim(),
+          pkg: $('me-uv').value.trim(),
+        };
+
+        // BCA/CAR specific
+        if (ct === 'bca' || ct === 'car') {
+          data.L = parseFloat($('me-L').value) || 0;
+          data.H = parseFloat($('me-H').value) || 0;
+          data.pcsPerPal = parseInt($('me-pcsPerPal').value) || 0;
+          if (ct === 'car') data.portant = $('me-portant').value === 'true';
+          const garName = $('me-garName').value.trim();
+          if (garName) {
+            data.garantiePalet = {name:garName, pret:parseFloat($('me-garPret').value)||0, sapKey:$('me-garSap').value.trim(), link:$('me-garLink').value.trim()};
+          } else { data.garantiePalet = null; }
+          const db = ct === 'bca' ? BCA_DB : CAR_DB;
+          if (mode === 'edit') { Object.assign(db[idx], data); }
+          else { db.push(data); }
+          adminSaveProducts();
+          closeMatEditor();
+          renderAdminStageMats();
+          toast('✅ "' + data.name.substring(0,25) + '" salvat.');
+          return;
+        }
+
+        // TVG specific
+        if (ct === 'tvg') {
+          const covEl = $('me-tvgCov');
+          if (covEl && covEl.parentElement.style.display !== 'none') {
+            try { data.cov = JSON.parse(covEl.value); } catch(e) { toast('⚠ JSON invalid!'); return; }
+          }
+          const simpleCov = $('me-tvgSimpleCov');
+          if (simpleCov && simpleCov.parentElement.style.display !== 'none') data.cov = parseFloat(simpleCov.value) || 0;
+          const rollEl = $('me-tvgRollM2');
+          if (rollEl && rollEl.parentElement.style.display !== 'none') data.rollM2 = parseFloat(rollEl.value) || 0;
+          const bpmEl = $('me-tvgBpm');
+          if (bpmEl && bpmEl.parentElement.style.display !== 'none') data.bpm = parseFloat(bpmEl.value) || 0;
+          const arr = TVG[catalogSub];
+          if (!arr) { toast('⚠ Subcategorie TVG invalidă'); return; }
+          if (mode === 'edit') { Object.assign(arr[idx], data); }
+          else { data.id = 'nou-' + Date.now(); arr.push(data); }
+          adminSaveProducts();
+          closeMatEditor();
+          renderAdminStageMats();
+          toast('✅ "' + data.name.substring(0,25) + '" salvat.');
+          return;
+        }
+
+        // GC specific
+        if (ct === 'gc') {
+          data.rate = parseFloat($('me-gcRate').value) || 0;
+          const sys = GC_SYSTEMS[catalogSub];
+          if (!sys) { toast('⚠ Sistem GC invalid'); return; }
+          if (mode === 'edit') { Object.assign(sys.items[idx], data); }
+          else { sys.items.push(data); }
+          if (data.pretUM > 0) PRICE_TABLE[data.name] = data.pretUM;
+          adminSaveProducts();
+          savePrices();
+          closeMatEditor();
+          renderAdminStageMats();
+          toast('✅ "' + data.name.substring(0,25) + '" salvat.');
+          return;
+        }
+
+        // Stage materials (default)
+        if (mode === 'edit') {
+          Object.assign(STAGE_MATS_DB[sid][idx], data);
+        } else if (mode === 'editvar') {
+          Object.assign(STAGE_MATS_DB[sid][idx].variants[vidx], data);
+        } else if (mode === 'add') {
+          if (!STAGE_MATS_DB[sid]) STAGE_MATS_DB[sid] = [];
+          data.variants = [];
+          STAGE_MATS_DB[sid].push(data);
+        } else if (mode === 'variant') {
+          const parent = STAGE_MATS_DB[sid][idx];
+          if (!parent.variants) parent.variants = [];
+          parent.variants.push(data);
+        }
+
+        saveStageMats();
+        closeMatEditor();
+        renderAdminStageMats();
+        toast('✅ "' + data.name.substring(0,25) + '" salvat.');
+      }
+
+      function updateMatEditorPreview() {
+        const el = $('me-calc-preview');
+        if (!el) return;
+        const consumM2 = parseFloat($('me-consumM2')?.value) || 0;
+        const um = $('me-um')?.value || 'kg';
+        const factorConv = parseFloat($('me-factorConv')?.value) || 0;
+        const uvUM = $('me-uvUM')?.value || '';
+        const pretUV = parseFloat($('me-pretUV')?.value) || 0;
+
+        if (consumM2 > 0) {
+          const supEx = 50;
+          const totalUM = supEx * consumM2;
+          let preview = `<strong>Exemplu calcul pentru ${supEx} m²:</strong><br>`;
+          preview += `① ${supEx} m² × ${consumM2} ${um}/m² = <strong>${fmtN(totalUM)} ${um}</strong> necesari<br>`;
+          if (uvUM && factorConv > 0) {
+            const totalUV = Math.ceil(totalUM / factorConv);
+            preview += `② ${fmtN(totalUM)} ${um} ÷ ${factorConv} ${um}/${uvUM} = <strong>${totalUV} ${uvUM}</strong><br>`;
+            if (pretUV > 0) {
+              preview += `③ ${totalUV} ${uvUM} × ${pretUV} lei/${uvUM} = <strong style="color:var(--green)">${fmtN(totalUV * pretUV)} lei</strong>`;
+            }
+          }
+          el.innerHTML = preview;
+          el.style.display = 'block';
+        } else {
+          el.style.display = 'none';
+        }
+      }
+
+      function updateBcaCalcPreview() {
+        const el = $('me-bca-calc');
+        if (!el) return;
+        const L = parseFloat($('me-L')?.value) || 0;
+        const H = parseFloat($('me-H')?.value) || 0;
+        const pcs = parseInt($('me-pcsPerPal')?.value) || 0;
+        if (L > 0 && H > 0 && pcs > 0) {
+          const face = (L/1000)*(H/1000);
+          const bucM2 = (1/face).toFixed(1);
+          const m2Pal = (pcs * face).toFixed(1);
+          el.innerHTML = '<strong style="color:var(--blue)">' + bucM2 + ' buc/m²</strong> · <strong style="color:#D97706">' + m2Pal + ' m²/palet</strong> · ' + pcs + ' buc × ' + face.toFixed(3) + ' m²/buc';
+        } else { el.innerHTML = ''; }
+      }
+
+      // Live preview on field changes
+      document.addEventListener('input', (e) => {
+        if (['me-consumM2','me-um','me-factorConv','me-uvUM','me-pretUV','me-L','me-H','me-pcsPerPal'].includes(e.target?.id)) {
+          updateMatEditorPreview();
+          if (['me-L','me-H','me-pcsPerPal'].includes(e.target?.id)) updateBCACalcPreview();
+        }
+        // Auto-fill formula text
+        if (e.target?.id === 'me-consumM2') {
+          const v = parseFloat(e.target.value) || 0;
+          const um = $('me-um')?.value || '';
+          if (v > 0 && $('me-formula')) $('me-formula').value = v + ' ' + um + '/m²';
+        }
+        // BCA dimensions live calc
+        if (['me-L','me-H','me-pcsPerPal'].includes(e.target?.id)) updateBcaCalcPreview();
+        // Auto-fill ambalaj text
+        if (e.target?.id === 'me-factorConv' || e.target?.id === 'me-uvUM') {
+          const f = parseFloat($('me-factorConv')?.value) || 0;
+          const uv = $('me-uvUM')?.value || '';
+          const um = $('me-um')?.value || '';
+          if (f > 0 && uv && $('me-uv')) $('me-uv').value = uv + ' ' + f + ' ' + um;
+        }
+      });
+
       function smSaveRow(sid, i) {
         const db = STAGE_MATS_DB[sid];
         if (!db || !db[i]) return;
@@ -8333,6 +8481,7 @@
         m.uvUM = $(`sm-${sid}-${i}-uvUM`)?.value || '';
         m.factorConv = parseFloat($(`sm-${sid}-${i}-factorConv`)?.value) || 0;
         m.pretUV = parseFloat($(`sm-${sid}-${i}-pretUV`)?.value) || 0;
+        m.consumM2 = parseFloat($(`sm-${sid}-${i}-consumM2`)?.value) || 0;
         // Save variants (full product fields)
         (m.variants||[]).forEach((v,vi) => {
           v.name = $(`sm-${sid}-${i}-v${vi}-name`)?.value || v.name;
@@ -8346,6 +8495,7 @@
           v.uvUM = $(`sm-${sid}-${i}-v${vi}-uvUM`)?.value || '';
           v.factorConv = parseFloat($(`sm-${sid}-${i}-v${vi}-factorConv`)?.value) || 0;
           v.pretUV = parseFloat($(`sm-${sid}-${i}-v${vi}-pretUV`)?.value) || 0;
+          v.consumM2 = parseFloat($(`sm-${sid}-${i}-v${vi}-consumM2`)?.value) || 0;
           v.formula = $(`sm-${sid}-${i}-v${vi}-formula`)?.value || '';
         });
         saveStageMats();
@@ -8366,7 +8516,7 @@
         STAGE_MATS_DB[sid].push({
           name:"Material nou", um:"buc", uv:"—", pkg:"—", link:"https://mathaus.ro",
           formula:"", pretUM:0, sapKey:"", variants:[], ext:false,
-          uvUM:"", factorConv:0, pretUV:0
+          uvUM:"", factorConv:0, pretUV:0, consumM2:0
         });
         saveStageMats();
         renderAdminStageMats();
@@ -8400,6 +8550,7 @@
           uvUM: m.uvUM || "",
           factorConv: m.factorConv || 0,
           pretUV: 0,
+          consumM2: m.consumM2 || 0,
         });
         saveStageMats();
         renderAdminStageMats();
@@ -10086,6 +10237,8 @@
         if (id === "zidarie") return buildZidarieCalc();
         if (id === "termosistem") return buildTermosistemCalc();
         if (id === "gipscarton") return buildGipsCartonCalc();
+        if (id === "parchet") return buildParchetCalc();
+        if (id === "hidro-int") return buildHidroIntCalc();
         return null;
       }
 
@@ -10244,7 +10397,37 @@
           <td><div class="mat-formula">${paleti} paleți × 1</div></td>
           ${appSettings.showPrices && prod.garantiePalet.pret > 0 ? '<td class="mat-pret">' + fmtN(prod.garantiePalet.pret) + ' lei</td><td class="mat-pret">' + fmtN(prod.garantiePalet.pret * paleti) + ' lei</td>' : (appSettings.showPrices ? '<td class="mat-pret-empty">—</td><td class="mat-pret-empty">—</td>' : '')}
         </tr>` : ''}
-        ${priceTotalRowHtml([{name: prod.name, qty: bucNec}, {name: tip === "bca" ? "Mortar adeziv Termofix Poren BCA 25kg" : "Mortar zidarie caramida Termofix Brick MZ50", qty: tip === "bca" ? Math.ceil(area / 6.5) : mortarSaci}], 3)}
+        ${(() => {
+          const stageMats = STAGE_MATS_DB['zidarie'] || [];
+          const mortarName = tip === "bca" ? "Mortar adeziv Termofix Poren BCA 25kg" : "Mortar zidarie caramida Termofix Brick MZ50";
+          // Show ALL zidarie stage materials except the mortar (already shown above)
+          const extraMats = stageMats.filter(sm => !sm.name.includes('Mortar'));
+          window._zidExtraMats = []; // store for price total
+          return extraMats.map(sm => {
+            let qty = 0;
+            if (sm.consumM2 > 0) {
+              qty = sm.um === 'm³' ? +(area * sm.consumM2).toFixed(2) : Math.ceil(area * sm.consumM2);
+            } else if (sm.name.includes('Buiandrug')) {
+              qty = Math.ceil(lung / 2);
+            }
+            window._zidExtraMats.push({name: sm.name, qty: qty});
+            const conv = matConvert(sm.name, qty, sm.um);
+            return `<tr style="background:var(--amber-l)">
+            ${sapTdHtml(sm.name)}
+            <td><div class="mat-name">${escHtml(sm.name)}</div>${sm.ext?'<div style="font-size:10px;color:var(--amber)">⚠ produs extern</div>':''}${sm.link?'<a class="mat-link" href="'+escHtml(sm.link)+'" target="_blank">→ mathaus.ro</a>':''}</td>
+            <td><div class="mat-qty-big">${conv.displayQty}</div></td>
+            <td><div class="mat-um">${escHtml(conv.displayUM)}</div></td>
+            <td><span class="mat-pkg">${escHtml(sm.uv||sm.pkg||'—')}</span></td>
+            <td><div class="mat-formula">${escHtml(sm.formula||'')}</div></td>
+            ${priceTdHtml(sm.name, qty)}
+          </tr>`;
+          }).join('');
+        })()}
+        ${priceTotalRowHtml([
+          {name: prod.name, qty: bucNec},
+          {name: tip === "bca" ? "Mortar adeziv Termofix Poren BCA 25kg" : "Mortar zidarie caramida Termofix Brick MZ50", qty: tip === "bca" ? Math.ceil(area / 6.5) : mortarSaci},
+          ...(window._zidExtraMats || [])
+        ], 3)}
       </tbody>
     </table>
     <div style="padding:10px 14px;background:var(--surface2);font-size:11px;color:var(--txt3)">
@@ -10651,6 +10834,187 @@
   </div>`;
       }
 
+      // ───── PARCHET CUSTOM CALCULATOR ─────
+      function buildParchetCalc() {
+        return `<div class="calc-block">
+    <div class="calc-label">🪵 Calculator Parchet & Accesorii — per cameră</div>
+    <div class="calc-inputs">
+      <div><label class="label">Număr camere cu parchet</label><input type="number" class="input" id="pk-nr" value="1" min="1" max="20" oninput="pkBuildCamere()"/></div>
+      <div><label class="label">Tip parchet</label>
+        <select class="input" id="pk-tip" onchange="calcParchetCustom()">
+          <option value="laminat">Laminat (flotant clic)</option>
+          <option value="spc">SPC (impermeabil, flotant)</option>
+          <option value="triplu">Triplustratificat</option>
+        </select>
+      </div>
+    </div>
+    <div id="pk-camere-list"></div>
+    <div id="pk-summary" style="margin:8px 0;padding:8px 12px;background:var(--blue-l);border-radius:var(--r-sm);font-size:12px;color:var(--blue);display:none"></div>
+    <div id="ecalc-result-parchet"></div>
+  </div>`;
+      }
+
+      function pkBuildCamere() {
+        const nr = parseInt($('pk-nr')?.value) || 1;
+        const list = $('pk-camere-list');
+        if (!list) return;
+        let html = '';
+        for (let i = 0; i < nr; i++) {
+          html += `<div style="display:grid;grid-template-columns:auto 1fr 1fr;gap:8px;align-items:end;padding:6px 0;border-bottom:1px solid var(--border)">
+            <div style="font-size:12px;font-weight:600;color:var(--navy);min-width:75px">Camera ${i+1}</div>
+            <div><label class="label" style="font-size:10px">Lungime (m)</label><input type="number" class="input" id="pk-c${i}-l" value="${i===0?'5':'4'}" min="1" step="0.1" oninput="calcParchetCustom()"/></div>
+            <div><label class="label" style="font-size:10px">Lățime (m)</label><input type="number" class="input" id="pk-c${i}-w" value="${i===0?'4':'3.5'}" min="1" step="0.1" oninput="calcParchetCustom()"/></div>
+          </div>`;
+        }
+        list.innerHTML = html;
+        calcParchetCustom();
+      }
+
+      function calcParchetCustom() {
+        const nr = parseInt($('pk-nr')?.value) || 1;
+        const tip = $('pk-tip')?.value || 'laminat';
+        let totalSup = 0, totalPer = 0;
+        const camDetails = [];
+        for (let i = 0; i < nr; i++) {
+          const l = parseFloat($(`pk-c${i}-l`)?.value) || 4;
+          const w = parseFloat($(`pk-c${i}-w`)?.value) || 3;
+          const sup = l * w;
+          const per = 2 * (l + w);
+          totalSup += sup;
+          totalPer += per;
+          camDetails.push({l, w, sup, per});
+        }
+
+        // Summary
+        const sumEl = $('pk-summary');
+        if (sumEl) {
+          sumEl.style.display = 'block';
+          sumEl.innerHTML = `<strong>${nr} ${nr===1?'cameră':'camere'}</strong>: ${camDetails.map((c,i) => `Camera ${i+1}: ${c.l}×${c.w}m = ${fmt(c.sup)}m², ${fmt(c.per)}ml`).join(' | ')} → <strong>Total: ${fmt(totalSup)} m², ${fmt(totalPer)} ml perimetru</strong>`;
+        }
+
+        const isSPC = tip === 'spc', isTriplu = tip === 'triplu';
+        const s = totalSup, p = totalPer;
+        const coltar = Math.ceil(p / 15);
+
+        const mats = [
+          {name: isSPC ? 'Folie Parchet SPC (0.5mm)' : 'Folie Parchet / Subparchet antifonant 3mm', qty: C(s*1.05), um:'m²', formula:'1.05 × '+fmt(s)+'m²', pkg:'rolă', link:'https://mathaus.ro/search?pb=true&text='+(isSPC?'folie+parchet':'subparchet+antifonant')},
+          {name: isTriplu ? 'Parchet Triplustratificat' : isSPC ? 'Parchet SPC' : 'Parchet Laminat', qty: C(s*1.08), um:'m²', formula:'1.08 × '+fmt(s)+'m²', pkg:'cutie', link:'https://mathaus.ro/search?pb=true&text=parchet+'+(isTriplu?'triplustratificat':isSPC?'spc':'laminat')},
+          {name: isTriplu ? 'Plintă furnir' : isSPC ? 'Plintă SPC' : 'Plintă MDF', qty: C(p*1.1), um:'ml', formula:'1.1 × '+fmt(p)+'ml', pkg:'buc 2.4m', link:'https://mathaus.ro/search?pb=true&text=plinta+'+(isTriplu?'furniruita':isSPC?'spc':'laminat')},
+          {name: 'Colțar Stânga plintă', qty: coltar, um:'buc', formula:'~1/15ml perimetru', pkg:'buc', link:'https://mathaus.ro/search?pb=true&text=coltar+plinta'},
+          {name: 'Colțar Dreapta plintă', qty: coltar, um:'buc', formula:'~1/15ml perimetru', pkg:'buc', link:'https://mathaus.ro/search?pb=true&text=coltar+plinta'},
+          {name: 'Profil trecere (prag)', qty: nr, um:'buc', formula:'1 per cameră', pkg:'buc 0.9m', link:'https://mathaus.ro/search?pb=true&text=profil+trecere+parchet'},
+        ];
+
+        applyMatDB('parchet', mats);
+        const res = $('ecalc-result-parchet');
+        if (!res) return;
+        const rows = mats.map(m => {
+          const conv = matConvert(m.name, m.qty, m.um);
+          return `<tr>
+            ${sapTdHtml(m.name)}
+            <td><div class="mat-name">${escHtml(m.name)}</div>${m.link?'<a class="mat-link" href="'+escHtml(m.link)+'" target="_blank">→ mathaus.ro</a>':''}</td>
+            <td><div class="mat-qty-big">${conv.displayQty}</div></td>
+            <td><div class="mat-um">${escHtml(conv.displayUM)}</div></td>
+            <td><span class="mat-pkg">${escHtml(m.pkg)}</span></td>
+            <td><div class="mat-formula">${escHtml(m.formula)}</div></td>
+            ${priceTdHtml(m.name, m.qty)}
+          </tr>`;
+        }).join('');
+
+        res.innerHTML = `<div class="calc-result">
+    <div class="calc-result-header"><span>MATERIALE PARCHET — ${fmt(totalSup)} m², ${fmt(totalPer)} ml</span></div>
+    <table class="mat-table">
+      <thead><tr><th style="width:8%">SAP</th><th>Produs</th><th>Cantitate</th><th>U.M.</th><th>Ambalaj</th><th>Formulă</th>${priceThHtml()}</tr></thead>
+      <tbody>${rows}
+      ${priceTotalRowHtml(mats, 3)}
+      </tbody></table></div>`;
+      }
+
+      // ───── HIDROIZOLAȚII INTERIOARE CUSTOM CALCULATOR ─────
+      function buildHidroIntCalc() {
+        return `<div class="calc-block">
+    <div class="calc-label">💧 Calculator Hidroizolații Interioare — per baie</div>
+    <div class="calc-inputs">
+      <div><label class="label">Număr băi</label><input type="number" class="input" id="hi-nr" value="1" min="1" max="10" oninput="hiBuildBai()"/></div>
+    </div>
+    <div id="hi-bai-list"></div>
+    <div id="hi-summary" style="margin:8px 0;padding:8px 12px;background:var(--blue-l);border-radius:var(--r-sm);font-size:12px;color:var(--blue);display:none"></div>
+    <div id="ecalc-result-hidro-int"></div>
+  </div>`;
+      }
+
+      function hiBuildBai() {
+        const nr = parseInt($('hi-nr')?.value) || 1;
+        const list = $('hi-bai-list');
+        if (!list) return;
+        let html = '';
+        for (let i = 0; i < nr; i++) {
+          html += `<div style="display:grid;grid-template-columns:auto 1fr 1fr 1fr;gap:8px;align-items:end;padding:6px 0;border-bottom:1px solid var(--border)">
+            <div style="font-size:12px;font-weight:600;color:var(--navy);min-width:60px">Baie ${i+1}</div>
+            <div><label class="label" style="font-size:10px">Lungime (m)</label><input type="number" class="input" id="hi-b${i}-l" value="3" min="1" step="0.1" oninput="calcHidroCustom()"/></div>
+            <div><label class="label" style="font-size:10px">Lățime (m)</label><input type="number" class="input" id="hi-b${i}-w" value="2.5" min="1" step="0.1" oninput="calcHidroCustom()"/></div>
+            <div><label class="label" style="font-size:10px">Înălțime (m)</label><input type="number" class="input" id="hi-b${i}-h" value="2.4" min="1" step="0.1" oninput="calcHidroCustom()"/></div>
+          </div>`;
+        }
+        list.innerHTML = html;
+        calcHidroCustom();
+      }
+
+      function calcHidroCustom() {
+        const nr = parseInt($('hi-nr')?.value) || 1;
+        let totalSup = 0, totalPereti = 0;
+        const baiDetails = [];
+        for (let i = 0; i < nr; i++) {
+          const l = parseFloat($(`hi-b${i}-l`)?.value) || 3;
+          const w = parseFloat($(`hi-b${i}-w`)?.value) || 2.5;
+          const h = parseFloat($(`hi-b${i}-h`)?.value) || 2.4;
+          const supPod = l * w;
+          const supPereti = 2 * (l + w) * h;
+          totalSup += supPod;
+          totalPereti += supPereti;
+          baiDetails.push({l, w, h, supPod, supPereti, total: supPod + supPereti});
+        }
+        const totalHidro = totalSup + totalPereti;
+
+        // Summary
+        const sumEl = $('hi-summary');
+        if (sumEl) {
+          sumEl.style.display = 'block';
+          sumEl.innerHTML = `<strong>${nr} ${nr===1?'baie':'băi'}</strong>: ${baiDetails.map((b,i) => `Baie ${i+1}: ${b.l}×${b.w}×${b.h}m → podea ${fmt(b.supPod)}m² + pereți ${fmt(b.supPereti)}m²`).join(' | ')} → <strong>Total hidroizolat: ${fmt(totalHidro)} m²</strong>`;
+        }
+
+        const mats = [
+          {name:'Membrana hidroizolantă flexibilă bicomponentă', qty: C((totalHidro*3.3)/12.5), um:'găleți', formula:'3.3 kg/m² × '+fmt(totalHidro)+'m² ÷ 12.5kg/găl.', pkg:'găleată 12.5 kg', link:'https://mathaus.ro/p/hidroizolatie-bicomponenta-ceresit-cl-50-flexibila-pensulabila-gri-deschis-125-kg/000000000010701172'},
+          {name:'Bandă etanșare colțuri', qty: C((nr*8)/50) + 1, um:'buc', formula: nr+'×8ml ÷ 50ml/rolă', pkg:'rolă 50 ml', link:'https://mathaus.ro/p/banda-de-etansare-ceresit-cl-152-elastica-impermeabila-50-m/000000000010704595'},
+          {name:'Amorsă primer Ceresit R777', qty: C((totalHidro*0.3)/10), um:'bidoane', formula:'0.3 kg/m² × '+fmt(totalHidro)+'m² ÷ 10kg/bidon', pkg:'bidon 10 kg', link:'https://mathaus.ro/p/amorsa-sapa-ceresit-r777-interior-10-kg/000000000010700875'},
+          {name:'Silicon sanitar Ceresit CS25', qty: nr*2, um:'tuburi', formula:'2 tuburi/baie', pkg:'tub 280ml', link:'https://mathaus.ro/p/silicon-sanitar-ceresit-cs-25-interior-exterior-alb-280-ml/000000000010700559'},
+        ];
+
+        applyMatDB('hidro-int', mats);
+        const res = $('ecalc-result-hidro-int');
+        if (!res) return;
+        const rows = mats.map(m => {
+          const conv = matConvert(m.name, m.qty, m.um);
+          return `<tr>
+            ${sapTdHtml(m.name)}
+            <td><div class="mat-name">${escHtml(m.name)}</div>${m.link?'<a class="mat-link" href="'+escHtml(m.link)+'" target="_blank">→ mathaus.ro</a>':''}</td>
+            <td><div class="mat-qty-big">${conv.displayQty}</div></td>
+            <td><div class="mat-um">${escHtml(conv.displayUM)}</div></td>
+            <td><span class="mat-pkg">${escHtml(m.pkg)}</span></td>
+            <td><div class="mat-formula">${escHtml(m.formula)}</div></td>
+            ${priceTdHtml(m.name, m.qty)}
+          </tr>`;
+        }).join('');
+
+        res.innerHTML = `<div class="calc-result">
+    <div class="calc-result-header"><span>MATERIALE HIDROIZOLAȚIE — ${nr} ${nr===1?'baie':'băi'}, ${fmt(totalHidro)} m² total</span></div>
+    <table class="mat-table">
+      <thead><tr><th style="width:8%">SAP</th><th>Produs</th><th>Cantitate</th><th>U.M.</th><th>Ambalaj</th><th>Formulă</th>${priceThHtml()}</tr></thead>
+      <tbody>${rows}
+      ${priceTotalRowHtml(mats, 3)}
+      </tbody></table></div>`;
+      }
+
       // ─────────────────────────── INIT ─────────────────────────────
       window.addEventListener("DOMContentLoaded", async () => {
         loadAdmin();
@@ -10679,6 +11043,10 @@
           "t-acoperis",
           "t-termo",
           "t-termo-gros",
+          "t-sapa-gros",
+          "t-gc-activ",
+          "t-gc-sistem",
+          "t-gc-sup",
         ].forEach((id) => {
           const el = $(id);
           if (el) el.addEventListener("change", totalCalc);
@@ -10687,6 +11055,273 @@
         autoSyncGoogleSheet();
       });
     </script>
+
+    <!-- Material Editor Modal -->
+    <div id="mat-edit-overlay" style="display:none;position:fixed;inset:0;background:rgba(28,43,74,0.55);z-index:9998;backdrop-filter:blur(4px);justify-content:center;align-items:flex-start;overflow-y:auto;padding:40px 16px">
+      <div style="background:var(--surface);border-radius:16px;padding:0;width:540px;max-width:95vw;box-shadow:0 20px 60px rgba(0,0,0,0.3);margin:auto">
+
+        <div id="mat-edit-header" style="padding:20px 24px 12px;border-bottom:1px solid var(--border2)">
+          <div style="display:flex;align-items:center;justify-content:space-between">
+            <div style="font-size:18px;font-weight:700;color:var(--navy)" id="mat-edit-title">Editare Material</div>
+            <button class="btn btn-ghost btn-sm" onclick="closeMatEditor()" style="font-size:18px;padding:4px 8px">✕</button>
+          </div>
+          <div style="font-size:11px;color:var(--txt3);margin-top:2px" id="mat-edit-subtitle"></div>
+        </div>
+
+        <div style="padding:16px 24px;max-height:calc(100vh - 200px);overflow-y:auto" id="mat-edit-body">
+
+          <div style="font-size:11px;font-weight:700;color:var(--blue);letter-spacing:1px;text-transform:uppercase;margin:0 0 10px;font-family:var(--mono)">Identitate material</div>
+
+          <div style="display:grid;gap:10px;margin-bottom:18px">
+            <div>
+              <label class="label">Denumire <span style="color:var(--red);font-size:10px;font-weight:600">obligatoriu</span></label>
+              <input class="input" id="me-name" placeholder="ex: Adeziv super flexibil" style="font-size:14px"/>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+              <div>
+                <label class="label">Cheie SAP</label>
+                <input class="input" id="me-sapKey" placeholder="ex: 10700878"/>
+              </div>
+              <div>
+                <label class="label">Extern (nu se vinde pe MatHaus)</label>
+                <select class="input" id="me-ext"><option value="false">Nu</option><option value="true">Da — produs extern</option></select>
+              </div>
+            </div>
+            <div>
+              <label class="label">Link MatHaus.ro</label>
+              <input class="input" id="me-link" placeholder="https://mathaus.ro/..." style="font-size:12px"/>
+            </div>
+          </div>
+
+          <div style="font-size:11px;font-weight:700;color:var(--green);letter-spacing:1px;text-transform:uppercase;margin:0 0 10px;font-family:var(--mono)">Consum și calcul — partea critică</div>
+
+          <div style="display:grid;gap:10px;margin-bottom:18px;padding:12px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:var(--r-sm)">
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+              <div>
+                <label class="label">UM consum <span style="color:var(--red);font-size:10px;font-weight:600">obligatoriu</span></label>
+                <select class="input" id="me-um" style="font-size:13px">
+                  <option value="kg">kg</option>
+                  <option value="ml">ml (metru liniar)</option>
+                  <option value="m²">m²</option>
+                  <option value="buc">buc</option>
+                  <option value="l">litri</option>
+                </select>
+              </div>
+              <div>
+                <label class="label">Consum/m² <span style="color:var(--red);font-size:10px;font-weight:600">obligatoriu</span></label>
+                <input class="input" type="number" step="0.01" id="me-consumM2" placeholder="ex: 4" style="font-size:14px;font-weight:600"/>
+                <div style="font-size:10px;color:var(--txt3);margin-top:3px" id="me-consum-hint">= câte UM se consumă per m² suprafață</div>
+              </div>
+            </div>
+            <div>
+              <label class="label">Formulă calcul (text informativ)</label>
+              <input class="input" id="me-formula" placeholder="ex: 4 kg/m²" style="color:var(--txt3)"/>
+            </div>
+          </div>
+
+          <div style="font-size:11px;font-weight:700;color:#D97706;letter-spacing:1px;text-transform:uppercase;margin:0 0 10px;font-family:var(--mono)">Vânzare și preț — cum se vinde</div>
+
+          <div style="display:grid;gap:10px;margin-bottom:14px;padding:12px;background:var(--amber-l);border:1px solid #fde68a;border-radius:var(--r-sm)">
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+              <div>
+                <label class="label">UV vânzare <span style="color:var(--red);font-size:10px;font-weight:600">obligatoriu</span></label>
+                <select class="input" id="me-uvUM" style="font-size:13px">
+                  <option value="">= UM (fără conversie)</option>
+                  <option value="buc">buc</option>
+                  <option value="sac">sac</option>
+                  <option value="rolă">rolă</option>
+                  <option value="pachet">pachet</option>
+                  <option value="găleată">găleată</option>
+                  <option value="bidon">bidon</option>
+                  <option value="cutie">cutie</option>
+                  <option value="palet">palet</option>
+                </select>
+              </div>
+              <div>
+                <label class="label">Cantitate/UV (factor) <span style="color:var(--red);font-size:10px;font-weight:600">obligatoriu</span></label>
+                <input class="input" type="number" step="0.01" id="me-factorConv" placeholder="ex: 25"/>
+                <div style="font-size:10px;color:var(--txt3);margin-top:3px" id="me-factor-hint">= câte UM are o UV (ex: 25 kg/sac)</div>
+              </div>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+              <div>
+                <label class="label">Preț/UV <span style="color:var(--red);font-size:10px;font-weight:600">obligatoriu</span></label>
+                <input class="input" type="number" step="0.01" id="me-pretUV" placeholder="ex: 55" style="font-size:14px;font-weight:600;color:var(--green)"/>
+                <div style="font-size:10px;color:var(--txt3);margin-top:3px">= prețul per unitate de vânzare (lei)</div>
+              </div>
+              <div>
+                <label class="label">Preț/UM (opțional)</label>
+                <input class="input" type="number" step="0.01" id="me-pretUM" placeholder="0"/>
+                <div style="font-size:10px;color:var(--txt3);margin-top:3px">Preț per UM (fallback dacă nu ai UV)</div>
+              </div>
+            </div>
+            <div>
+              <label class="label">Ambalaj (text descriptiv)</label>
+              <input class="input" id="me-uv" placeholder="ex: sac 25 kg"/>
+            </div>
+          </div>
+
+
+          <div id="me-section-bca" style="display:none">
+            <div style="font-size:11px;font-weight:700;color:var(--orange);letter-spacing:1px;text-transform:uppercase;margin:0 0 10px;font-family:var(--mono)">Dimensiuni BCA / Cărămidă</div>
+            <div style="display:grid;gap:10px;margin-bottom:14px;padding:12px;background:var(--orange-l);border:1px solid var(--orange-m);border-radius:var(--r-sm)">
+              <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">
+                <div>
+                  <label class="label">L lungime (mm) <span style="color:var(--red);font-size:10px">obligatoriu</span></label>
+                  <input class="input" type="number" id="me-L" placeholder="ex: 625"/>
+                </div>
+                <div>
+                  <label class="label">H înălțime (mm) <span style="color:var(--red);font-size:10px">obligatoriu</span></label>
+                  <input class="input" type="number" id="me-H" placeholder="ex: 240"/>
+                </div>
+                <div>
+                  <label class="label">Buc/Palet <span style="color:var(--red);font-size:10px">obligatoriu</span></label>
+                  <input class="input" type="number" id="me-pcsPerPal" placeholder="ex: 60"/>
+                </div>
+              </div>
+              <div id="me-bca-portant" style="display:none">
+                <label class="label">Portant</label>
+                <select class="input" id="me-portant"><option value="true">Da — portant</option><option value="false">Nu — neportant</option></select>
+              </div>
+              <div id="me-bca-calc" style="font-size:11px;color:var(--txt2);padding:6px 0"></div>
+              <div style="border-top:1px dashed var(--orange-m);padding-top:10px">
+                <div style="font-size:11px;font-weight:600;color:var(--orange);margin-bottom:6px">📦 Garanție Palet (opțional)</div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+                  <div><label class="label">Denumire garanție</label><input class="input" id="me-garName" placeholder="Garanție palet BCA"/></div>
+                  <div><label class="label">Preț garanție (lei)</label><input class="input" type="number" step="0.01" id="me-garPret" placeholder="0"/></div>
+                  <div><label class="label">SAP garanție</label><input class="input" id="me-garSap"/></div>
+                  <div><label class="label">Link garanție</label><input class="input" id="me-garLink"/></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div id="me-section-tvg" style="display:none">
+            <div style="font-size:11px;font-weight:700;color:var(--green);letter-spacing:1px;text-transform:uppercase;margin:0 0 10px;font-family:var(--mono)">Acoperire TVG</div>
+            <div style="display:grid;gap:10px;margin-bottom:14px;padding:12px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:var(--r-sm)">
+              <div id="me-tvg-cov-row">
+                <label class="label">Acoperire per grosime (JSON)</label>
+                <input class="input" id="me-tvgCov" placeholder='{"50":5,"100":2.5,"150":1.67}'/>
+                <div style="font-size:10px;color:var(--txt3);margin-top:3px">JSON: cheie = grosime mm, valoare = m²/pachet</div>
+              </div>
+              <div id="me-tvg-roll-row" style="display:none">
+                <label class="label">m²/rolă</label>
+                <input class="input" type="number" step="0.1" id="me-tvgRollM2" placeholder="ex: 50"/>
+              </div>
+              <div id="me-tvg-bpm-row" style="display:none">
+                <label class="label">buc/m²</label>
+                <input class="input" type="number" id="me-tvgBpm" placeholder="ex: 6"/>
+              </div>
+              <div id="me-tvg-simplecov-row" style="display:none">
+                <label class="label">m²/unitate</label>
+                <input class="input" type="number" step="0.5" id="me-tvgSimpleCov" placeholder="ex: 6"/>
+              </div>
+            </div>
+          </div>
+
+          <div id="me-section-gc" style="display:none">
+            <div style="font-size:11px;font-weight:700;color:var(--blue);letter-spacing:1px;text-transform:uppercase;margin:0 0 10px;font-family:var(--mono)">Consum Gips-Carton</div>
+            <div style="display:grid;gap:10px;margin-bottom:14px;padding:12px;background:var(--blue-l);border:1px solid #bfdbfe;border-radius:var(--r-sm)">
+              <div>
+                <label class="label">Consum/m² (rate) <span style="color:var(--red);font-size:10px">obligatoriu</span></label>
+                <input class="input" type="number" step="0.01" id="me-gcRate" placeholder="ex: 1.8" style="font-size:14px;font-weight:600"/>
+                <div style="font-size:10px;color:var(--txt3);margin-top:3px">Câte UM per m² de suprafață sistem</div>
+              </div>
+            </div>
+          </div>
+
+          <div id="me-section-bca" style="display:none">
+            <div style="font-size:11px;font-weight:700;color:var(--orange);letter-spacing:1px;text-transform:uppercase;margin:0 0 10px;font-family:var(--mono)">Dimensiuni BCA / Caramida</div>
+            <div style="display:grid;gap:10px;margin-bottom:18px;padding:12px;background:var(--orange-l);border:1px solid var(--orange-m);border-radius:var(--r-sm)">
+              <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">
+                <div><label class="label">L lungime (mm)</label><input class="input" type="number" id="me-L" placeholder="625"/></div>
+                <div><label class="label">H inaltime (mm)</label><input class="input" type="number" id="me-H" placeholder="240"/></div>
+                <div><label class="label">Buc/Palet</label><input class="input" type="number" id="me-pcsPerPal" placeholder="60"/></div>
+              </div>
+              <div id="me-portant-wrap" style="display:none"><label class="label">Portant</label><select class="input" id="me-portant"><option value="true">Da</option><option value="false">Nu</option></select></div>
+              <div id="me-bca-calc" style="font-size:11px;color:var(--txt2);padding:6px;background:var(--surface);border-radius:4px"></div>
+              <div><label class="label">Garantie Palet (optional)</label>
+                <div style="display:grid;grid-template-columns:1fr 80px 100px;gap:6px"><input class="input" id="me-garName" placeholder="Denumire garantie"/><input class="input" type="number" step="0.01" id="me-garPret" placeholder="Pret"/><input class="input" id="me-garSap" placeholder="SAP gar."/></div>
+              </div>
+            </div>
+          </div>
+          <div id="me-section-tvg" style="display:none">
+            <div style="font-size:11px;font-weight:700;color:var(--green);letter-spacing:1px;text-transform:uppercase;margin:0 0 10px;font-family:var(--mono)">Acoperire / Consum TVG</div>
+            <div style="display:grid;gap:10px;margin-bottom:18px;padding:12px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:var(--r-sm)">
+              <div id="me-tvg-cov-wrap" style="display:none"><label class="label">Acoperire per grosime (JSON)</label><input class="input" id="me-tvgCov" placeholder='{"50":5,"100":2.5}' style="font-family:var(--mono);font-size:11px"/></div>
+              <div id="me-tvg-roll-wrap" style="display:none"><label class="label">m2/rola</label><input class="input" type="number" step="0.1" id="me-tvgRollM2"/></div>
+              <div id="me-tvg-bpm-wrap" style="display:none"><label class="label">buc/m2</label><input class="input" type="number" id="me-tvgBpm"/></div>
+              <div id="me-tvg-simpcov-wrap" style="display:none"><label class="label">m2/unitate</label><input class="input" type="number" step="0.5" id="me-tvgSimpCov"/></div>
+            </div>
+          </div>
+          <div id="me-section-gc" style="display:none">
+            <div style="font-size:11px;font-weight:700;color:var(--blue);letter-spacing:1px;text-transform:uppercase;margin:0 0 10px;font-family:var(--mono)">Consum Gips-Carton</div>
+            <div style="display:grid;gap:10px;margin-bottom:14px;padding:12px;background:var(--blue-l);border:1px solid #bfdbfe;border-radius:var(--r-sm)">
+              <div><label class="label">Consum/m2 (rate)</label><input class="input" type="number" step="0.01" id="me-gcRate" placeholder="1.8" style="font-size:14px;font-weight:600"/></div>
+            </div>
+          </div>
+
+          <div id="me-section-bca" style="display:none">
+            <div style="font-size:11px;font-weight:700;color:var(--orange);letter-spacing:1px;text-transform:uppercase;margin:0 0 10px;font-family:var(--mono)">Dimensiuni și ambalare</div>
+            <div style="display:grid;gap:10px;margin-bottom:14px;padding:12px;background:var(--orange-l);border:1px solid var(--orange-m);border-radius:var(--r-sm)">
+              <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">
+                <div>
+                  <label class="label">L lungime (mm) <span style="color:var(--red);font-size:10px">obligatoriu</span></label>
+                  <input class="input" type="number" id="me-L" placeholder="ex: 625"/>
+                </div>
+                <div>
+                  <label class="label">H înălțime (mm) <span style="color:var(--red);font-size:10px">obligatoriu</span></label>
+                  <input class="input" type="number" id="me-H" placeholder="ex: 240"/>
+                </div>
+                <div>
+                  <label class="label">Buc/Palet <span style="color:var(--red);font-size:10px">obligatoriu</span></label>
+                  <input class="input" type="number" id="me-pcsPerPal" placeholder="ex: 60"/>
+                </div>
+              </div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+                <div id="me-portant-row" style="display:none">
+                  <label class="label">Portant</label>
+                  <select class="input" id="me-portant"><option value="true">Da — portant</option><option value="false">Nu — neportant</option></select>
+                </div>
+              </div>
+              <div id="me-bca-calc" style="font-size:11px;color:var(--txt2);padding:6px;background:var(--surface);border-radius:4px"></div>
+            </div>
+          </div>
+
+          <div id="me-section-tvg" style="display:none">
+            <div style="font-size:11px;font-weight:700;color:var(--green);letter-spacing:1px;text-transform:uppercase;margin:0 0 10px;font-family:var(--mono)">Date specifice TVG</div>
+            <div style="display:grid;gap:10px;margin-bottom:14px;padding:12px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:var(--r-sm)">
+              <div id="me-tvg-cov-row">
+                <label class="label">Acoperire per grosime (JSON)</label>
+                <input class="input" id="me-tvg-cov" placeholder='{"50":5,"100":2.5,"150":1.67}'/>
+                <div style="font-size:10px;color:var(--txt3);margin-top:2px">Format: {"grosime_mm": m²/pachet}</div>
+              </div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+                <div id="me-tvg-rollM2-row">
+                  <label class="label">m²/rolă</label>
+                  <input class="input" type="number" step="0.1" id="me-tvg-rollM2" placeholder="ex: 50"/>
+                </div>
+                <div id="me-tvg-bpm-row">
+                  <label class="label">buc/m²</label>
+                  <input class="input" type="number" step="1" id="me-tvg-bpm" placeholder="ex: 6"/>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div id="me-calc-preview" style="padding:10px;background:var(--surface2);border-radius:var(--r-sm);font-size:12px;color:var(--txt2);display:none">
+          </div>
+
+        </div>
+
+        <div style="padding:14px 24px 20px;border-top:1px solid var(--border2);display:flex;gap:8px">
+          <button class="btn btn-primary" onclick="saveMatEditor()" style="flex:1">💾 Salvează</button>
+          <button class="btn btn-ghost" onclick="closeMatEditor()">Anulează</button>
+        </div>
+
+      </div>
+    </div>
+
     <!-- Password Modal -->
     <div id="pwd-modal-overlay" style="display:none;position:fixed;inset:0;background:rgba(28,43,74,0.55);z-index:9999;backdrop-filter:blur(4px);justify-content:center;align-items:center">
       <div style="background:var(--surface);border-radius:16px;padding:28px 32px;width:340px;max-width:90vw;box-shadow:0 20px 60px rgba(0,0,0,0.25)">
