@@ -5950,10 +5950,70 @@
         "gipscarton": [],
       };
 
+      // Frozen copy of defaults — used for merge during load
+      const _STAGE_MATS_DEFAULTS = {};
+      Object.keys(STAGE_MATS_DB).forEach(k => {
+        _STAGE_MATS_DEFAULTS[k] = STAGE_MATS_DB[k].map(m => ({...m, variants: (m.variants||[]).map(v => ({...v}))}));
+      });
+
       function loadStageMats() {
+        // Save defaults BEFORE loading saved data
+        const DEFAULTS = _STAGE_MATS_DEFAULTS;
         try {
           const s = localStorage.getItem(SMATS_KEY);
-          if (s) { const d = JSON.parse(s); Object.keys(d).forEach(k => { STAGE_MATS_DB[k] = d[k]; }); }
+          if (s) {
+            const d = JSON.parse(s);
+            Object.keys(d).forEach(k => {
+              if (!STAGE_MATS_DB[k]) { STAGE_MATS_DB[k] = d[k]; return; }
+              // Merge: for each saved material, update defaults
+              const saved = d[k] || [];
+              const defaults = DEFAULTS[k] || [];
+              // Start with defaults, overlay saved data
+              const merged = defaults.map(defMat => {
+                // Find matching saved material by name
+                const savedMat = saved.find(sm => sm.name === defMat.name);
+                if (savedMat) {
+                  // Merge: saved values win, but fill missing fields from default
+                  const result = {...defMat, ...savedMat};
+                  // Critical: if saved has consumM2=0 but default has value, use default
+                  if ((!savedMat.consumM2 || savedMat.consumM2 === 0) && defMat.consumM2 > 0) {
+                    result.consumM2 = defMat.consumM2;
+                    result.consumBaza = defMat.consumBaza || 'm2';
+                  }
+                  // Preserve subcat from defaults
+                  if (defMat.subcat) result.subcat = defMat.subcat;
+                  // Merge variants similarly
+                  if (defMat.variants?.length) {
+                    result.variants = defMat.variants.map(defV => {
+                      const savedV = (savedMat.variants||[]).find(sv => sv.name === defV.name);
+                      if (savedV) {
+                        const vr = {...defV, ...savedV};
+                        if ((!savedV.consumM2 || savedV.consumM2 === 0) && defV.consumM2 > 0) {
+                          vr.consumM2 = defV.consumM2;
+                          vr.consumBaza = defV.consumBaza || 'm2';
+                        }
+                        return vr;
+                      }
+                      return defV;
+                    });
+                    // Add saved variants not in defaults
+                    (savedMat.variants||[]).forEach(sv => {
+                      if (!result.variants.find(v => v.name === sv.name)) result.variants.push(sv);
+                    });
+                  } else {
+                    result.variants = savedMat.variants || [];
+                  }
+                  return result;
+                }
+                return defMat; // not in saved data, keep default
+              });
+              // Add saved materials not in defaults (user-added)
+              saved.forEach(sm => {
+                if (!merged.find(m => m.name === sm.name)) merged.push(sm);
+              });
+              STAGE_MATS_DB[k] = merged;
+            });
+          }
         } catch(e){}
         // Migrate: ensure all mats have new fields
         Object.values(STAGE_MATS_DB).forEach(arr => {
@@ -6092,9 +6152,33 @@
             if (data.products.GC_SYSTEMS) { Object.keys(data.products.GC_SYSTEMS).forEach(k => { if (GC_SYSTEMS[k]) { GC_SYSTEMS[k].label = data.products.GC_SYSTEMS[k].label; GC_SYSTEMS[k].items = data.products.GC_SYSTEMS[k].items; }}); }
             adminSaveProducts();
           }
-          // Restore stage materials
+          // Restore stage materials (save to localStorage then merge via loadStageMats)
           if (data.stageMats) {
-            Object.keys(data.stageMats).forEach(k => { STAGE_MATS_DB[k] = data.stageMats[k]; });
+            // Merge cloud data with defaults (same logic as loadStageMats)
+            Object.keys(data.stageMats).forEach(k => {
+              const saved = data.stageMats[k] || [];
+              const defaults = _STAGE_MATS_DEFAULTS[k] || [];
+              if (!defaults.length) { STAGE_MATS_DB[k] = saved; return; }
+              const merged = defaults.map(defMat => {
+                const sm = saved.find(s => s.name === defMat.name);
+                if (sm) {
+                  const r = {...defMat, ...sm};
+                  if ((!sm.consumM2 || sm.consumM2 === 0) && defMat.consumM2 > 0) { r.consumM2 = defMat.consumM2; r.consumBaza = defMat.consumBaza || 'm2'; }
+                  if (defMat.subcat) r.subcat = defMat.subcat;
+                  if (defMat.variants?.length) {
+                    r.variants = defMat.variants.map(dv => {
+                      const sv = (sm.variants||[]).find(v => v.name === dv.name);
+                      return sv ? {...dv, ...sv, consumM2: (sv.consumM2||0) > 0 ? sv.consumM2 : dv.consumM2, consumBaza: sv.consumBaza || dv.consumBaza} : dv;
+                    });
+                    (sm.variants||[]).forEach(sv => { if (!r.variants.find(v => v.name === sv.name)) r.variants.push(sv); });
+                  } else r.variants = sm.variants || [];
+                  return r;
+                }
+                return defMat;
+              });
+              saved.forEach(sm => { if (!merged.find(m => m.name === sm.name)) merged.push(sm); });
+              STAGE_MATS_DB[k] = merged;
+            });
             saveStageMats();
           }
           // Restore prices
