@@ -2540,14 +2540,51 @@
               id: "xpsGros",
               label: "Grosime XPS (cm)",
               def: 10,
-              min: 5,
+              min: 2,
               type: "select",
-              options: ["5", "10", "15", "20"],
+              options: ["2", "3", "5", "10"],
+              labels: ["2 cm (20MM)", "3 cm (30MM)", "5 cm (50MM)", "10 cm (100MM)"],
             },
           ],
           calcFn: (inp) => {
             const amp = inp.xpsAmp || 100;
-            return calcStageFromDB('xps-subsol', {m2: amp, ml: 0, m3: 0});
+            const gros = parseInt(inp.xpsGros || 10);
+            const db = STAGE_MATS_DB['xps-subsol'] || [];
+            const grosMM = gros * 10; // cm → mm
+            return db.map(m => {
+              const c = m.consumM2 || 0, baza = m.consumBaza || 'm2';
+              if (c <= 0) return null;
+              const nm = m.name.toLowerCase();
+              // For XPS products: match grosime
+              if (nm.includes('polistiren') || nm.includes('xps')) {
+                // Check main product name for thickness
+                const mmMatch = m.name.match(/(\d+)\s*MM/i);
+                const mainMM = mmMatch ? parseInt(mmMatch[1]) : 0;
+                if (mainMM === grosMM) {
+                  // Main product matches
+                  let qty = baza === 'm2' ? amp * c : c;
+                  qty = Math.ceil(qty);
+                  return qty > 0 ? {name: m.name, qty, um: m.um, formula: c+' m²/m² (gros '+gros+'cm)', pkg: m.uv||m.pkg||'—', link: m.link||'', ext: m.ext||false, variants: m.variants||[]} : null;
+                }
+                // Check variants for matching thickness
+                const matchV = (m.variants||[]).find(v => {
+                  const vMM = v.name.match(/(\d+)\s*MM/i);
+                  return vMM && parseInt(vMM[1]) === grosMM;
+                });
+                if (matchV) {
+                  const vc = matchV.consumM2 || c;
+                  let qty = Math.ceil(amp * vc);
+                  return qty > 0 ? {name: matchV.name, qty, um: m.um, formula: vc+' m²/m² (gros '+gros+'cm)', pkg: matchV.pkg||m.pkg||'—', link: matchV.link||m.link||'', ext: m.ext||false} : null;
+                }
+                // No match — show main product anyway with note
+                let qty = Math.ceil(amp * c);
+                return qty > 0 ? {name: m.name + ' (adaptați grosimea)', qty, um: m.um, formula: c+' m²/m²', pkg: m.uv||m.pkg||'—', link: m.link||'', ext: m.ext||false, variants: m.variants||[]} : null;
+              }
+              // Non-XPS materials (folie etc.) — normal calc
+              let qty = baza === 'm2' ? amp * c : baza === 'fix' ? c : 0;
+              qty = Math.ceil(qty);
+              return qty > 0 ? {name: m.name, qty, um: m.um, formula: c+' '+m.um+'/m²', pkg: m.uv||m.pkg||'—', link: m.link||'', ext: m.ext||false, variants: m.variants||[]} : null;
+            }).filter(Boolean);
           },
                     totalFn: (c) => calcStageFromDB('xps-subsol', {m2: c.amprenta, ml: 0, m3: 0}),
         },
@@ -4753,11 +4790,14 @@
             const uid = `${s.id}_${mi}`;
             if (m.variants && m.variants.length > 0) {
               const allV = [
-                { name: m.name, link: m.link || "", pkg: m.pkg || "" },
+                { name: m.name, link: m.link || "", pkg: m.pkg || "", sapKey: "", qty: m.qty, um: m.um || "" },
                 ...m.variants.map((v) => ({
                   name: v.name,
                   link: v.link || "",
                   pkg: v.pkg || m.pkg || "",
+                  sapKey: v.sapKey || "",
+                  qty: m.qty,
+                  um: v.um || m.um || "",
                 })),
               ];
               const dataAttr = JSON.stringify(allV)
@@ -4766,8 +4806,8 @@
               const opts = allV
                 .map((v, i) => `<option value="${i}">${v.name}</option>`)
                 .join("");
-              return `<tr>
-        ${sapTdHtml(m.name)}
+              return `<tr id="vr_${uid}">
+        <td class="mat-sap-cell" id="vs_${uid}_sap" style="font-size:10px;color:var(--blue);font-family:var(--mono)">${escHtml((()=>{const f=findMatBySapOrName(null,m.name);return f?.sapKey||'';})())}</td>
         <td>
           <select class="mat-var-sel" id="vs_${uid}" data-variants="${dataAttr}" onchange="onVarChange('vs_${uid}')">
             ${opts}
@@ -4779,12 +4819,13 @@
                   m.link || "#"
                 }" target="_blank">→ mathaus.ro</a>`
           }</div>
+          <div id="vs_${uid}_conv" style="font-size:10px;color:var(--txt3)">${(()=>{const c=matConvert(m.name,m.qty,m.um);return c.converted?c.convInfo:'';})()}</div>
         </td>
-        <td><div class="mat-qty-big">${fmtN(m.qty)}</div><div class="mat-um">${
-                m.um
+        <td><div class="mat-qty-big" id="vs_${uid}_qty">${fmtN((()=>{const c=matConvert(m.name,m.qty,m.um);return c.qty;})())}</div><div class="mat-um" id="vs_${uid}_um">${
+                (()=>{const c=matConvert(m.name,m.qty,m.um);return c.um;})()
               }</div></td>
         <td><span class="mat-pkg" id="vs_${uid}_pkg">${m.pkg}</span></td>
-        ${priceTdHtml(m.name, m.qty)}
+        ${priceTdHtml(m.name, (()=>{const c=matConvert(m.name,m.qty,m.um);return c.qty;})())}
       </tr>`;
             }
             const link =
@@ -5190,11 +5231,14 @@
           const uid = id + "_c" + mi;
           if (m.variants && m.variants.length > 0) {
             const allV = [
-              { name: m.name, link: m.link || "", pkg: m.pkg || "" },
+              { name: m.name, link: m.link || "", pkg: m.pkg || "", sapKey: "", qty: m.qty, um: m.um || "" },
               ...m.variants.map((v) => ({
                 name: v.name,
                 link: v.link || "",
                 pkg: v.pkg || m.pkg || "",
+                sapKey: v.sapKey || "",
+                qty: m.qty, // same base qty (recalc via matConvert)
+                um: v.um || m.um || "",
               })),
             ];
             const da = JSON.stringify(allV)
@@ -5203,8 +5247,8 @@
             const opts = allV
               .map((v, i) => `<option value="${i}">${v.name}</option>`)
               .join("");
-            return `<tr>
-            ${sapTdHtml(m.name)}
+            return `<tr id="vr_${uid}">
+            <td class="mat-sap-cell" id="vs_${uid}_sap" style="font-size:10px;color:var(--blue);font-family:var(--mono)">${escHtml((()=>{const f=findMatBySapOrName(null,m.name);return f?.sapKey||'';})())}</td>
             <td>
               <select class="mat-var-sel" id="vs_${uid}" data-variants="${da}" onchange="onVarChange('vs_${uid}')">
                 ${opts}
@@ -5216,9 +5260,10 @@
                       m.link || "#"
                     }" target="_blank">→ mathaus.ro</a>`
               }</div>
+              <div id="vs_${uid}_conv" style="font-size:10px;color:var(--txt3)">${(()=>{const c=matConvert(m.name,m.qty,m.um);return c.converted?c.convInfo:'';})()}</div>
             </td>
-            <td><div class="mat-qty-big">${fmtN((()=>{const c=matConvert(m.name,m.qty,m.um);return c.qty;})())}</div></td>
-            <td><div class="mat-um">${(()=>{const c=matConvert(m.name,m.qty,m.um);return c.um;})()}</div></td>
+            <td><div class="mat-qty-big" id="vs_${uid}_qty">${fmtN((()=>{const c=matConvert(m.name,m.qty,m.um);return c.qty;})())}</div></td>
+            <td><div class="mat-um" id="vs_${uid}_um">${(()=>{const c=matConvert(m.name,m.qty,m.um);return c.um;})()}</div></td>
             <td><span class="mat-pkg" id="vs_${uid}_pkg">${m.pkg}</span></td>
             <td><div class="mat-formula">${m.formula || ""}</div></td>
             ${priceTdHtml(m.name, (()=>{const c=matConvert(m.name,m.qty,m.um);return c.qty;})())}
@@ -5253,24 +5298,58 @@
         if (!sel) return;
         try {
           const variants = JSON.parse(
-            sel
-              .getAttribute("data-variants")
-              .replace(/&quot;/g, '"')
-              .replace(/&#39;/g, "'")
+            sel.getAttribute("data-variants").replace(/&quot;/g, '"').replace(/&#39;/g, "'")
           );
           const chosen = variants[parseInt(sel.value) || 0] || {};
+          const baseQty = chosen.qty || 0;
+          const baseUM = chosen.um || '';
+
+          // Recalculate using matConvert with the variant's name
+          const conv = matConvert(chosen.name, baseQty, baseUM);
+
+          // Update link
           const linkEl = document.getElementById(selId + "_lnk");
+          if (linkEl && chosen.link) { linkEl.href = chosen.link; linkEl.style.display = ''; }
+
+          // Update SAP
+          const sapEl = document.getElementById(selId + "_sap");
+          if (sapEl) {
+            const mat = findMatBySapOrName(null, chosen.name);
+            sapEl.textContent = mat?.sapKey || chosen.sapKey || '';
+          }
+
+          // Update quantity
+          const qtyEl = document.getElementById(selId + "_qty");
+          if (qtyEl) qtyEl.textContent = fmtN(conv.qty);
+
+          // Update UM
+          const umEl = document.getElementById(selId + "_um");
+          if (umEl) umEl.textContent = conv.um;
+
+          // Update package
           const pkgEl = document.getElementById(selId + "_pkg");
-          if (linkEl) {
-            if (chosen.link) {
-              linkEl.href = chosen.link;
-              linkEl.style.display = chosen.link ? "" : "none";
+          if (pkgEl) pkgEl.textContent = chosen.pkg || conv.pkg || '';
+
+          // Update conversion info
+          const convEl = document.getElementById(selId + "_conv");
+          if (convEl) convEl.textContent = conv.converted ? conv.convInfo : '';
+
+          // Update price cells if visible
+          if (appSettings.showPrices) {
+            const row = document.getElementById("vr_" + selId.replace("vs_", ""));
+            if (row) {
+              const priceCells = row.querySelectorAll('.mat-pret');
+              const pret = getPret(chosen.name);
+              if (priceCells.length >= 2 && pret > 0) {
+                priceCells[0].textContent = fmtN(pret) + ' lei';
+                priceCells[1].textContent = fmtN(pret * conv.qty) + ' lei';
+              } else if (priceCells.length >= 2) {
+                priceCells[0].textContent = '—';
+                priceCells[1].textContent = '—';
+              }
             }
           }
-          if (pkgEl && chosen.pkg !== undefined) {
-            pkgEl.textContent = chosen.pkg;
-          }
-        } catch (e) {}
+        } catch (e) { console.error('onVarChange error:', e); }
       }
 
       function printCalc(id) {
@@ -7672,6 +7751,7 @@
 
       function openMatEditor(mode, sid, idx, vidx, catalogType, catalogSub) {
         _meContext = {mode, sid, idx, vidx, catalogType, catalogSub};
+        _editorStageId = sid || null; // for compatibility warning
         const overlay = $('mat-edit-overlay');
         if (!overlay) return;
 
@@ -7923,6 +8003,26 @@
         toast('✅ "' + data.name.substring(0,25) + '" salvat.');
       }
 
+      // Stage → available input bases for calculator
+      const STAGE_INPUTS = {
+        'trasare': ['ml','fix'],
+        'fundatii': ['m2','ml','m3','fix'],
+        'xps-subsol': ['m2','fix'],
+        'planseu': ['m2','m3','fix'],
+        'acoperis': ['m2','ml','fix'],
+        'zidarie': ['m2','fix'],
+        'termosistem': ['m2','fix'],
+        'gipscarton': ['m2','fix'],
+        'hidro-int': ['m2','fix'],
+        'sapa': ['m2','ml','m3','fix'],
+        'tencuieli': ['m2','fix'],
+        'gresie': ['m2','fix'],
+        'parchet': ['m2','ml','fix'],
+        'vopsitorii': ['m2','fix'],
+        'receptie': ['m2','fix'],
+      };
+      let _editorStageId = null; // track which stage material editor is editing
+
       function updateConsumHint() {
         const baza = $('me-consumBaza')?.value || 'm2';
         const hint = $('me-consum-hint');
@@ -7935,6 +8035,20 @@
           'fix': '= cantitate fixă (nu depinde de suprafață/perimetru)',
         };
         hint.textContent = labels[baza] || labels['m2'];
+
+        // Check compatibility with stage
+        const warn = $('me-baza-warn');
+        if (warn && _editorStageId) {
+          const available = STAGE_INPUTS[_editorStageId] || ['m2','ml','m3','fix'];
+          if (!available.includes(baza)) {
+            const bazaNames = {'m2':'m² (suprafață)','ml':'ml (perimetru)','m3':'m³ (volum)','fix':'fix'};
+            const availNames = available.filter(a=>a!=='fix').map(a=>bazaNames[a]).join(', ');
+            warn.innerHTML = '⚠ <strong>Atenție:</strong> Calculatorul etapei „' + (_editorStageId) + '" folosește doar: <strong>' + availNames + '</strong>. Materialul cu bază „' + bazaNames[baza] + '" nu va apărea în rezultate!';
+            warn.style.display = 'block';
+          } else {
+            warn.style.display = 'none';
+          }
+        }
       }
 
       function updateMatEditorPreview() {
@@ -10682,6 +10796,7 @@
                   <option value="m3">per m³ (volum)</option>
                   <option value="fix">cantitate fixă</option>
                 </select>
+                <div id="me-baza-warn" style="display:none;font-size:10px;color:var(--red);margin-top:4px;padding:4px 8px;background:#fef2f2;border-radius:4px;border:1px solid #fecaca">⚠ Atenție: calculatorul acestei etape nu trimite această unitate. Materialul nu va apărea în rezultate!</div>
               </div>
             </div>
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
