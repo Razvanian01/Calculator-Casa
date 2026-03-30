@@ -6532,8 +6532,8 @@
             if (!m.uvUM) m.uvUM = '';
             if (!m.factorConv) m.factorConv = 0;
             if (!m.pretUV) m.pretUV = 0;
-            if (m.consumM2 === undefined) m.consumM2 = 0;
-            m.variants.forEach(v => { if (!v.uv && v.pkg) v.uv = v.pkg; if (!v.uv) v.uv = ''; if (!v.sapKey) v.sapKey = ''; if (v.pretUM === undefined) v.pretUM = 0; if (!v.uvUM) v.uvUM = ''; if (!v.factorConv) v.factorConv = 0; if (!v.pretUV) v.pretUV = 0; if (!v.um) v.um = m.um || ''; if (!v.link) v.link = ''; if (v.ext === undefined) v.ext = false; if (!v.formula) v.formula = ''; if (v.consumM2 === undefined) v.consumM2 = 0; });
+            if (m.consumM2 === undefined) m.consumM2 = 0; if (!m.consumBaza) m.consumBaza = 'm2';
+            m.variants.forEach(v => { if (!v.uv && v.pkg) v.uv = v.pkg; if (!v.uv) v.uv = ''; if (!v.sapKey) v.sapKey = ''; if (v.pretUM === undefined) v.pretUM = 0; if (!v.uvUM) v.uvUM = ''; if (!v.factorConv) v.factorConv = 0; if (!v.pretUV) v.pretUV = 0; if (!v.um) v.um = m.um || ''; if (!v.link) v.link = ''; if (v.ext === undefined) v.ext = false; if (!v.formula) v.formula = ''; if (v.consumM2 === undefined) v.consumM2 = 0; if (!v.consumBaza) v.consumBaza = 'm2'; });
           });
         });
       }
@@ -6590,6 +6590,7 @@
             if (dbMat.factorConv) m.factorConv = dbMat.factorConv;
             if (dbMat.pretUV) m.pretUV = dbMat.pretUV;
             if (dbMat.consumM2) m.consumM2 = dbMat.consumM2;
+            if (dbMat.consumBaza) m.consumBaza = dbMat.consumBaza;
           }
         });
         // Add extra materials from DB (marked _extra)
@@ -8077,7 +8078,7 @@
         <span style="font-size:10px;font-weight:700;color:var(--blue);font-family:var(--mono);background:#fff;padding:2px 8px;border-radius:99px">V${vi+1}</span>
         <strong style="font-size:12px;color:var(--navy);overflow:hidden;text-overflow:ellipsis">${escHtml(v.name||'Varianta nouă')}</strong>
         ${v.sapKey?`<span style="font-size:9px;color:var(--blue);font-family:var(--mono)">SAP:${escHtml(v.sapKey)}</span>`:''}
-        ${v.consumM2 > 0 ? `<span style="font-size:9px;color:#D97706;font-family:var(--mono);background:var(--amber-l);padding:1px 5px;border-radius:99px">${v.consumM2} ${v.um||m.um||''}/m²</span>` : ''}
+        ${v.consumM2 > 0 ? `<span style="font-size:9px;color:#D97706;font-family:var(--mono);background:var(--amber-l);padding:1px 5px;border-radius:99px">${v.consumM2} ${v.um||m.um||''}/${v.consumBaza==='ml'?'ml':v.consumBaza==='m3'?'m³':v.consumBaza==='fix'?'fix':'m²'}</span>` : ''}
         ${v.pretUV > 0 && v.uvUM ? '<span style="font-size:9px;font-weight:600;color:var(--green);font-family:var(--mono);background:var(--green-l);padding:1px 6px;border-radius:99px">' + v.pretUV.toFixed(2) + ' lei/' + v.uvUM + '</span>' : ''}
         ${v.uv||v.pkg ? `<span style="font-size:9px;color:var(--txt3)">📦 ${escHtml(v.uv||v.pkg)}</span>` : ''}
       </div>
@@ -8097,7 +8098,7 @@
       <div class="flex-c gap-8" style="flex-wrap:wrap"><span class="sm-mat-num">${i+1}</span><strong style="font-size:13px">${escHtml(m.name)}</strong>
         ${m.ext?'<span style="font-size:10px;color:var(--amber);font-weight:600">⚠ EXTERN</span>':''}
         ${m.sapKey?`<span style="font-size:9px;color:var(--blue);font-family:var(--mono)">SAP:${escHtml(m.sapKey)}</span>`:''}
-        ${m.consumM2 > 0 ? `<span style="font-size:9px;color:#D97706;font-family:var(--mono);background:var(--amber-l);padding:2px 6px;border-radius:99px;border:1px solid #fde68a">${m.consumM2} ${m.um||''}/m²</span>` : '<span style="font-size:9px;color:var(--red);font-style:italic">⚠ fără consum</span>'}
+        ${m.consumM2 > 0 ? `<span style="font-size:9px;color:#D97706;font-family:var(--mono);background:var(--amber-l);padding:2px 6px;border-radius:99px;border:1px solid #fde68a">${m.consumM2} ${m.um||''}/${m.consumBaza==='ml'?'ml':m.consumBaza==='m3'?'m³':m.consumBaza==='fix'?'fix':'m²'}</span>` : '<span style="font-size:9px;color:var(--red);font-style:italic">⚠ fără consum</span>'}
         ${m.uvUM && m.factorConv > 0 ? `<span style="font-size:9px;color:var(--blue);font-family:var(--mono);background:var(--blue-l);padding:2px 6px;border-radius:99px;border:1px solid #bfdbfe">1 ${m.uvUM} = ${m.factorConv} ${m.um}</span>` : ''}
         ${m.pretUV > 0 && m.uvUM ? `<span style="font-size:10px;font-weight:600;color:var(--green);font-family:var(--mono);background:var(--green-l);padding:2px 8px;border-radius:99px;border:1px solid #bbf7d0">${m.pretUV.toFixed(2)} lei/${m.uvUM}</span>` : m.pretUM > 0 ? `<span style="font-size:10px;font-weight:600;color:var(--green);font-family:var(--mono);background:var(--green-l);padding:2px 8px;border-radius:99px;border:1px solid #bbf7d0">${m.pretUM.toFixed(2)} lei/${m.um||'u'}</span>` : '<span style="font-size:9px;color:var(--txt3)">fără preț</span>'}
         ${vars.length?`<span class="tag tag-blue" style="font-size:9px">${vars.length} var.</span>`:''}
@@ -8197,7 +8198,7 @@
           subEl.textContent = 'Variantă de: ' + parentName;
         } else if (mode === 'variant') {
           const parent = STAGE_MATS_DB[sid]?.[idx] || {};
-          m = {name:'', um:parent.um||'buc', consumM2:parent.consumM2||0, uvUM:parent.uvUM||'', factorConv:parent.factorConv||0, formula:parent.formula||''};
+          m = {name:'', um:parent.um||'buc', consumM2:parent.consumM2||0, consumBaza:parent.consumBaza||'m2', uvUM:parent.uvUM||'', factorConv:parent.factorConv||0, formula:parent.formula||''};
         }
 
         // Fill common fields
@@ -8207,6 +8208,8 @@
         $('me-link').value = m.link || '';
         $('me-um').value = m.um || (ct==='bca'?'m³':ct==='car'?'buc':'kg');
         $('me-consumM2').value = m.consumM2 || '';
+        $('me-consumBaza').value = m.consumBaza || 'm2';
+        updateConsumHint();
         $('me-formula').value = m.formula || '';
         $('me-uvUM').value = m.uvUM || '';
         $('me-factorConv').value = m.factorConv || '';
@@ -8311,6 +8314,7 @@
           link: $('me-link').value.trim(),
           um: $('me-um').value,
           consumM2: parseFloat($('me-consumM2').value) || 0,
+          consumBaza: $('me-consumBaza').value || 'm2',
           formula: $('me-formula').value.trim(),
           uvUM: $('me-uvUM').value,
           factorConv: parseFloat($('me-factorConv').value) || 0,
@@ -8400,20 +8404,39 @@
         toast('✅ "' + data.name.substring(0,25) + '" salvat.');
       }
 
+      function updateConsumHint() {
+        const baza = $('me-consumBaza')?.value || 'm2';
+        const hint = $('me-consum-hint');
+        const um = $('me-um')?.value || 'buc';
+        if (!hint) return;
+        const labels = {
+          'm2': '= câte ' + um + ' se consumă per m² suprafață',
+          'ml': '= câte ' + um + ' se consumă per ml (perimetru)',
+          'm3': '= câte ' + um + ' se consumă per m³ volum',
+          'fix': '= cantitate fixă (nu depinde de suprafață/perimetru)',
+        };
+        hint.textContent = labels[baza] || labels['m2'];
+      }
+
       function updateMatEditorPreview() {
         const el = $('me-calc-preview');
         if (!el) return;
-        const consumM2 = parseFloat($('me-consumM2')?.value) || 0;
+        const consumVal = parseFloat($('me-consumM2')?.value) || 0;
         const um = $('me-um')?.value || 'kg';
+        const baza = $('me-consumBaza')?.value || 'm2';
         const factorConv = parseFloat($('me-factorConv')?.value) || 0;
         const uvUM = $('me-uvUM')?.value || '';
         const pretUV = parseFloat($('me-pretUV')?.value) || 0;
 
-        if (consumM2 > 0) {
-          const supEx = 50;
-          const totalUM = supEx * consumM2;
-          let preview = `<strong>Exemplu calcul pentru ${supEx} m²:</strong><br>`;
-          preview += `① ${supEx} m² × ${consumM2} ${um}/m² = <strong>${fmtN(totalUM)} ${um}</strong> necesari<br>`;
+        if (consumVal > 0) {
+          const bazaLabels = {'m2':'m²', 'ml':'ml', 'm3':'m³', 'fix':'fix'};
+          const bazaEx = {'m2':50, 'ml':40, 'm3':10, 'fix':1};
+          const supEx = bazaEx[baza] || 50;
+          const bazaUnit = bazaLabels[baza] || 'm²';
+          const totalUM = baza === 'fix' ? consumVal : supEx * consumVal;
+          let preview = baza === 'fix'
+            ? `<strong>Cantitate fixă:</strong><br>① <strong>${fmtN(totalUM)} ${um}</strong> (fix, nu depinde de suprafață)<br>`
+            : `<strong>Exemplu calcul pentru ${supEx} ${bazaUnit}:</strong><br>① ${supEx} ${bazaUnit} × ${consumVal} ${um}/${bazaUnit} = <strong>${fmtN(totalUM)} ${um}</strong> necesari<br>`;
           if (uvUM && factorConv > 0) {
             const totalUV = Math.ceil(totalUM / factorConv);
             preview += `② ${fmtN(totalUM)} ${um} ÷ ${factorConv} ${um}/${uvUM} = <strong>${totalUV} ${uvUM}</strong><br>`;
@@ -8444,15 +8467,18 @@
 
       // Live preview on field changes
       document.addEventListener('input', (e) => {
-        if (['me-consumM2','me-um','me-factorConv','me-uvUM','me-pretUV','me-L','me-H','me-pcsPerPal'].includes(e.target?.id)) {
+        if (['me-consumM2','me-consumBaza','me-um','me-factorConv','me-uvUM','me-pretUV','me-L','me-H','me-pcsPerPal'].includes(e.target?.id)) {
           updateMatEditorPreview();
           if (['me-L','me-H','me-pcsPerPal'].includes(e.target?.id)) updateBCACalcPreview();
         }
         // Auto-fill formula text
-        if (e.target?.id === 'me-consumM2') {
-          const v = parseFloat(e.target.value) || 0;
+        if (e.target?.id === 'me-consumM2' || e.target?.id === 'me-consumBaza') {
+          const v = parseFloat($('me-consumM2')?.value) || 0;
           const um = $('me-um')?.value || '';
-          if (v > 0 && $('me-formula')) $('me-formula').value = v + ' ' + um + '/m²';
+          const baza = $('me-consumBaza')?.value || 'm2';
+          const bazaLabels = {'m2':'/m²', 'ml':'/ml', 'm3':'/m³', 'fix':' (fix)'};
+          if (v > 0 && $('me-formula')) $('me-formula').value = v + ' ' + um + (bazaLabels[baza] || '/m²');
+          updateConsumHint();
         }
         // BCA dimensions live calc
         if (['me-L','me-H','me-pcsPerPal'].includes(e.target?.id)) updateBcaCalcPreview();
@@ -8516,7 +8542,7 @@
         STAGE_MATS_DB[sid].push({
           name:"Material nou", um:"buc", uv:"—", pkg:"—", link:"https://mathaus.ro",
           formula:"", pretUM:0, sapKey:"", variants:[], ext:false,
-          uvUM:"", factorConv:0, pretUV:0, consumM2:0
+          uvUM:"", factorConv:0, pretUV:0, consumM2:0, consumBaza:"m2"
         });
         saveStageMats();
         renderAdminStageMats();
@@ -8551,6 +8577,7 @@
           factorConv: m.factorConv || 0,
           pretUV: 0,
           consumM2: m.consumM2 || 0,
+          consumBaza: m.consumBaza || "m2",
         });
         saveStageMats();
         renderAdminStageMats();
@@ -11108,7 +11135,18 @@
                 </select>
               </div>
               <div>
-                <label class="label">Consum/m² <span style="color:var(--red);font-size:10px;font-weight:600">obligatoriu</span></label>
+                <label class="label">Bază calcul <span style="color:var(--red);font-size:10px;font-weight:600">obligatoriu</span></label>
+                <select class="input" id="me-consumBaza" style="font-size:13px" onchange="updateConsumHint()">
+                  <option value="m2">per m² (suprafață)</option>
+                  <option value="ml">per ml (perimetru/lungime)</option>
+                  <option value="m3">per m³ (volum)</option>
+                  <option value="fix">cantitate fixă</option>
+                </select>
+              </div>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+              <div>
+                <label class="label">Consum/unitate <span style="color:var(--red);font-size:10px;font-weight:600">obligatoriu</span></label>
                 <input class="input" type="number" step="0.01" id="me-consumM2" placeholder="ex: 4" style="font-size:14px;font-weight:600"/>
                 <div style="font-size:10px;color:var(--txt3);margin-top:3px" id="me-consum-hint">= câte UM se consumă per m² suprafață</div>
               </div>
