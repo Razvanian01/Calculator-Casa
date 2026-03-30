@@ -2341,32 +2341,7 @@
             const p = inp.perimetruTrasare || 40;
             return calcStageFromDB('trasare', {m2: 0, ml: p, m3: 0});
           },
-          totalFn: (c) => [
-            {
-              name: "Țăruși lemn trasare",
-              qty: C(c.perimetru / 2),
-              um: "buc",
-              formula: `${C(c.perimetru / 2)} buc`,
-              pkg: "—",
-              link: "https://mathaus.ro/search?text=tarusi+trasare",
-            },
-            {
-              name: "Sfoară trasare",
-              qty: C((c.perimetru * 2) / 50),
-              um: "role",
-              formula: "",
-              pkg: "rolă 50m",
-              link: "https://mathaus.ro/search?text=sfoara+trasare",
-            },
-            {
-              name: "Spray marcaj",
-              qty: 2,
-              um: "tuburi",
-              formula: "2 tuburi",
-              pkg: "tub",
-              link: "https://mathaus.ro/search?text=spray+marcaj",
-            },
-          ],
+                    totalFn: (c) => calcStageFromDB('trasare', {m2: 0, ml: c.perimetru, m3: 0}),
         },
         {
           id: "fundatii",
@@ -2457,87 +2432,52 @@
               ad = inp.fAdancime || 0.9;
             const volFunda = p * lat * ad;
             const volPlaca = amp * 0.12;
-            const volTotal = volFunda + volPlaca;
-            return calcStageFromDB('fundatii', {m2: amp, ml: p, m3: volTotal});
+            // Custom: each material uses the right volume
+            const db = STAGE_MATS_DB['fundatii'] || [];
+            return db.map(m => {
+              const c = m.consumM2 || 0;
+              const baza = m.consumBaza || 'm2';
+              if (c <= 0) return null;
+              let qty = 0;
+              const nm = m.name.toLowerCase();
+              if (baza === 'm3' || nm.includes('beton') || nm.includes('oțel beton')) {
+                // Determine which volume to use
+                if (nm.includes('placă') || nm.includes('placa')) qty = volPlaca * c;
+                else if (nm.includes('oțel') || nm.includes('otel')) qty = volFunda * 110; // kg/m³ fixed
+                else qty = volFunda * c; // beton fundații
+              } else if (baza === 'ml') qty = p * c;
+              else if (baza === 'm2') qty = amp * c;
+              else if (baza === 'fix') qty = c;
+              if (m.um === 'm³' || m.um === 'l') qty = +qty.toFixed(2);
+              else qty = Math.ceil(qty);
+              if (qty <= 0) return null;
+              return {
+                name: m.name, qty, um: m.um,
+                formula: nm.includes('oțel') ? '110 kg/m³ × '+volFunda.toFixed(1)+'m³' : nm.includes('beton') ? (nm.includes('placă')?amp+'m² × 0.12m':p+'ml × '+lat+'m × '+ad+'m') : c+' '+m.um+'/'+(baza==='ml'?'ml':'m²'),
+                pkg: m.uv || m.pkg || '—', link: m.link || '',
+                ext: m.ext || false, variants: m.variants || [],
+              };
+            }).filter(x => x !== null);
           },
-          totalFn: (c) => {
-            const volF = c.volumFunda,
-              volP = c.volumPlacaSol;
-            return [
-              {
-                name: "Beton C20/25 fundații",
-                qty: fmt(volF),
-                um: "m³",
-                formula: "",
-                pkg: "— extern",
-                link: "",
-                ext: true,
-              },
-              {
-                name: "Oțel beton PC52",
-                qty: C(volF * 110),
-                um: "kg",
-                formula: "110 kg/m³",
-                pkg: "— extern",
-                link: "",
-                ext: true,
-              },
-              {
-                name: "Amorsa bituminoasa Eco Primer, 20 l",
-                qty: C((c.perimetru * 2.8 * 0.35) / 22),
-                um: "găleți",
-                formula: "",
-                pkg: "găleată 20L (22kg)",
-                link: "https://mathaus.ro/p/amorsa-bituminoasa-de-baza-de-solventi-eco-primer-20-l/000000000010909445",
-              },
-              {
-                name: "Membrana fundatie Black Star 350, 2.5x20m",
-                qty: C((c.perimetru * 2.8) / 50),
-                um: "role",
-                formula: "",
-                pkg: "rolă 2.5×20m (50m²)",
-                link: "https://mathaus.ro/p/membrana-fundatie-black-star-350-polietilena-25-x-20-m/000000000010927495",
-                variants: [
-                  {
-                    name: "Membrana fundatie Black Star 350, 2x20m",
-                    link: "https://mathaus.ro/p/membrana-fundatie-black-star-350-polietilena-2-x-20-m/000000000010927190",
-                    pkg: "rolă 2×20m (40m²)",
-                    price: 217 / 40,
-                  },
-                ],
-              },
-              {
-                name: "Plasă sudată fir 4mm, 2000×6000mm",
-                qty: C((c.amprenta * 1.05) / 12),
-                um: "buc",
-                formula: "",
-                pkg: "panou 12m²",
-                link: "https://mathaus.ro/p/plasa-sudata-otel-fir-4-mm-dimensiune-ochi-100x100-mm-2000x6000-mm/000000000010400673",
-                variants: [
-                  {
-                    name: "Plasă sudată fir 5mm, 2000×6000mm",
-                    link: "https://mathaus.ro/p/plasa-sudata-otel-fir-5-mm-dimensiuni-ochi-100x100-mm-2000x6000-mm/000000000010400679",
-                    pkg: "panou 12m²",
-                    price: 196 / 12,
-                  },
-                  {
-                    name: "Plasă sudată fir 6mm, 2000×6000mm",
-                    link: "https://mathaus.ro/p/plasa-sudata-otel-fir-6-mm-dimensiune-ochi-100x100-mm-2000x6000-mm/000000000010400684",
-                    pkg: "panou 12m²",
-                    price: 282 / 12,
-                  },
-                ],
-              },
-              {
-                name: "Beton placă sol",
-                qty: fmt(volP),
-                um: "m³",
-                formula: "",
-                pkg: "— extern",
-                link: "",
-                ext: true,
-              },
-            ];
+                    totalFn: (c) => {
+            const db = STAGE_MATS_DB['fundatii'] || [];
+            const volF = c.perimetru * 0.4 * 0.9;
+            const volP = c.amprenta * 0.12;
+            return db.map(m => {
+              const cv = m.consumM2 || 0, baza = m.consumBaza || 'm2';
+              if (cv <= 0) return null;
+              const nm = m.name.toLowerCase();
+              let qty = 0;
+              if (nm.includes('beton') || nm.includes('oțel')) {
+                if (nm.includes('placă')||nm.includes('placa')) qty = volP * cv;
+                else if (nm.includes('oțel')||nm.includes('otel')) qty = volF * 110;
+                else qty = volF * cv;
+              } else if (baza==='ml') qty = c.perimetru * cv;
+              else if (baza==='m2') qty = c.amprenta * cv;
+              else if (baza==='fix') qty = cv;
+              qty = (m.um==='m³'||m.um==='l') ? +qty.toFixed(2) : Math.ceil(qty);
+              return qty > 0 ? {name:m.name, qty, um:m.um, formula:'', pkg:m.uv||m.pkg||'—', link:m.link||'', ext:m.ext||false, variants:m.variants||[]} : null;
+            }).filter(Boolean);
           },
         },
         {
@@ -2609,44 +2549,7 @@
             const amp = inp.xpsAmp || 100;
             return calcStageFromDB('xps-subsol', {m2: amp, ml: 0, m3: 0});
           },
-          totalFn: (c) => [
-            {
-              name: "Polistiren extrudat Briotherm XPS 100MM",
-              qty: C(c.amprenta * 1.05),
-              um: "m²",
-              formula: "",
-              pkg: "2.9m²/bax",
-              link: "https://mathaus.ro/p/polistiren-extrudat-gias-xps300-100-x-1250-x-580-mm/000000000010605006",
-              variants: [
-                {
-                  name: "Polistiren extrudat Briotherm XPS 50MM",
-                  link: "https://mathaus.ro/p/polistiren-extrudat-gias-xps-50-mm-1250-x-580-mm/000000000010603377",
-                  pkg: "5.8m²/bax",
-                  price: 156 / 5.8,
-                },
-                {
-                  name: "Polistiren extrudat Briotherm XPS 30MM",
-                  link: "https://mathaus.ro/p/polistiren-extrudat-gias-xps-30mm-1250-x-580-mm/000000000010603376",
-                  pkg: "10.15m²/bax",
-                  price: 160 / 10.15,
-                },
-                {
-                  name: "Polistiren extrudat Briotherm XPS 20MM",
-                  link: "https://mathaus.ro/p/polistiren-extrudat-briotherm-xps-2-x-58-x-125-cm/000000000010603375",
-                  pkg: "14.5m²/bax",
-                  price: 155 / 14.5,
-                },
-              ],
-            },
-            {
-              name: "Folie polietilena 0.15mm x 4000",
-              qty: C(c.amprenta * 1.15),
-              um: "m²",
-              formula: "",
-              pkg: "rolă 100m²",
-              link: "https://mathaus.ro/p/folie-polietilena-tata-mosu-ldpe-reciclat-bej-grosime-015-mm-latime-4-m/000000000010929725",
-            },
-          ],
+                    totalFn: (c) => calcStageFromDB('xps-subsol', {m2: c.amprenta, ml: 0, m3: 0}),
         },
         {
           id: "zidarie",
@@ -2979,49 +2882,11 @@
           ],
           calcFn: (inp) => {
             const amp = inp.plAmp || 100;
-            return calcStageFromDB('planseu', {m2: amp, ml: 0, m3: 0});
+            const gros = parseInt(inp.plGros || 12);
+            const vol = amp * (gros / 100);
+            return calcStageFromDB('planseu', {m2: amp, ml: 0, m3: vol});
           },
-          totalFn: (c) => [
-            {
-              name: "Plasă sudată fir 4mm, 2000×6000mm",
-              qty: C((c.amprenta * 1.1) / 12),
-              um: "buc",
-              formula: "",
-              pkg: "panou 12m²",
-              link: "https://mathaus.ro/p/plasa-sudata-otel-fir-4-mm-dimensiune-ochi-100x100-mm-2000x6000-mm/000000000010400673",
-              variants: [
-                {
-                  name: "Plasă sudată fir 5mm, 2000×6000mm",
-                  link: "https://mathaus.ro/p/plasa-sudata-otel-fir-5-mm-dimensiuni-ochi-100x100-mm-2000x6000-mm/000000000010400679",
-                  pkg: "panou 12m²",
-                  price: 196 / 12,
-                },
-                {
-                  name: "Plasă sudată fir 6mm, 2000×6000mm",
-                  link: "https://mathaus.ro/p/plasa-sudata-otel-fir-6-mm-dimensiune-ochi-100x100-mm-2000x6000-mm/000000000010400684",
-                  pkg: "panou 12m²",
-                  price: 282 / 12,
-                },
-              ],
-            },
-            {
-              name: "Distantieri Plasa Sudata",
-              qty: C((c.amprenta * 6) / 100),
-              um: "cutii",
-              formula: "",
-              pkg: "cutie 100 buc",
-              link: "https://mathaus.ro/p/distantieri-plasa-sudata-inaltime-15-20mm-100-buc/000000000010401002",
-            },
-            {
-              name: "Beton C25/30 placă etaj",
-              qty: fmt(c.volumPlacaEtaj),
-              um: "m³",
-              formula: "",
-              pkg: "— extern",
-              link: "",
-              ext: true,
-            },
-          ],
+                    totalFn: (c) => calcStageFromDB('planseu', {m2: c.amprenta, ml: 0, m3: c.amprenta * 0.12}),
         },
         {
           id: "acoperis",
@@ -3115,14 +2980,51 @@
           ],
           calcFn: (inp) => {
             const s = inp.acSup || 120, p = inp.acPer || 40;
-            return calcStageFromDB('acoperis', {m2: s, ml: p, m3: 0});
+            const tip = inp.acTip || 'tigla-ceramica';
+            const isTerrasa = tip === 'terasa';
+            const isSarpanta = !isTerrasa;
+            // Filter materials by subcat
+            const db = STAGE_MATS_DB['acoperis'] || [];
+            const filtered = db.filter(m => {
+              const sc = m.subcat || '';
+              if (sc === 'comun') return true; // jgheaburi, burlane
+              if (sc === 'sarpanta') return isSarpanta; // folie, contrașipci, tratament
+              if (sc === tip) return true; // exact match
+              return false;
+            });
+            return filtered.map(m => {
+              const c = m.consumM2 || 0;
+              const baza = m.consumBaza || 'm2';
+              if (c <= 0) return null;
+              let qty = 0;
+              if (baza === 'm2') qty = s * c;
+              else if (baza === 'ml') qty = p * c;
+              else if (baza === 'fix') qty = c;
+              if (m.um === 'm³' || m.um === 'l') qty = +qty.toFixed(2);
+              else qty = Math.ceil(qty);
+              if (qty <= 0) return null;
+              return {
+                name: m.name, qty, um: m.um,
+                formula: c + ' ' + m.um + '/' + (baza === 'fix' ? 'fix' : baza === 'ml' ? 'ml' : 'm²'),
+                pkg: m.uv || m.pkg || '—', link: m.link || '',
+                ext: m.ext || false, variants: m.variants || [],
+              };
+            }).filter(x => x !== null);
           },
-          totalFn: (c) => {
-            return calcAcoperisItems(
-              c.suprafataAcoperis,
-              c.perimetru,
-              c.acoperis
-            );
+                    totalFn: (c) => {
+            const tip = c.acoperis || 'tigla-ceramica';
+            const isTerrasa = tip === 'terasa';
+            const db = STAGE_MATS_DB['acoperis'] || [];
+            return db.filter(m => {
+              const sc = m.subcat || '';
+              return sc === 'comun' || (sc === 'sarpanta' && !isTerrasa) || sc === tip;
+            }).map(m => {
+              const cv = m.consumM2 || 0, baza = m.consumBaza || 'm2';
+              if (cv <= 0) return null;
+              let qty = baza === 'm2' ? c.suprafataAcoperis * cv : baza === 'ml' ? c.perimetru * cv : cv;
+              qty = (m.um === 'm³' || m.um === 'l') ? +qty.toFixed(2) : Math.ceil(qty);
+              return qty > 0 ? {name:m.name, qty, um:m.um, formula:'', pkg:m.uv||m.pkg||'—', link:m.link||'', ext:m.ext||false} : null;
+            }).filter(Boolean);
           },
         },
         {
@@ -3847,40 +3749,7 @@
               },
             ];
           },
-          totalFn: (c) => [
-            {
-              name: "Membrana hidroizolantă flexibilă bicomponentă",
-              qty: C((c.suprafataHidroInt * 3.3) / 12.5),
-              um: "găleți",
-              formula: "",
-              pkg: "găleată 12.5kg",
-              link: "https://mathaus.ro/p/hidroizolatie-bicomponenta-ceresit-cl-50-flexibila-pensulabila-gri-deschis-125-kg/000000000010701172",
-            },
-            {
-              name: "Bandă etanșare colțuri (per baie)",
-              qty: C((c.bai * 8) / 50) + 1,
-              um: "buc",
-              formula: "",
-              pkg: "rolă 50ml",
-              link: "https://mathaus.ro/p/banda-de-etansare-ceresit-cl-152-elastica-impermeabila-50-m/000000000010704595",
-            },
-            {
-              name: "Amorsă primer Ceresit R777",
-              qty: C((c.suprafataHidroInt * 0.3) / 10),
-              um: "bidoane",
-              formula: "",
-              pkg: "bidon 10kg",
-              link: "https://mathaus.ro/p/amorsa-sapa-ceresit-r777-interior-10-kg/000000000010700875",
-            },
-            {
-              name: "Silicon sanitar Ceresit CS25",
-              qty: c.bai * 2,
-              um: "tuburi",
-              formula: "",
-              pkg: "tub 280ml",
-              link: "https://mathaus.ro/p/silicon-sanitar-ceresit-cs-25-interior-exterior-alb-280-ml/000000000010700559",
-            },
-          ],
+                    totalFn: (c) => calcStageFromDB('hidro-int', {m2: c.suprafataHidroInt, ml: 0, m3: 0}),
         },
         {
           id: "sapa",
@@ -3963,32 +3832,7 @@
             const vol = s * (g / 100);
             return calcStageFromDB('sapa', {m2: s, ml: Math.sqrt(s)*4, m3: vol});
           },
-          totalFn: (c) => [
-            {
-              name: "Amorsa sapa Ceresit R777",
-              qty: C((c.suprafataSapa * 0.3) / 10),
-              um: "bidoane",
-              formula: "",
-              pkg: "bidon 10 kg",
-              link: "https://mathaus.ro/p/amorsa-sapa-ceresit-r777-interior-10-kg/000000000010700875",
-            },
-            {
-              name: "Șapă ciment autonivelantă 25kg",
-              qty: C((c.suprafataSapa * 5 * 15) / 25),
-              um: "saci",
-              formula: "",
-              pkg: "sac 25kg",
-              link: "https://mathaus.ro/search?pb=true&text=sapa+autonivelanta",
-            },
-            {
-              name: "Plasă sudată Q131",
-              qty: C(c.suprafataSapa * 1.05),
-              um: "m²",
-              formula: "",
-              pkg: "panou 12m²",
-              link: "https://mathaus.ro/search?pb=true&text=plasa+sudata+Q131",
-            },
-          ],
+                    totalFn: (c) => calcStageFromDB('sapa', {m2: c.suprafataSapa, ml: c.perimetru, m3: c.sapaVolum || c.suprafataSapa*0.06}),
         },
         {
           id: "tencuieli",
@@ -4063,32 +3907,7 @@
             const total = sp + st;
             return calcStageFromDB('tencuieli', {m2: total, ml: 0, m3: 0});
           },
-          totalFn: (c) => [
-            {
-              name: "Ceresit CT 126- Glet de Incarcare (25kg)",
-              qty: C((c.suprafataTencuiala * 1.2) / 20),
-              um: "saci",
-              formula: "",
-              pkg: "sac 20kg",
-              link: "https://mathaus.ro/p/glet-ceresit-ct-126-pe-baza-de-ipsos-interior-20-kg/000000000010701503",
-            },
-            {
-              name: "Ceresit CT 127- Glet de finisaj (25kg)",
-              qty: C((c.suprafataTencuiala * 1.2) / 20),
-              um: "saci",
-              formula: "",
-              pkg: "sac 20kg",
-              link: "https://mathaus.ro/p/glet-ceresit-ct-127-pentru-finisaje-fine-pe-baza-de-ciment-interior-20-kg/000000000010700870",
-            },
-            {
-              name: "Amorsă penetrantă",
-              qty: C(c.suprafataTencuiala * 0.15),
-              um: "kg",
-              formula: "",
-              pkg: "bidon 15kg",
-              link: "https://mathaus.ro/search?pb=true&text=amorsa+penetranta+universala",
-            },
-          ],
+                    totalFn: (c) => calcStageFromDB('tencuieli', {m2: c.suprafataTencuiala, ml: 0, m3: 0}),
         },
         {
           id: "gresie",
@@ -4176,32 +3995,7 @@
             const total = sg + sf;
             return calcStageFromDB('gresie', {m2: total, ml: 0, m3: 0});
           },
-          totalFn: (c) => [
-            {
-              name: "Ceresit CM 17 adeziv ceramică (25kg)",
-              qty: C(((c.suprafataGresie + c.suprafataFaianta) * 4) / 25),
-              um: "saci",
-              formula: "",
-              pkg: "sac 25kg",
-              link: "https://mathaus.ro/p/adeziv-super-flexibil-pentru-gresie-si-faianta-ceresit-cm-17-interior-exterior-25-kg/000000000010700878",
-            },
-            {
-              name: "Rost ceramic",
-              qty: C((c.suprafataGresie + c.suprafataFaianta) * 0.7),
-              um: "kg",
-              formula: "",
-              pkg: "pungă 2kg",
-              link: "https://mathaus.ro/search?pb=true&text=rost+ceramic",
-            },
-            {
-              name: "Sistem nivelare plăci",
-              qty: C((c.suprafataGresie + c.suprafataFaianta) / 4),
-              um: "seturi",
-              formula: "",
-              pkg: "set 100 buc",
-              link: "https://mathaus.ro/search?pb=true&text=nivelatori+placi",
-            },
-          ],
+                    totalFn: (c) => calcStageFromDB('gresie', {m2: c.suprafataGresie + c.suprafataFaianta, ml: 0, m3: 0}),
         },
         {
           id: "parchet",
@@ -4402,48 +4196,7 @@
               },
             ];
           },
-          totalFn: (c) => [
-            {
-              name: "Folie Parchet / Subparchet antifonant 3mm",
-              qty: C(c.suprafataParchet * 1.05),
-              um: "m²",
-              formula: "",
-              pkg: "rolă 25m²",
-              link: "https://mathaus.ro/search?pb=true&text=subparchet+antifonant",
-            },
-            {
-              name: "Parchet (Laminat / SPC / Triplustratificat)",
-              qty: C(c.suprafataParchet * 1.08),
-              um: "m²",
-              formula: "",
-              pkg: "pachet m²",
-              link: "https://mathaus.ro/search?pb=true&text=parchet",
-            },
-            {
-              name: "Plintă (Laminat/SPC/Furniruită)",
-              qty: C(c.perimetru * c.niveluri * 0.8),
-              um: "ml",
-              formula: "",
-              pkg: "buc 2.4m",
-              link: "https://mathaus.ro/search?pb=true&text=plinta+parchet",
-            },
-            {
-              name: "Colțar Stânga plintă",
-              qty: Math.ceil((c.perimetru * c.niveluri * 0.8) / 15),
-              um: "buc",
-              formula: "",
-              pkg: "buc",
-              link: "https://mathaus.ro/search?pb=true&text=coltar+plinta",
-            },
-            {
-              name: "Colțar Dreapta plintă",
-              qty: Math.ceil((c.perimetru * c.niveluri * 0.8) / 15),
-              um: "buc",
-              formula: "",
-              pkg: "buc",
-              link: "https://mathaus.ro/search?pb=true&text=coltar+plinta",
-            },
-          ],
+                    totalFn: (c) => calcStageFromDB('parchet', {m2: c.suprafataParchet, ml: c.perimetru, m3: 0}),
         },
         {
           id: "vopsitorii",
@@ -4525,27 +4278,45 @@
             const s = inp.vpSup || 280;
             const sb = inp.vpBai || 0;
             const str = parseInt(inp.vpStraturi || 2);
-            const total = (s + sb) * str;
-            return calcStageFromDB('vopsitorii', {m2: total, ml: 0, m3: 0});
+            const totalSup = s + sb;
+            // Read materials from DB but apply custom logic
+            const db = STAGE_MATS_DB['vopsitorii'] || [];
+            return db.map(m => {
+              const c = m.consumM2 || 0;
+              if (c <= 0) return null;
+              let qty = 0;
+              const nm = m.name.toLowerCase();
+              if (nm.includes('amors')) {
+                // Amorsă: se aplică o singură dată, pe toată suprafața
+                qty = totalSup * c;
+              } else if (nm.includes('umid') || nm.includes('baie') || nm.includes('bucăt')) {
+                // Vopsea anti-umiditate: doar pe suprafața băilor × straturi
+                qty = sb * c * str;
+              } else {
+                // Vopsea standard: pe suprafața fără băi × straturi
+                qty = (s) * c * str;
+              }
+              if (m.um === 'm³' || m.um === 'l') qty = +qty.toFixed(2);
+              else qty = Math.ceil(qty);
+              if (qty <= 0) return null;
+              return {
+                name: m.name, qty, um: m.um,
+                formula: nm.includes('amors') ? c+' '+m.um+'/m² × 1 strat' : c+' '+m.um+'/m² × '+str+' str',
+                pkg: m.uv || m.pkg || '—', link: m.link || '',
+                ext: m.ext || false, variants: m.variants || [],
+              };
+            }).filter(x => x !== null);
           },
-          totalFn: (c) => [
-            {
-              name: "Amorsă lavabilă",
-              qty: C(c.suprafataTencuiala * 0.12),
-              um: "kg",
-              formula: "",
-              pkg: "găleată 15kg",
-              link: "https://mathaus.ro/search?pb=true&text=amorsa+lavabila+interioara",
-            },
-            {
-              name: "Vopsea lavabilă albă premium + Amorsa",
-              qty: C(c.suprafataTencuiala / 80),
-              um: "găleți",
-              formula: "",
-              pkg: "kit 15L+4L amorsă",
-              link: "https://mathaus.ro/p/vopsea-ultra-lavabila-interior-savana-ultra-rezist-alb-15-l-amorsa-4-l/000000000010706528",
-            },
-          ],
+                    totalFn: (c) => {
+            const sup = c.suprafataTencuiala || 200;
+            const db = STAGE_MATS_DB['vopsitorii'] || [];
+            return db.map(m => {
+              const cv = m.consumM2 || 0;
+              if (cv <= 0) return null;
+              let qty = Math.ceil(sup * cv);
+              return qty > 0 ? {name:m.name, qty, um:m.um, formula:'', pkg:m.uv||m.pkg||'—', link:m.link||''} : null;
+            }).filter(Boolean);
+          },
         },
         {
           id: "receptie",
@@ -4613,24 +4384,7 @@
               💡 <strong>Argument pentru client:</strong> „Din experiență, 9 din 10 clienți regretă că nu au luat rezervă. Peste 2-3 ani, când trebuie să schimbi o placă crăpată sau o lamelă de parchet, modelul nu mai există. Costul unei cutii de rezervă acum e neglijabil față de costul de a rechebuie toată camera peste 3 ani."
             </div>
           </div>`,
-          totalFn: (c) => [
-            {
-              name: "Rezervă gresie 10%",
-              qty: C(c.suprafataGresie * 0.1),
-              um: "m²",
-              formula: "",
-              pkg: "lot inițial",
-              link: "https://mathaus.ro/search?pb=true&text=gresie",
-            },
-            {
-              name: "Silicon sanitar întreținere",
-              qty: c.bai * 2,
-              um: "tuburi",
-              formula: "",
-              pkg: "tub 280ml",
-              link: "https://mathaus.ro/search?pb=true&text=silicon+sanitar",
-            },
-          ],
+                    totalFn: (c) => calcStageFromDB('receptie', {m2: c.suprafataGresie, ml: 0, m3: 0}),
         },
       ];
 
@@ -6089,82 +5843,92 @@
       const SMATS_KEY = "mathausStageMatsV1";
       let STAGE_MATS_DB = {
         "trasare": [
-          {name:"Țăruși lemn trasare", um:"buc", pkg:"—", link:"https://mathaus.ro/search?text=tarusi+trasare", formula:"perimetru / 2", variants:[], ext:false},
-          {name:"Sfoară trasare 50m", um:"role", pkg:"rolă 50m", link:"https://mathaus.ro/search?text=sfoara+trasare", formula:"perimetru × 2 / 50", variants:[], ext:false},
-          {name:"Spray marcaj", um:"tuburi", pkg:"tub", link:"https://mathaus.ro/search?text=spray+marcaj", formula:"2 tuburi fix", variants:[], ext:false},
+          {name:"Țăruși lemn trasare", um:"buc", pkg:"—", link:"https://mathaus.ro/search?text=tarusi+trasare", formula:"perimetru / 2", variants:[], ext:false, consumM2:0.5, consumBaza:"ml",},
+          {name:"Sfoară trasare 50m", um:"role", pkg:"rolă 50m", link:"https://mathaus.ro/search?text=sfoara+trasare", formula:"perimetru × 2 / 50", variants:[], ext:false, consumM2:2, consumBaza:"ml",},
+          {name:"Spray marcaj", um:"tuburi", pkg:"tub", link:"https://mathaus.ro/search?text=spray+marcaj", formula:"2 tuburi fix", variants:[], ext:false, consumM2:2, consumBaza:"fix",},
         ],
         "fundatii": [
-          {name:"Beton C20/25 fundații", um:"m³", pkg:"— produs extern", link:"", formula:"perimetru × lățime × adâncime", variants:[], ext:true},
-          {name:"Oțel beton PC52 Ø10-14mm", um:"kg", pkg:"— produs extern", link:"", formula:"110 kg/m³ beton", variants:[], ext:true},
-          {name:"Amorsa bituminoasa Eco Primer, 20 l", um:"găleți", pkg:"găleată 20L (22kg)", link:"https://mathaus.ro/p/amorsa-bituminoasa-de-baza-de-solventi-eco-primer-20-l/000000000010909445", formula:"0.35 kg/m² ÷ 22kg/găleată", variants:[], ext:false},
-          {name:"Membrana fundatie Black Star 350, 2.5x20m", um:"role", pkg:"rolă 2.5×20m (50m²)", link:"https://mathaus.ro/p/membrana-fundatie-black-star-350-polietilena-25-x-20-m/000000000010927495", formula:"perimetru × 2.8m H ÷ 50m²/rolă", variants:[{name:"Membrana fundatie Black Star 350, 2x20m", link:"https://mathaus.ro/p/membrana-fundatie-black-star-350-polietilena-2-x-20-m/000000000010927190", pkg:"rolă 2×20m (40m²)"}], ext:false},
-          {name:"Plasă sudată fir 4mm, 2000×6000mm", um:"buc", pkg:"panou 12m²", link:"https://mathaus.ro/p/plasa-sudata-otel-fir-4-mm-dimensiune-ochi-100x100-mm-2000x6000-mm/000000000010400673", formula:"1.05 × amprentă ÷ 12m²/buc", variants:[{name:"Plasă sudată fir 5mm, 2000×6000mm", link:"https://mathaus.ro/p/plasa-sudata-otel-fir-5-mm-dimensiuni-ochi-100x100-mm-2000x6000-mm/000000000010400679", pkg:"panou 12m²"},{name:"Plasă sudată fir 6mm, 2000×6000mm", link:"https://mathaus.ro/p/plasa-sudata-otel-fir-6-mm-dimensiune-ochi-100x100-mm-2000x6000-mm/000000000010400684", pkg:"panou 12m²"}], ext:false},
-          {name:"Beton C20/25 placă pe sol", um:"m³", pkg:"— produs extern", link:"", formula:"amprentă × 0.12m", variants:[], ext:true},
-          {name:"Distantieri Plasa Sudata", um:"cutii", pkg:"cutie 100 buc", link:"https://mathaus.ro/p/distantieri-plasa-sudata-inaltime-15-20mm-100-buc/000000000010401002", formula:"6 buc/m² ÷ 100 buc/cutie", variants:[], ext:false},
+          {name:"Beton C20/25 fundații", um:"m³", pkg:"— produs extern", link:"", formula:"perimetru × lățime × adâncime", variants:[], ext:true, consumM2:1, consumBaza:"m3",},
+          {name:"Oțel beton PC52 Ø10-14mm", um:"kg", pkg:"— produs extern", link:"", formula:"110 kg/m³ beton", variants:[], ext:true, consumM2:110, consumBaza:"m3",},
+          {name:"Amorsa bituminoasa Eco Primer, 20 l", um:"găleți", pkg:"găleată 20L (22kg)", link:"https://mathaus.ro/p/amorsa-bituminoasa-de-baza-de-solventi-eco-primer-20-l/000000000010909445", formula:"0.35 kg/m² ÷ 22kg/găleată", variants:[], ext:false, consumM2:0.016, consumBaza:"ml",},
+          {name:"Membrana fundatie Black Star 350, 2.5x20m", um:"role", pkg:"rolă 2.5×20m (50m²)", link:"https://mathaus.ro/p/membrana-fundatie-black-star-350-polietilena-25-x-20-m/000000000010927495", formula:"perimetru × 2.8m H ÷ 50m²/rolă", variants:[{name:"Membrana fundatie Black Star 350, 2x20m", link:"https://mathaus.ro/p/membrana-fundatie-black-star-350-polietilena-2-x-20-m/000000000010927190", pkg:"rolă 2×20m (40m²)", consumM2:0.056, consumBaza:"ml",}], ext:false},
+          {name:"Plasă sudată fir 4mm, 2000×6000mm", um:"buc", pkg:"panou 12m²", link:"https://mathaus.ro/p/plasa-sudata-otel-fir-4-mm-dimensiune-ochi-100x100-mm-2000x6000-mm/000000000010400673", formula:"1.05 × amprentă ÷ 12m²/buc", variants:[{name:"Plasă sudată fir 5mm, 2000×6000mm", link:"https://mathaus.ro/p/plasa-sudata-otel-fir-5-mm-dimensiuni-ochi-100x100-mm-2000x6000-mm/000000000010400679", pkg:"panou 12m²", consumM2:0.0875, consumBaza:"m2",},{name:"Plasă sudată fir 6mm, 2000×6000mm", link:"https://mathaus.ro/p/plasa-sudata-otel-fir-6-mm-dimensiune-ochi-100x100-mm-2000x6000-mm/000000000010400684", pkg:"panou 12m²"}], ext:false},
+          {name:"Beton C20/25 placă pe sol", um:"m³", pkg:"— produs extern", link:"", formula:"amprentă × 0.12m", variants:[], ext:true, consumM2:1, consumBaza:"m3",},
+          {name:"Distantieri Plasa Sudata", um:"cutii", pkg:"cutie 100 buc", link:"https://mathaus.ro/p/distantieri-plasa-sudata-inaltime-15-20mm-100-buc/000000000010401002", formula:"6 buc/m² ÷ 100 buc/cutie", variants:[], ext:false, consumM2:0.06, consumBaza:"m2",},
         ],
         "xps-subsol": [
-          {name:"Polistiren extrudat Briotherm XPS 100MM", um:"m²", pkg:"2.9m²/bax", link:"https://mathaus.ro/p/polistiren-extrudat-gias-xps300-100-x-1250-x-580-mm/000000000010605006", formula:"1.05 × suprafață (5% pierderi)", variants:[{name:"Polistiren extrudat Briotherm XPS 50MM", link:"https://mathaus.ro/p/polistiren-extrudat-gias-xps-50-mm-1250-x-580-mm/000000000010603377", pkg:"5.8m²/bax"},{name:"Polistiren extrudat Briotherm XPS 30MM", link:"https://mathaus.ro/p/polistiren-extrudat-gias-xps-30mm-1250-x-580-mm/000000000010603376", pkg:"10.15m²/bax"},{name:"Polistiren extrudat Briotherm XPS 20MM", link:"https://mathaus.ro/p/polistiren-extrudat-briotherm-xps-2-x-58-x-125-cm/000000000010603375", pkg:"14.5m²/bax"}], ext:false},
-          {name:"Folie polietilena 0.15mm x 4000", um:"m²", pkg:"rolă 100m²", link:"https://mathaus.ro/p/folie-polietilena-tata-mosu-ldpe-reciclat-bej-grosime-015-mm-latime-4-m/000000000010929725", formula:"1.15 × suprafață (suprapunere 15%)", variants:[], ext:false},
+          {name:"Polistiren extrudat Briotherm XPS 100MM", um:"m²", pkg:"2.9m²/bax", link:"https://mathaus.ro/p/polistiren-extrudat-gias-xps300-100-x-1250-x-580-mm/000000000010605006", formula:"1.05 × suprafață (5% pierderi)", variants:[{name:"Polistiren extrudat Briotherm XPS 50MM", link:"https://mathaus.ro/p/polistiren-extrudat-gias-xps-50-mm-1250-x-580-mm/000000000010603377", pkg:"5.8m²/bax", consumM2:1.05, consumBaza:"m2",},{name:"Polistiren extrudat Briotherm XPS 30MM", link:"https://mathaus.ro/p/polistiren-extrudat-gias-xps-30mm-1250-x-580-mm/000000000010603376", pkg:"10.15m²/bax"},{name:"Polistiren extrudat Briotherm XPS 20MM", link:"https://mathaus.ro/p/polistiren-extrudat-briotherm-xps-2-x-58-x-125-cm/000000000010603375", pkg:"14.5m²/bax"}], ext:false},
+          {name:"Folie polietilena 0.15mm x 4000", um:"m²", pkg:"rolă 100m²", link:"https://mathaus.ro/p/folie-polietilena-tata-mosu-ldpe-reciclat-bej-grosime-015-mm-latime-4-m/000000000010929725", formula:"1.15 × suprafață (suprapunere 15%)", variants:[], ext:false, consumM2:1.15, consumBaza:"m2",},
         ],
         "planseu": [
-          {name:"Plasă sudată fir 4mm, 2000×6000mm", um:"buc", pkg:"panou 12m²", link:"https://mathaus.ro/p/plasa-sudata-otel-fir-4-mm-dimensiune-ochi-100x100-mm-2000x6000-mm/000000000010400673", formula:"1.1 × suprafață ÷ 12m²/buc", variants:[{name:"Plasă sudată fir 5mm, 2000×6000mm", link:"https://mathaus.ro/p/plasa-sudata-otel-fir-5-mm-dimensiuni-ochi-100x100-mm-2000x6000-mm/000000000010400679", pkg:"panou 12m²"},{name:"Plasă sudată fir 6mm, 2000×6000mm", link:"https://mathaus.ro/p/plasa-sudata-otel-fir-6-mm-dimensiune-ochi-100x100-mm-2000x6000-mm/000000000010400684", pkg:"panou 12m²"},{name:"Plasă sudată fir 8mm, 2000×6000mm", link:"https://mathaus.ro/p/plasa-sudata-otel-fir-8-mm-dimensiune-ochi-100x100-mm-2000x6000-mm/000000000010400695", pkg:"panou 12m²"}], ext:false},
-          {name:"Distantieri Plasa Sudata", um:"cutii", pkg:"cutie 100 buc", link:"https://mathaus.ro/p/distantieri-plasa-sudata-inaltime-15-20mm-100-buc/000000000010401002", formula:"6 buc/m² ÷ 100 buc/cutie", variants:[], ext:false},
-          {name:"Beton C25/30 placă etaj", um:"m³", pkg:"— extern", link:"", formula:"suprafață × grosime", variants:[], ext:true},
-          {name:"Folie fonoizolantă (opțional)", um:"m²", pkg:"rolă 50m²", link:"https://mathaus.ro/search?pb=true&text=folie+fonoizolanta", formula:"1 m²/m²", variants:[], ext:false},
+          {name:"Plasă sudată fir 4mm, 2000×6000mm", um:"buc", pkg:"panou 12m²", link:"https://mathaus.ro/p/plasa-sudata-otel-fir-4-mm-dimensiune-ochi-100x100-mm-2000x6000-mm/000000000010400673", formula:"1.1 × suprafață ÷ 12m²/buc", variants:[{name:"Plasă sudată fir 5mm, 2000×6000mm", link:"https://mathaus.ro/p/plasa-sudata-otel-fir-5-mm-dimensiuni-ochi-100x100-mm-2000x6000-mm/000000000010400679", pkg:"panou 12m²", consumM2:0.0875, consumBaza:"m2",},{name:"Plasă sudată fir 6mm, 2000×6000mm", link:"https://mathaus.ro/p/plasa-sudata-otel-fir-6-mm-dimensiune-ochi-100x100-mm-2000x6000-mm/000000000010400684", pkg:"panou 12m²"},{name:"Plasă sudată fir 8mm, 2000×6000mm", link:"https://mathaus.ro/p/plasa-sudata-otel-fir-8-mm-dimensiune-ochi-100x100-mm-2000x6000-mm/000000000010400695", pkg:"panou 12m²"}], ext:false},
+          {name:"Distantieri Plasa Sudata", um:"cutii", pkg:"cutie 100 buc", link:"https://mathaus.ro/p/distantieri-plasa-sudata-inaltime-15-20mm-100-buc/000000000010401002", formula:"6 buc/m² ÷ 100 buc/cutie", variants:[], ext:false, consumM2:0.06, consumBaza:"m2",},
+          {name:"Beton C25/30 placă etaj", um:"m³", pkg:"— extern", link:"", formula:"suprafață × grosime", variants:[], ext:true, consumM2:1, consumBaza:"m3",},
+          {name:"Folie fonoizolantă (opțional)", um:"m²", pkg:"rolă 50m²", link:"https://mathaus.ro/search?pb=true&text=folie+fonoizolanta", formula:"1 m²/m²", variants:[], ext:false, consumM2:1.05, consumBaza:"m2",},
         ],
         "acoperis": [
-          {name:"Tratament biocid + ignifug lemn șarpantă", um:"L", pkg:"bidon 10L", link:"https://mathaus.ro/search?pb=true&text=tratament+lemn+antifungic", formula:"0.1 L/m²", variants:[], ext:false},
-          {name:"Jgheaburi PVC Ø100mm", um:"ml", pkg:"buc 4m", link:"https://mathaus.ro/search?pb=true&text=jgheaburi+pvc", formula:"1ml/ml perimetru", variants:[], ext:false},
-          {name:"Burlane PVC Ø75mm", um:"buc", pkg:"buc 4m", link:"https://mathaus.ro/search?pb=true&text=burlane+pvc", formula:"1/15ml perimetru", variants:[], ext:false},
-          {name:"Folie anticondens difuzie (sub căpriori)", um:"m²", pkg:"rolă 50m²", link:"https://mathaus.ro/search?pb=true&text=folie+anticondens+difuzie", formula:"1.15 m²/m²", variants:[], ext:false},
-          {name:"Șipci de astereală 24×48mm", um:"ml", pkg:"buc 4m", link:"https://mathaus.ro/search?pb=true&text=sipci+asterala", formula:"1.4 ml/m² (pas 27cm)", variants:[], ext:false},
-          {name:"Contrașipci 40×60mm (ventilare)", um:"ml", pkg:"buc 4m", link:"https://mathaus.ro/search?pb=true&text=contrasipci+acoperis", formula:"0.8 ml/m²", variants:[], ext:false},
-          {name:"Țiglă ceramică / beton (10–11 buc/m²)", um:"buc", pkg:"palet ~250 buc", link:"https://mathaus.ro/search?pb=true&text=tigla+ceramica", formula:"10.5 buc/m² × 1.15", variants:[], ext:false},
-          {name:"Cuie galvanizate pentru țiglă 50mm", um:"buc", pkg:"cutie 1000 buc", link:"https://mathaus.ro/search?pb=true&text=cuie+galvanizate", formula:"2 cuie/țiglă", variants:[], ext:false},
-          {name:"Mortar montaj coamă M5 (sac 25kg)", um:"saci", pkg:"sac 25 kg", link:"https://mathaus.ro/search?pb=true&text=mortar+coama+acoperis", formula:"12 kg/ml coamă / 25", variants:[], ext:false},
-          {name:"Amorsa bituminoasă pentru terasă (grunduire)", um:"kg", pkg:"bidon 20kg", link:"https://mathaus.ro/search?pb=true&text=amorsa+bituminoasa+terasa", formula:"0.35 kg/m²", variants:[], ext:false},
-          {name:"Membrană bituminoasă barieră vapori — Strat 1", um:"m²", pkg:"rolă 10m²", link:"https://mathaus.ro/search?pb=true&text=membrana+bituminoasa+bariera+vapori", formula:"1.1 m²/m²", variants:[], ext:false},
-          {name:"Polistiren EPS 10cm (termoizolație terasă)", um:"m²", pkg:"pachet 2.5m²", link:"https://mathaus.ro/search?pb=true&text=polistiren+expandat+terasa", formula:"1.05 m²/m²", variants:[], ext:false},
-          {name:"Membrană bituminoasă APP/SBS finisaj — Strat 2", um:"m²", pkg:"rolă 10m²", link:"https://mathaus.ro/search?pb=true&text=membrana+bituminoasa+SBS", formula:"1.15 m²/m²", variants:[], ext:false},
-          {name:"Guri scurgere terasă Ø110mm", um:"buc", pkg:"buc", link:"https://mathaus.ro/search?pb=true&text=gura+scurgere+terasa", formula:"1/20ml perimetru", variants:[], ext:false},
+          {name:"Jgheaburi PVC Ø100mm", um:"ml", pkg:"buc 4m", link:"https://mathaus.ro/search?pb=true&text=jgheaburi+pvc", formula:"1ml/ml perimetru", variants:[], ext:false, consumM2:1, consumBaza:"ml", subcat:"comun"},
+          {name:"Burlane PVC Ø75mm", um:"buc", pkg:"buc 4m", link:"https://mathaus.ro/search?pb=true&text=burlane+pvc", formula:"1/15ml perimetru", variants:[], ext:false, consumM2:0.067, consumBaza:"ml", subcat:"comun"},
+          {name:"Tratament biocid + ignifug lemn șarpantă", um:"L", pkg:"bidon 10L", link:"https://mathaus.ro/search?pb=true&text=tratament+lemn+antifungic", formula:"0.1 L/m²", variants:[], ext:false, consumM2:0.1, consumBaza:"m2", subcat:"sarpanta"},
+          {name:"Folie anticondens difuzie (sub căpriori)", um:"m²", pkg:"rolă 50m²", link:"https://mathaus.ro/search?pb=true&text=folie+anticondens+difuzie", formula:"1.15 m²/m²", variants:[], ext:false, consumM2:1.15, consumBaza:"m2", subcat:"sarpanta"},
+          {name:"Contrașipci 40×60mm (ventilare)", um:"ml", pkg:"buc 4m", link:"https://mathaus.ro/search?pb=true&text=contrasipci+acoperis", formula:"0.8 ml/m²", variants:[], ext:false, consumM2:0.8, consumBaza:"m2", subcat:"sarpanta"},
+          {name:"Șipci de astereală 24×48mm", um:"ml", pkg:"buc 4m", link:"https://mathaus.ro/search?pb=true&text=sipci+asterala", formula:"1.4 ml/m² (pas 27cm)", variants:[], ext:false, consumM2:1.4, consumBaza:"m2", subcat:"tigla-ceramica"},
+          {name:"Țiglă ceramică / beton (10–11 buc/m²)", um:"buc", pkg:"palet ~250 buc", link:"https://mathaus.ro/search?pb=true&text=tigla+ceramica", formula:"10.5 buc/m² × 1.15", variants:[], ext:false, consumM2:12.1, consumBaza:"m2", subcat:"tigla-ceramica"},
+          {name:"Cuie galvanizate pentru țiglă 50mm", um:"buc", pkg:"cutie 1000 buc", link:"https://mathaus.ro/search?pb=true&text=cuie+galvanizate", formula:"2 cuie/țiglă", variants:[], ext:false, consumM2:21, consumBaza:"m2", subcat:"tigla-ceramica"},
+          {name:"Mortar montaj coamă M5 (sac 25kg)", um:"saci", pkg:"sac 25 kg", link:"https://mathaus.ro/search?pb=true&text=mortar+coama+acoperis", formula:"12 kg/ml coamă / 25", variants:[], ext:false, consumM2:0.48, consumBaza:"ml", subcat:"tigla-ceramica"},
+          {name:"Țiglă metalică (tip GERARD/LINDAB)", um:"m²", pkg:"pachet", link:"https://mathaus.ro/search?pb=true&text=tigla+metalica", formula:"1.08 m²/m²", variants:[], ext:false, consumM2:1.08, consumBaza:"m2", subcat:"tigla-metalica"},
+          {name:"Șuruburi autoperforante cu garnitură", um:"buc", pkg:"cutie 250 buc", link:"https://mathaus.ro/search?pb=true&text=suruburi+autoperforante+acoperis", formula:"8 buc/m²", variants:[], ext:false, consumM2:8, consumBaza:"m2", subcat:"tigla-metalica"},
+          {name:"Coamă metalică (tip sistem)", um:"ml", pkg:"buc 2m", link:"https://mathaus.ro/search?pb=true&text=coama+metalica", formula:"0.5 ml/ml perimetru", variants:[], ext:false, consumM2:0.5, consumBaza:"ml", subcat:"tigla-metalica"},
+          {name:"Tablă cutată / trapezoidală T55 (0.6mm)", um:"m²", pkg:"per m²", link:"https://mathaus.ro/search?pb=true&text=tabla+cutata+acoperis", formula:"1.1 m²/m²", variants:[], ext:false, consumM2:1.1, consumBaza:"m2", subcat:"tabla-cutata"},
+          {name:"Șuruburi autoperforante EPDM", um:"buc", pkg:"cutie 250 buc", link:"https://mathaus.ro/search?pb=true&text=suruburi+EPDM+acoperis", formula:"7 buc/m²", variants:[], ext:false, consumM2:7, consumBaza:"m2", subcat:"tabla-cutata"},
+          {name:"Coamă tablă (tip pieptene)", um:"ml", pkg:"buc 2m", link:"https://mathaus.ro/search?pb=true&text=coama+tabla+acoperis", formula:"0.5 ml/ml perimetru", variants:[], ext:false, consumM2:0.5, consumBaza:"ml", subcat:"tabla-cutata"},
+          {name:"OSB 18mm (astereală sub șindrilă)", um:"m²", pkg:"placă 2.5m²", link:"https://mathaus.ro/search?pb=true&text=placa+OSB+18mm", formula:"1.05 m²/m²", variants:[], ext:false, consumM2:1.05, consumBaza:"m2", subcat:"sindrila"},
+          {name:"Primer bituminos (amorsă OSB)", um:"kg", pkg:"bidon 10kg", link:"https://mathaus.ro/search?pb=true&text=primer+bituminos+OSB", formula:"0.35 kg/m²", variants:[], ext:false, consumM2:0.35, consumBaza:"m2", subcat:"sindrila"},
+          {name:"Șindrilă bituminoasă solzi IKO/Tegola", um:"m²", pkg:"pachet 3m²", link:"https://mathaus.ro/search?pb=true&text=sindrila+bituminoasa", formula:"1.12 m²/m²", variants:[], ext:false, consumM2:1.12, consumBaza:"m2", subcat:"sindrila"},
+          {name:"Cuie galvanizate 30mm (4/șindrilă)", um:"buc", pkg:"cutie 1000 buc", link:"https://mathaus.ro/search?pb=true&text=cuie+galvanizate+sindrila", formula:"4 buc/m²", variants:[], ext:false, consumM2:4, consumBaza:"m2", subcat:"sindrila"},
+          {name:"Amorsa bituminoasă pentru terasă (grunduire)", um:"kg", pkg:"bidon 20kg", link:"https://mathaus.ro/search?pb=true&text=amorsa+bituminoasa+terasa", formula:"0.35 kg/m²", variants:[], ext:false, consumM2:0.35, consumBaza:"m2", subcat:"terasa"},
+          {name:"Membrană bituminoasă barieră vapori — Strat 1", um:"m²", pkg:"rolă 10m²", link:"https://mathaus.ro/search?pb=true&text=membrana+bituminoasa+bariera+vapori", formula:"1.1 m²/m²", variants:[], ext:false, consumM2:1.1, consumBaza:"m2", subcat:"terasa"},
+          {name:"Polistiren EPS 10cm (termoizolație terasă)", um:"m²", pkg:"pachet 2.5m²", link:"https://mathaus.ro/search?pb=true&text=polistiren+expandat+terasa", formula:"1.05 m²/m²", variants:[], ext:false, consumM2:1.05, consumBaza:"m2", subcat:"terasa"},
+          {name:"Membrană bituminoasă APP/SBS finisaj — Strat 2", um:"m²", pkg:"rolă 10m²", link:"https://mathaus.ro/search?pb=true&text=membrana+bituminoasa+SBS", formula:"1.15 m²/m²", variants:[], ext:false, consumM2:1.15, consumBaza:"m2", subcat:"terasa"},
+          {name:"Guri scurgere terasă Ø110mm", um:"buc", pkg:"buc", link:"https://mathaus.ro/search?pb=true&text=gura+scurgere+terasa", formula:"1/20ml perimetru", variants:[], ext:false, consumM2:0.05, consumBaza:"ml", subcat:"terasa"},
         ],
         "hidro-int": [
-          {name:"Membrana hidroizolantă flexibilă bicomponentă", um:"găleți", pkg:"găleată 12.5 kg", link:"https://mathaus.ro/p/hidroizolatie-bicomponenta-ceresit-cl-50-flexibila-pensulabila-gri-deschis-125-kg/000000000010701172", formula:"3.3 kg/m² ÷ 12.5 kg/găleată", variants:[], ext:false},
-          {name:"Bandă etanșare colțuri (per baie)", um:"buc", pkg:"rolă 50 ml", link:"https://mathaus.ro/p/banda-de-etansare-ceresit-cl-152-elastica-impermeabila-50-m/000000000010704595", formula:"8 ml/baie ÷ 50 ml/rolă", variants:[], ext:false},
-          {name:"Amorsă primer Ceresit R777", um:"bidoane", pkg:"bidon 10 kg", link:"https://mathaus.ro/p/amorsa-sapa-ceresit-r777-interior-10-kg/000000000010700875", formula:"0.3 ml/m² ÷ 10 kg/bidon", variants:[], ext:false},
-          {name:"Silicon sanitar Ceresit CS25", um:"tuburi", pkg:"tub 280ml", link:"https://mathaus.ro/p/silicon-sanitar-ceresit-cs-25-interior-exterior-alb-280-ml/000000000010700559", formula:"2 tuburi/baie", variants:[], ext:false},
+          {name:"Membrana hidroizolantă flexibilă bicomponentă", um:"găleți", pkg:"găleată 12.5 kg", link:"https://mathaus.ro/p/hidroizolatie-bicomponenta-ceresit-cl-50-flexibila-pensulabila-gri-deschis-125-kg/000000000010701172", formula:"3.3 kg/m² ÷ 12.5 kg/găleată", variants:[], ext:false, consumM2:0.264, consumBaza:"m2",},
+          {name:"Bandă etanșare colțuri (per baie)", um:"buc", pkg:"rolă 50 ml", link:"https://mathaus.ro/p/banda-de-etansare-ceresit-cl-152-elastica-impermeabila-50-m/000000000010704595", formula:"8 ml/baie ÷ 50 ml/rolă", variants:[], ext:false, consumM2:0.16, consumBaza:"m2",},
+          {name:"Amorsă primer Ceresit R777", um:"bidoane", pkg:"bidon 10 kg", link:"https://mathaus.ro/p/amorsa-sapa-ceresit-r777-interior-10-kg/000000000010700875", formula:"0.3 ml/m² ÷ 10 kg/bidon", variants:[], ext:false, consumM2:0.03, consumBaza:"m2",},
+          {name:"Silicon sanitar Ceresit CS25", um:"tuburi", pkg:"tub 280ml", link:"https://mathaus.ro/p/silicon-sanitar-ceresit-cs-25-interior-exterior-alb-280-ml/000000000010700559", formula:"2 tuburi/baie", variants:[], ext:false, consumM2:2, consumBaza:"fix",},
         ],
         "sapa": [
-          {name:"Amorsa sapa Ceresit R777", um:"bidoane", pkg:"bidon 10 kg", link:"https://mathaus.ro/p/amorsa-sapa-ceresit-r777-interior-10-kg/000000000010700875", formula:"0.3 ml/m² ÷ 10kg/bidon", variants:[], ext:false},
-          {name:"Șapă ciment autonivelantă 25kg", um:"saci", pkg:"sac 25 kg", link:"https://mathaus.ro/search?pb=true&text=sapa+autonivelanta", formula:"grosime(cm) × 15 kg/m²/cm ÷ 25kg/sac", variants:[], ext:false},
-          {name:"Plasă sudată Q131 (armare șapă)", um:"m²", pkg:"panou 12m²", link:"https://mathaus.ro/search?pb=true&text=plasa+sudata+Q131", formula:"1.05 × suprafață", variants:[], ext:false},
-          {name:"Bandă perimetrală dilatare", um:"ml", pkg:"rolă 50m", link:"https://mathaus.ro/search?pb=true&text=banda+perimetrala+sapa", formula:"perimetru estimat × 1.1", variants:[], ext:false},
+          {name:"Amorsa sapa Ceresit R777", um:"bidoane", pkg:"bidon 10 kg", link:"https://mathaus.ro/p/amorsa-sapa-ceresit-r777-interior-10-kg/000000000010700875", formula:"0.3 ml/m² ÷ 10kg/bidon", variants:[], ext:false, consumM2:0.03, consumBaza:"m2",},
+          {name:"Șapă ciment autonivelantă 25kg", um:"saci", pkg:"sac 25 kg", link:"https://mathaus.ro/search?pb=true&text=sapa+autonivelanta", formula:"grosime(cm) × 15 kg/m²/cm ÷ 25kg/sac", variants:[], ext:false, consumM2:3.6, consumBaza:"m2",},
+          {name:"Plasă sudată Q131 (armare șapă)", um:"m²", pkg:"panou 12m²", link:"https://mathaus.ro/search?pb=true&text=plasa+sudata+Q131", formula:"1.05 × suprafață", variants:[], ext:false, consumM2:1.05, consumBaza:"m2",},
+          {name:"Bandă perimetrală dilatare", um:"ml", pkg:"rolă 50m", link:"https://mathaus.ro/search?pb=true&text=banda+perimetrala+sapa", formula:"perimetru estimat × 1.1", variants:[], ext:false, consumM2:1.1, consumBaza:"ml",},
         ],
         "tencuieli": [
-          {name:"Ceresit CT 126- Glet de Incarcare (25kg)", um:"saci", pkg:"sac 20 kg", link:"https://mathaus.ro/p/glet-ceresit-ct-126-pe-baza-de-ipsos-interior-20-kg/000000000010701503", formula:"1.2 kg/m² ÷ 20 kg/sac (strat 1)", variants:[], ext:false},
-          {name:"Ceresit CT 127- Glet de finisaj (25kg)", um:"saci", pkg:"sac 20 kg", link:"https://mathaus.ro/p/glet-ceresit-ct-127-pentru-finisaje-fine-pe-baza-de-ciment-interior-20-kg/000000000010700870", formula:"1.2 kg/m² ÷ 20 kg/sac (strat 2)", variants:[], ext:false},
-          {name:"Amorsă penetrantă universală", um:"bidoane", pkg:"bidon 10L", link:"https://mathaus.ro/p/amorsa-perete-ceresit-ct-17-interior-exterior-10-l/000000000010700918", formula:"0.2 L/m² ÷ 10L/bidon", variants:[], ext:false},
-          {name:"Plasă fibră sticlă anticrăpare (colțuri)", um:"m²", pkg:"rolă 50m²", link:"https://mathaus.ro/search?pb=true&text=plasa+fibra+sticla+interior", formula:"30% din suprafață (colțuri + îmbinări)", variants:[], ext:false},
+          {name:"Ceresit CT 126- Glet de Incarcare (25kg)", um:"saci", pkg:"sac 20 kg", link:"https://mathaus.ro/p/glet-ceresit-ct-126-pe-baza-de-ipsos-interior-20-kg/000000000010701503", formula:"1.2 kg/m² ÷ 20 kg/sac (strat 1)", variants:[], ext:false, consumM2:0.06, consumBaza:"m2",},
+          {name:"Ceresit CT 127- Glet de finisaj (25kg)", um:"saci", pkg:"sac 20 kg", link:"https://mathaus.ro/p/glet-ceresit-ct-127-pentru-finisaje-fine-pe-baza-de-ciment-interior-20-kg/000000000010700870", formula:"1.2 kg/m² ÷ 20 kg/sac (strat 2)", variants:[], ext:false, consumM2:0.06, consumBaza:"m2",},
+          {name:"Amorsă penetrantă universală", um:"bidoane", pkg:"bidon 10L", link:"https://mathaus.ro/p/amorsa-perete-ceresit-ct-17-interior-exterior-10-l/000000000010700918", formula:"0.2 L/m² ÷ 10L/bidon", variants:[], ext:false, consumM2:0.02, consumBaza:"m2",},
+          {name:"Plasă fibră sticlă anticrăpare (colțuri)", um:"m²", pkg:"rolă 50m²", link:"https://mathaus.ro/search?pb=true&text=plasa+fibra+sticla+interior", formula:"30% din suprafață (colțuri + îmbinări)", variants:[], ext:false, consumM2:0.3, consumBaza:"m2",},
         ],
         "gresie": [
-          {name:"Ceresit CM 17 adeziv ceramică (25kg)", um:"saci", pkg:"sac 25 kg", link:"https://mathaus.ro/p/adeziv-super-flexibil-pentru-gresie-si-faianta-ceresit-cm-17-interior-exterior-25-kg/000000000010700878", formula:"4–7 kg/m² ÷ 25 kg/sac", variants:[], ext:false},
-          {name:"Rost ceramic 2kg (alege culoare)", um:"kg", pkg:"pungă 2 kg", link:"https://mathaus.ro/search?pb=true&text=rost+ceramic", formula:"~0.7 kg/m² rost 3mm", variants:[], ext:false},
-          {name:"Sistem nivelare plăci", um:"seturi", pkg:"set 100 buc", link:"https://mathaus.ro/search?pb=true&text=nivelatori+placi", formula:"1 set/4m²", variants:[], ext:false},
-          {name:"Silicon sanitar Ceresit CS25", um:"tuburi", pkg:"tub 280ml", link:"https://mathaus.ro/p/silicon-sanitar-ceresit-cs-25-interior-exterior-alb-280-ml/00000000010700559", formula:"2 tuburi/20m²", variants:[], ext:false},
+          {name:"Ceresit CM 17 adeziv ceramică (25kg)", um:"saci", pkg:"sac 25 kg", link:"https://mathaus.ro/p/adeziv-super-flexibil-pentru-gresie-si-faianta-ceresit-cm-17-interior-exterior-25-kg/000000000010700878", formula:"4–7 kg/m² ÷ 25 kg/sac", variants:[], ext:false, consumM2:0.2, consumBaza:"m2",},
+          {name:"Rost ceramic 2kg (alege culoare)", um:"kg", pkg:"pungă 2 kg", link:"https://mathaus.ro/search?pb=true&text=rost+ceramic", formula:"~0.7 kg/m² rost 3mm", variants:[], ext:false, consumM2:0.35, consumBaza:"m2",},
+          {name:"Sistem nivelare plăci", um:"seturi", pkg:"set 100 buc", link:"https://mathaus.ro/search?pb=true&text=nivelatori+placi", formula:"1 set/4m²", variants:[], ext:false, consumM2:0.25, consumBaza:"m2",},
+          {name:"Silicon sanitar Ceresit CS25", um:"tuburi", pkg:"tub 280ml", link:"https://mathaus.ro/p/silicon-sanitar-ceresit-cs-25-interior-exterior-alb-280-ml/00000000010700559", formula:"2 tuburi/20m²", variants:[], ext:false, consumM2:0.25, consumBaza:"m2",},
         ],
         "parchet": [
-          {name:"Folie Parchet / Subparchet antifonant 3mm", um:"m²", pkg:"rolă 10–25m²", link:"https://mathaus.ro/search?pb=true&text=subparchet+antifonant", formula:"1.05 × suprafață", variants:[], ext:false},
-          {name:"Parchet Laminat", um:"m²", pkg:"pachet m²", link:"https://mathaus.ro/search?pb=true&text=parchet+laminat", formula:"1.08 × suprafață (+8% pierderi)", variants:[{name:"Parchet SPC", link:"https://mathaus.ro/search?pb=true&text=parchet+spc", pkg:"pachet m²"},{name:"Parchet Triplustratificat", link:"https://mathaus.ro/search?pb=true&text=parchet+triplustratificat", pkg:"pachet m²"}], ext:false},
-          {name:"Adeziv parchet triplustratificat (bidon 15kg)", um:"kg", pkg:"bidon 15kg", link:"https://mathaus.ro/search?pb=true&text=adeziv+parchet", formula:"0.8 kg/m² (doar la lipit)", variants:[], ext:false},
-          {name:"Plintă MDF laminat", um:"ml", pkg:"buc 2.4m", link:"https://mathaus.ro/search?pb=true&text=plinta+laminat", formula:"1 ml/ml perimetru", variants:[{name:"Plintă PVC/SPC", link:"https://mathaus.ro/search?pb=true&text=plinta+spc", pkg:"buc 2.4m"},{name:"Plintă furniruită lemn", link:"https://mathaus.ro/search?pb=true&text=plinta+furniruita", pkg:"buc 2.4m"}], ext:false},
-          {name:"Colțar Stânga plintă", um:"buc", pkg:"buc", link:"https://mathaus.ro/search?pb=true&text=coltar+plinta", formula:"~1/15ml perimetru", variants:[], ext:false},
-          {name:"Colțar Dreapta plintă", um:"buc", pkg:"buc", link:"https://mathaus.ro/search?pb=true&text=coltar+plinta", formula:"~1/15ml perimetru", variants:[], ext:false},
-          {name:"Profil trecere (prag) între încăperi", um:"buc", pkg:"buc 0.9m", link:"https://mathaus.ro/search?pb=true&text=profil+trecere+parchet", formula:"1/20ml perimetru", variants:[], ext:false},
+          {name:"Folie Parchet / Subparchet antifonant 3mm", um:"m²", pkg:"rolă 10–25m²", link:"https://mathaus.ro/search?pb=true&text=subparchet+antifonant", formula:"1.05 × suprafață", variants:[], ext:false, consumM2:1.05, consumBaza:"m2",},
+          {name:"Parchet Laminat", um:"m²", pkg:"pachet m²", link:"https://mathaus.ro/search?pb=true&text=parchet+laminat", formula:"1.08 × suprafață (+8% pierderi)", variants:[{name:"Parchet SPC", link:"https://mathaus.ro/search?pb=true&text=parchet+spc", pkg:"pachet m²", consumM2:1.08, consumBaza:"m2",},{name:"Parchet Triplustratificat", link:"https://mathaus.ro/search?pb=true&text=parchet+triplustratificat", pkg:"pachet m²"}], ext:false},
+          {name:"Adeziv parchet triplustratificat (bidon 15kg)", um:"kg", pkg:"bidon 15kg", link:"https://mathaus.ro/search?pb=true&text=adeziv+parchet", formula:"0.8 kg/m² (doar la lipit)", variants:[], ext:false, consumM2:0.8, consumBaza:"m2",},
+          {name:"Plintă MDF laminat", um:"ml", pkg:"buc 2.4m", link:"https://mathaus.ro/search?pb=true&text=plinta+laminat", formula:"1 ml/ml perimetru", variants:[{name:"Plintă PVC/SPC", link:"https://mathaus.ro/search?pb=true&text=plinta+spc", pkg:"buc 2.4m", consumM2:1.1, consumBaza:"ml",},{name:"Plintă furniruită lemn", link:"https://mathaus.ro/search?pb=true&text=plinta+furniruita", pkg:"buc 2.4m"}], ext:false},
+          {name:"Colțar Stânga plintă", um:"buc", pkg:"buc", link:"https://mathaus.ro/search?pb=true&text=coltar+plinta", formula:"~1/15ml perimetru", variants:[], ext:false, consumM2:0.067, consumBaza:"ml",},
+          {name:"Colțar Dreapta plintă", um:"buc", pkg:"buc", link:"https://mathaus.ro/search?pb=true&text=coltar+plinta", formula:"~1/15ml perimetru", variants:[], ext:false, consumM2:0.067, consumBaza:"ml",},
+          {name:"Profil trecere (prag) între încăperi", um:"buc", pkg:"buc 0.9m", link:"https://mathaus.ro/search?pb=true&text=profil+trecere+parchet", formula:"1/20ml perimetru", variants:[], ext:false, consumM2:0.05, consumBaza:"ml",},
         ],
         "vopsitorii": [
-          {name:"Amorsă lavabilă interioară", um:"kg", pkg:"găleată 15kg", link:"https://mathaus.ro/search?pb=true&text=amorsa+lavabila+interioara", formula:"0.12 kg/m²", variants:[], ext:false},
-          {name:"Vopsea lavabilă albă premium + Amorsa", um:"găleți", pkg:"kit 15L+4L amorsă", link:"https://mathaus.ro/p/vopsea-ultra-lavabila-interior-savana-ultra-rezist-alb-15-l-amorsa-4-l/000000000010706528", formula:"kit 15L+4L / 80m²/kit", variants:[], ext:false},
-          {name:"Vopsea anti-umiditate (băi + bucătărie)", um:"kg", pkg:"găleată 8 kg", link:"https://mathaus.ro/search?pb=true&text=vopsea+umiditate+baie", formula:"0.18 kg/m² × nr straturi", variants:[], ext:false},
+          {name:"Amorsă lavabilă interioară", um:"kg", pkg:"găleată 15kg", link:"https://mathaus.ro/search?pb=true&text=amorsa+lavabila+interioara", formula:"0.12 kg/m²", variants:[], ext:false, consumM2:0.12, consumBaza:"m2",},
+          {name:"Vopsea lavabilă albă premium + Amorsa", um:"găleți", pkg:"kit 15L+4L amorsă", link:"https://mathaus.ro/p/vopsea-ultra-lavabila-interior-savana-ultra-rezist-alb-15-l-amorsa-4-l/000000000010706528", formula:"kit 15L+4L / 80m²/kit", variants:[], ext:false, consumM2:0.0125, consumBaza:"m2",},
+          {name:"Vopsea anti-umiditate (băi + bucătărie)", um:"kg", pkg:"găleată 8 kg", link:"https://mathaus.ro/search?pb=true&text=vopsea+umiditate+baie", formula:"0.18 kg/m² × nr straturi", variants:[], ext:false, consumM2:0.18, consumBaza:"m2",},
         ],
         "zidarie": [
           {name:"Mortar adeziv Termofix Poren BCA 25kg", um:"sac", uv:"sac 25 kg", link:"https://mathaus.ro/search?pb=true&text=adeziv+bca", formula:"1 sac / 6.5 m²", pretUM:0, sapKey:"", variants:[{name:"Mortar zidarie caramida Termofix Brick MZ50", link:"https://mathaus.ro/search?pb=true&text=mortar+zidarie+M5", uv:"sac 40 kg"}], ext:false},
