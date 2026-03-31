@@ -7032,6 +7032,7 @@
           prices: PRICE_TABLE,
           settings: { ...appSettings, adminPass: appSettings.adminPass },
           customUM: window.CUSTOM_UM || {},
+          aiKnowledgeBase: loadAIKB(),
         };
       }
 
@@ -7075,6 +7076,13 @@
           if (data.customUM) {
             window.CUSTOM_UM = data.customUM;
             saveCustomUM();
+          }
+          // Restore AI Knowledge Base
+          if (data.aiKnowledgeBase) {
+            const currentKB = loadAIKB();
+            // Merge — keep local API key, merge rest
+            const merged = { ...currentKB, ...data.aiKnowledgeBase };
+            saveAIKB(merged);
           }
           return true;
         } catch(e) { console.error('[Cloud] Apply failed:', e); return false; }
@@ -9619,6 +9627,8 @@
     ${tabBar}
   </div>
   ${content}`;
+        // Init character counter if persona tab is active
+        if (aiKBTab === 'persona') setTimeout(initPromptCounter, 50);
       }
 
       // ══════════ TAB: PERSONA ══════════
@@ -9640,19 +9650,6 @@
     </div>
 
     <div style="margin-bottom:20px">
-      <label class="label">Personalitate</label>
-      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px">
-        ${['profesional','prietenos','tehnic','concis','detaliat'].map(p => `<label style="display:flex;align-items:center;gap:6px;padding:8px 14px;border:1.5px solid ${kb.personality===p?'var(--orange)':'var(--border)'};border-radius:10px;cursor:pointer;font-size:12px;background:${kb.personality===p?'var(--orange-l)':'var(--surface)'}"><input type="radio" name="ai-personality" value="${p}" ${kb.personality===p?'checked':''} onchange="updateAIPersonality('${p}')" style="display:none" />${p.charAt(0).toUpperCase()+p.slice(1)}</label>`).join('')}
-      </div>
-    </div>
-
-    <div style="margin-bottom:20px">
-      <label class="label">System Prompt (instrucțiuni suplimentare)</label>
-      <p style="font-size:11px;color:var(--txt3);margin:4px 0 8px">Scrie instrucțiuni adiționale pentru AI. Acestea se adaugă la prompt-ul de bază care include deja toate materialele și etapele.</p>
-      <textarea class="input" id="ai-system-custom" rows="6" style="width:100%;font-size:12px;line-height:1.7;font-family:var(--font);resize:vertical;min-height:120px" placeholder="Ex: Menționează mereu promoțiile active. Când clientul întreabă de adeziv, recomandă întâi Ceresit CM17. Folosește un ton entuziast dar nu exagerat...">${escHtml(kb.systemPromptCustom || '')}</textarea>
-    </div>
-
-    <div style="margin-bottom:20px">
       <label class="label">Limba răspunsurilor</label>
       <select class="input" id="ai-language" style="max-width:250px;font-size:12px;min-height:40px">
         <option value="ro" ${kb.language==='ro'?'selected':''}>🇷🇴 Română</option>
@@ -9661,17 +9658,58 @@
       </select>
     </div>
 
+    <div style="margin-bottom:20px;border:2px solid var(--orange-m);border-radius:var(--r);padding:20px;background:var(--orange-l)">
+      <label class="label" style="font-size:14px;color:var(--navy)">📝 Prompt Principal — Instrucțiunile tale pentru AI</label>
+      <p style="font-size:12px;color:var(--txt2);margin:6px 0 12px;line-height:1.6">
+        Acesta este <strong>creierul AI-ului</strong> — scrii tu exact cum să se comporte, ce ton să folosească, cum să răspundă. 
+        Bazele de date cu produse (BCA, materiale, termosistem, etc.) se adaugă AUTOMAT sub acest prompt — nu trebuie să le scrii tu.
+      </p>
+      <textarea class="input" id="ai-system-custom" rows="20" style="width:100%;font-size:12.5px;line-height:1.7;font-family:var(--mono);resize:vertical;min-height:400px;background:var(--surface);border:1.5px solid var(--border)">${escHtml(kb.systemPromptCustom || '')}</textarea>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px">
+        <div style="font-size:11px;color:var(--txt3)"><span id="ai-prompt-chars">0</span> caractere · <span id="ai-prompt-tokens">~0</span> tokens estimat</div>
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-ghost" style="font-size:11px;padding:6px 12px" onclick="loadDefaultPrompt()">🔄 Încarcă prompt-ul implicit</button>
+        </div>
+      </div>
+    </div>
+
+    <div style="background:var(--blue-l);border:1px solid #bfdbfe;border-radius:var(--r-sm);padding:14px;margin-bottom:20px">
+      <div style="font-size:13px;font-weight:600;color:var(--navy);margin-bottom:6px">💡 Cum funcționează</div>
+      <div style="font-size:12px;color:var(--txt2);line-height:1.7">
+        <strong>Prompt-ul tău</strong> = instrucțiunile de comportament (cum vorbește, cum răspunde, ce reguli urmează)<br>
+        <strong>Datele din aplicație</strong> = se adaugă automat (etape construcție, materiale, BCA, cărămidă, GC, termosistem)<br>
+        <strong>Training Data</strong> = URL-uri + fișiere din tab-ul Training Data<br>
+        <strong>Cunoștințe fixe</strong> = textul din Training Data → textarea cunoștințe fixe<br><br>
+        ⚡ <strong>Sfat:</strong> Scrie prompt-ul ca și cum ai instrui un coleg nou: "Când te întreabă X, faci Y. Nu faci Z niciodată."
+      </div>
+    </div>
+
     <div style="border-top:1px solid var(--border2);padding-top:20px;margin-bottom:16px">
       <label class="label" style="margin-bottom:12px">Conversation Starters</label>
-      <p style="font-size:11px;color:var(--txt3);margin:-6px 0 12px">Sugestii rapide afișate la deschiderea chat-ului — click și se trimite automat.</p>
+      <p style="font-size:11px;color:var(--txt3);margin:-6px 0 12px">Sugestii rapide afișate la deschiderea chat-ului.</p>
       ${starterRows}
       <button class="btn btn-ghost" style="font-size:12px;padding:6px 14px" onclick="addAIStarter()">+ Adaugă mesaj</button>
     </div>
 
     <div style="display:flex;gap:8px;justify-content:flex-end;border-top:1px solid var(--border2);padding-top:16px">
-      <button class="btn btn-primary" onclick="saveAIPersona()">💾 Salvează Persona</button>
+      <button class="btn btn-primary" onclick="saveAIPersona()" style="padding:10px 24px;font-size:13px">💾 Salvează Persona</button>
     </div>
   </div>`;
+      }
+
+      // Character counter for prompt textarea
+      function initPromptCounter() {
+        const ta = $('ai-system-custom');
+        const cc = $('ai-prompt-chars');
+        const ct = $('ai-prompt-tokens');
+        if (!ta || !cc || !ct) return;
+        function upd() {
+          const len = ta.value.length;
+          cc.textContent = len.toLocaleString();
+          ct.textContent = '~' + Math.ceil(len / 3.5).toLocaleString();
+        }
+        ta.addEventListener('input', upd);
+        upd();
       }
 
       function saveAIPersona() {
@@ -9680,10 +9718,16 @@
         kb.systemPromptCustom = $('ai-system-custom')?.value || '';
         kb.language = $('ai-language')?.value || 'ro';
         saveAIKB(kb);
-        // Update chat header live
         const headerH3 = document.querySelector('.chat-header-info h3');
         if (headerH3) headerH3.textContent = kb.agentName;
         aiSaveFlash(event.target);
+      }
+      function loadDefaultPrompt() {
+        const ta = $('ai-system-custom');
+        if (!ta) return;
+        if (ta.value.trim() && !confirm('Aceasta va înlocui prompt-ul curent. Continui?')) return;
+        ta.value = `REGULI DE COMUNICARE:\n\n1. Răspunde SCURT și DIRECT — doar ce te-am întrebat, nimic în plus.\n2. Dacă există mai multe opțiuni (furnizori, grosimi, modele) → ÎNTREABĂ-MĂ pe care îl vreau, nu alege tu.\n3. După ce aleg → dă-mi DOAR: produsul, cantitatea, ambalajul, paleții/sacii. Atât.\n4. NU explica ce e materialul, cum se montează, sau alte informații pe care nu le-am cerut.\n5. Când îți cer un material suplimentar (mortar, plasă, adeziv) → răspunde DOAR despre acel material.\n6. NU face cross-sell automat. Nu-mi sugera alte produse decât dacă te rog eu.\n7. Vorbește ca un coleg care știe meserie — scurt, la obiect, fără introduceri.\n\nFLUX CONVERSAȚIE:\n\nPas 1: Primesc cererea (ex: "100mp BCA 25cm")\nPas 2: Dacă sunt opțiuni → întreb scurt: "Avem: Elpreco, Macon Deva, Ytong. Care?"\nPas 3: Clientul alege → răspund O SINGURĂ LINIE cu cantitatea\nPas 4: STOP. Aștept următoarea întrebare.\n\nDacă mă întreabă "Cât mortar?" → răspund DOAR mortarul.\nDacă mă întreabă "Mai ce îmi trebuie?" → ATUNCI listez materialele complementare.\n\nFORMAT RĂSPUNS:\n- Maxim 1-3 rânduri per răspuns simplu\n- Cifrele mari: cantitate, paleți/saci = BOLD\n- Link mathaus.ro la final, pe un rând separat\n- Fără emoji excesiv — maxim 1-2 per mesaj\n- Fără tabele lungi decât dacă le cer explicit\n\nCE NU FAC NICIODATĂ:\n- Nu dau prețuri inventate — dacă nu știu, zic "verifică pe mathaus.ro"\n- Nu inventez link-uri — dau link de căutare dacă nu am link exact\n- Nu recomand produse de pe alte magazine\n- Nu explic lucruri pe care consilierul le știe deja`;
+        ta.dispatchEvent(new Event('input'));
       }
       function updateAIPersonality(val) {
         const kb = loadAIKB();
@@ -10015,13 +10059,38 @@ PROGRAM MAGAZINE:
       </label>
     </div>
 
-    <div style="margin-bottom:20px">
-      <label class="label">Web Search</label>
-      <label style="display:flex;align-items:center;gap:10px;cursor:pointer">
-        <input type="checkbox" checked disabled style="width:18px;height:18px" />
-        <span style="font-size:13px;font-weight:500">Web Search activat (caută pe mathaus.ro în timp real)</span>
-      </label>
-      <p style="font-size:11px;color:var(--txt3);margin-top:4px">Întotdeauna activ — AI-ul caută automat pe mathaus.ro pentru prețuri, produse și informații actualizate.</p>
+    <div style="margin-bottom:24px">
+      <label class="label">🛡 Nivel cunoștințe AI</label>
+      <p style="font-size:11px;color:var(--txt3);margin:2px 0 12px">Controlează de unde se documentează AI-ul. Afectează calitatea răspunsurilor vs. riscul de halucinare.</p>
+      
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <label onclick="setAIKnowledgeLevel('full')" style="display:flex;gap:12px;padding:14px;border:2px solid ${kb.knowledgeLevel==='full'?'var(--green)':'var(--border2)'};border-radius:var(--r-sm);cursor:pointer;background:${kb.knowledgeLevel==='full'?'var(--green-l)':'var(--surface)'}">
+          <input type="radio" name="ai-knowledge-level" value="full" ${kb.knowledgeLevel==='full'?'checked':''} style="display:none"/>
+          <div style="flex-shrink:0;width:36px;height:36px;border-radius:10px;background:${kb.knowledgeLevel==='full'?'var(--green)':'var(--surface2)'};color:${kb.knowledgeLevel==='full'?'#fff':'var(--txt3)'};display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:700">🌐</div>
+          <div>
+            <div style="font-size:13px;font-weight:700;color:var(--navy)">Full — Se documentează de peste tot</div>
+            <div style="font-size:11px;color:var(--txt2);margin-top:2px;line-height:1.5">Web search nelimitat (orice site), cunoștințe generale, date interne. Răspunsuri bogate dar risc mai mare de informații din afara MatHaus.</div>
+          </div>
+        </label>
+
+        <label onclick="setAIKnowledgeLevel('medium')" style="display:flex;gap:12px;padding:14px;border:2px solid ${(!kb.knowledgeLevel||kb.knowledgeLevel==='medium')?'var(--blue)':'var(--border2)'};border-radius:var(--r-sm);cursor:pointer;background:${(!kb.knowledgeLevel||kb.knowledgeLevel==='medium')?'var(--blue-l)':'var(--surface)'}">
+          <input type="radio" name="ai-knowledge-level" value="medium" ${(!kb.knowledgeLevel||kb.knowledgeLevel==='medium')?'checked':''} style="display:none"/>
+          <div style="flex-shrink:0;width:36px;height:36px;border-radius:10px;background:${(!kb.knowledgeLevel||kb.knowledgeLevel==='medium')?'var(--blue)':'var(--surface2)'};color:${(!kb.knowledgeLevel||kb.knowledgeLevel==='medium')?'#fff':'var(--txt3)'};display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:700">⚖</div>
+          <div>
+            <div style="font-size:13px;font-weight:700;color:var(--navy)">Medium — Echilibrat (recomandat)</div>
+            <div style="font-size:11px;color:var(--txt2);margin-top:2px;line-height:1.5">Preferă mathaus.ro, folosește cunoștințe generale dar le marchează clar (✅/ℹ️/⚠️). Bun echilibru între utilitate și precizie.</div>
+          </div>
+        </label>
+
+        <label onclick="setAIKnowledgeLevel('strict')" style="display:flex;gap:12px;padding:14px;border:2px solid ${kb.knowledgeLevel==='strict'?'var(--orange)':'var(--border2)'};border-radius:var(--r-sm);cursor:pointer;background:${kb.knowledgeLevel==='strict'?'var(--orange-l)':'var(--surface)'}">
+          <input type="radio" name="ai-knowledge-level" value="strict" ${kb.knowledgeLevel==='strict'?'checked':''} style="display:none"/>
+          <div style="flex-shrink:0;width:36px;height:36px;border-radius:10px;background:${kb.knowledgeLevel==='strict'?'var(--orange)':'var(--surface2)'};color:${kb.knowledgeLevel==='strict'?'#fff':'var(--txt3)'};display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:700">🔒</div>
+          <div>
+            <div style="font-size:13px;font-weight:700;color:var(--navy)">Strict — Doar datele mele</div>
+            <div style="font-size:11px;color:var(--txt2);margin-top:2px;line-height:1.5">Răspunde EXCLUSIV din: datele aplicației, link-urile din Training Data, documentele încărcate, cunoștințele fixe. Fără web search, fără cunoștințe generale. Dacă nu știe → "Nu am această informație."</div>
+          </div>
+        </label>
+      </div>
     </div>
 
     <div style="border-top:1px solid var(--border2);padding-top:16px;margin-bottom:16px">
@@ -10051,6 +10120,12 @@ PROGRAM MAGAZINE:
         kb.voiceEnabled = enabled;
         saveAIKB(kb);
         updateChatVoiceButton();
+      }
+      function setAIKnowledgeLevel(level) {
+        const kb = loadAIKB();
+        kb.knowledgeLevel = level;
+        saveAIKB(kb);
+        renderAdminAIKB();
       }
 
       // ══════════ TAB: USAGE ══════════
@@ -12137,6 +12212,15 @@ PROGRAM MAGAZINE:
         const kb = loadAIKB();
         const headerH3 = document.querySelector('.chat-header-info h3');
         if (headerH3 && kb.agentName) headerH3.textContent = kb.agentName;
+        // Update level badge
+        const levelBadge = document.getElementById('chat-level-badge');
+        if (levelBadge) {
+          const lvl = kb.knowledgeLevel || 'medium';
+          const labels = { full: '🌐 Full', medium: '⚖ Medium', strict: '🔒 Strict' };
+          const colors = { full: 'var(--green)', medium: 'var(--blue)', strict: 'var(--orange)' };
+          levelBadge.textContent = labels[lvl] || labels.medium;
+          levelBadge.style.color = colors[lvl] || colors.medium;
+        }
         // Track session
         trackAIUsage('session');
 
@@ -12349,7 +12433,65 @@ Când mesajul pare transcris vocal (text fără punctuație, informal, "ăă", "
 - Evidențiază CIFRELE (cantități, prețuri) — sunt informația critică
 - Maxim 3-4 rânduri pentru întrebări simple
 - Link-ul mathaus.ro la final, nu intercalat
+`;
 
+        // ── Knowledge Level Rules ──
+        const knowledgeLevel = kb.knowledgeLevel || 'medium';
+        
+        if (knowledgeLevel === 'strict') {
+          sp += `
+═══════════════════════════════════════════════
+🔒 MOD STRICT — DOAR DATELE VERIFICATE
+═══════════════════════════════════════════════
+ATENȚIE MAXIMĂ: Răspunzi EXCLUSIV pe baza:
+1. Datelor din aplicație (STAGE_MATS_DB, BCA_DB, CAR_DB, GC_SYSTEMS, TVG)
+2. Documentelor și fișierelor încărcate de administrator
+3. Cunoștințelor fixe scrise de administrator
+4. Link-urilor de referință din Training Data
+
+NU ai voie să:
+- Folosești cunoștințe generale despre construcții
+- Recomanzi produse pe care nu le ai în baza de date
+- Dai specificații tehnice din memorie
+- Estimezi prețuri
+- Presupui compatibilități
+
+Dacă informația NU există în sursele de mai sus, răspunzi OBLIGATORIU:
+"Nu am această informație în baza de date. Verifică pe mathaus.ro sau întreabă un coleg senior."
+
+NU improviza, NU presupune, NU estima. Mai bine spui "nu știu" decât să dai informație neverificată.
+`;
+        } else if (knowledgeLevel === 'full') {
+          sp += `
+═══════════════════════════════════════════════
+🌐 MOD FULL — DOCUMENTARE COMPLETĂ
+═══════════════════════════════════════════════
+Poți folosi TOATE sursele disponibile:
+- Datele din aplicație (prioritate maximă)
+- Web search pe ORICE site (nu doar mathaus.ro)
+- Cunoștințe generale despre construcții, materiale, tehnici
+- Experiența ta generală ca expert
+
+Marchează ÎNTOTDEAUNA sursa:
+- ✅ = din baza internă MatHaus
+- 🔍 = găsit pe mathaus.ro
+- 🌐 = găsit pe alt site (menționează sursa)
+- ℹ️ = din cunoștințe generale
+`;
+        } else {
+          // Medium (default)
+          sp += `
+═══════════════════════════════════════════════
+⚖ MOD ECHILIBRAT — PREFERĂ MATHAUS.RO
+═══════════════════════════════════════════════
+Prioritate surse: baza internă > mathaus.ro > cunoștințe generale.
+Când folosești cunoștințe generale, marchează clar cu ℹ️.
+Când cauți pe web, preferă mathaus.ro.
+Ignoră prețuri și informații de pe site-uri concurente.
+`;
+        }
+
+        sp += `
 ═══════════════════════════════════════════════
 SISTEM DE TRANSPARENȚĂ — REGULA DE AUR
 ═══════════════════════════════════════════════
@@ -12730,20 +12872,25 @@ La fiecare produs menționat, include una din:
 
       // ── Claude API Call ──
       async function callClaudeAPI(apiKey, messages) {
-        // Keep conversation manageable (last 20 messages + system prompt)
         const trimmedMessages = messages.slice(-20);
+        const kb = loadAIKB();
+        const knowledgeLevel = kb.knowledgeLevel || 'medium';
 
         const body = {
           model: "claude-sonnet-4-20250514",
           max_tokens: 4096,
           system: buildSystemPrompt(),
-          tools: [{
-            type: "web_search_20250305",
-            name: "web_search",
-            max_uses: 3
-          }],
           messages: trimmedMessages
         };
+
+        // Only include web_search if NOT in strict mode
+        if (knowledgeLevel !== 'strict') {
+          body.tools = [{
+            type: "web_search_20250305",
+            name: "web_search",
+            max_uses: knowledgeLevel === 'full' ? 5 : 3
+          }];
+        }
 
         const response = await fetch("https://api.anthropic.com/v1/messages", {
           method: "POST",
@@ -13222,10 +13369,11 @@ La fiecare produs menționat, include una din:
         </div>
 
         <div class="chat-trust-legend" id="chat-trust-legend" style="display:none">
-          <span>✅ Verificat MatHaus</span>
+          <span>✅ Verificat</span>
           <span>🔍 Căutat live</span>
-          <span>ℹ️ Cunoștințe generale</span>
+          <span>ℹ️ General</span>
           <span>⚠️ Estimativ</span>
+          <span id="chat-level-badge" style="margin-left:auto;font-weight:600"></span>
         </div>
 
         <!-- API Key Setup (shown first time) -->
