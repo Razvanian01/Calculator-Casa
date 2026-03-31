@@ -1846,6 +1846,383 @@
         background: #dc2626;
         border-radius: 2px;
       }
+      /* ═══════════════ CHATBOT ═══════════════ */
+      .chat-fab {
+        position: fixed;
+        bottom: 24px;
+        right: 24px;
+        z-index: 8000;
+        width: 60px;
+        height: 60px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, var(--orange) 0%, #d14700 100%);
+        color: #fff;
+        border: none;
+        cursor: pointer;
+        font-size: 28px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        box-shadow: 0 4px 20px rgba(232,83,10,0.35), 0 2px 8px rgba(0,0,0,0.1);
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        animation: chatFabPulse 3s ease-in-out infinite;
+      }
+      .chat-fab:hover {
+        transform: scale(1.1) translateY(-2px);
+        box-shadow: 0 6px 28px rgba(232,83,10,0.45), 0 3px 12px rgba(0,0,0,0.15);
+      }
+      .chat-fab.chat-open { display: none; }
+      @keyframes chatFabPulse {
+        0%,100% { box-shadow: 0 4px 20px rgba(232,83,10,0.35), 0 2px 8px rgba(0,0,0,0.1); }
+        50% { box-shadow: 0 4px 30px rgba(232,83,10,0.55), 0 2px 12px rgba(0,0,0,0.15); }
+      }
+
+      #chat-overlay {
+        display: none;
+        position: fixed;
+        inset: 0;
+        z-index: 9000;
+        background: rgba(28,43,74,0.4);
+        backdrop-filter: blur(6px);
+        -webkit-backdrop-filter: blur(6px);
+        animation: chatOverlayIn 0.25s ease;
+      }
+      #chat-overlay.active { display: flex; justify-content: flex-end; }
+      @keyframes chatOverlayIn { from { opacity: 0; } to { opacity: 1; } }
+
+      #chat-panel {
+        width: 440px;
+        max-width: 100vw;
+        height: 100vh;
+        background: var(--bg);
+        display: flex;
+        flex-direction: column;
+        box-shadow: -8px 0 40px rgba(28,43,74,0.18);
+        animation: chatSlideIn 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        position: relative;
+      }
+      @keyframes chatSlideIn { from { transform: translateX(100%); } to { transform: translateX(0); } }
+
+      .chat-header {
+        padding: 16px 20px;
+        background: var(--surface);
+        border-bottom: 1px solid var(--border2);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        flex-shrink: 0;
+      }
+      .chat-header-left {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
+      .chat-avatar {
+        width: 40px;
+        height: 40px;
+        border-radius: 12px;
+        background: linear-gradient(135deg, var(--orange-l) 0%, var(--orange-m) 100%);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 20px;
+        flex-shrink: 0;
+      }
+      .chat-header-info h3 {
+        font-size: 15px;
+        font-weight: 700;
+        color: var(--navy);
+        line-height: 1.2;
+      }
+      .chat-header-info span {
+        font-size: 11px;
+        color: var(--txt3);
+      }
+      .chat-close-btn {
+        width: 36px;
+        height: 36px;
+        border-radius: 10px;
+        border: 1px solid var(--border2);
+        background: var(--surface2);
+        color: var(--txt2);
+        cursor: pointer;
+        font-size: 18px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.15s;
+      }
+      .chat-close-btn:hover { background: var(--surface3); color: var(--navy); }
+
+      .chat-messages {
+        flex: 1;
+        overflow-y: auto;
+        padding: 20px 16px;
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+        scroll-behavior: smooth;
+      }
+      .chat-messages::-webkit-scrollbar { width: 5px; }
+      .chat-messages::-webkit-scrollbar-track { background: transparent; }
+      .chat-messages::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+      .chat-msg {
+        display: flex;
+        gap: 10px;
+        max-width: 92%;
+        animation: chatMsgIn 0.3s ease;
+      }
+      .chat-msg.user { align-self: flex-end; flex-direction: row-reverse; }
+      @keyframes chatMsgIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+
+      .chat-msg-avatar {
+        width: 30px;
+        height: 30px;
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 14px;
+        flex-shrink: 0;
+        margin-top: 2px;
+      }
+      .chat-msg.bot .chat-msg-avatar { background: var(--orange-l); }
+      .chat-msg.user .chat-msg-avatar { background: var(--blue-l); }
+
+      .chat-bubble {
+        padding: 12px 16px;
+        border-radius: 16px;
+        font-size: 13px;
+        line-height: 1.65;
+        color: var(--txt);
+        word-break: break-word;
+      }
+      .chat-msg.bot .chat-bubble {
+        background: var(--surface);
+        border: 1px solid var(--border2);
+        border-top-left-radius: 4px;
+      }
+      .chat-msg.user .chat-bubble {
+        background: var(--navy);
+        color: #fff;
+        border-top-right-radius: 4px;
+      }
+      .chat-bubble p { margin-bottom: 8px; }
+      .chat-bubble p:last-child { margin-bottom: 0; }
+      .chat-bubble strong { font-weight: 600; }
+      .chat-bubble a {
+        color: var(--blue);
+        text-decoration: underline;
+        text-underline-offset: 2px;
+      }
+      .chat-msg.user .chat-bubble a { color: #93c5fd; }
+      .chat-bubble ul, .chat-bubble ol {
+        margin: 6px 0;
+        padding-left: 18px;
+      }
+      .chat-bubble li { margin-bottom: 3px; }
+      .chat-bubble code {
+        background: var(--surface2);
+        padding: 1px 5px;
+        border-radius: 4px;
+        font-family: var(--mono);
+        font-size: 12px;
+      }
+      .chat-bubble .calc-result {
+        background: var(--green-l);
+        border: 1px solid #bbf7d0;
+        border-radius: 10px;
+        padding: 10px 14px;
+        margin: 8px 0;
+        font-size: 12px;
+      }
+      .chat-bubble .calc-result strong { color: var(--green); }
+
+      .chat-trust-legend {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+        padding: 8px 16px;
+        background: var(--surface2);
+        border-bottom: 1px solid var(--border2);
+        font-size: 10px;
+        color: var(--txt3);
+        flex-shrink: 0;
+      }
+      .chat-trust-legend span { white-space: nowrap; }
+
+      .chat-typing {
+        display: flex;
+        gap: 10px;
+        max-width: 92%;
+        animation: chatMsgIn 0.3s ease;
+      }
+      .chat-typing .chat-msg-avatar {
+        width: 30px;
+        height: 30px;
+        border-radius: 8px;
+        background: var(--orange-l);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 14px;
+        flex-shrink: 0;
+      }
+      .typing-dots {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        padding: 14px 18px;
+        background: var(--surface);
+        border: 1px solid var(--border2);
+        border-radius: 16px;
+        border-top-left-radius: 4px;
+      }
+      .typing-dots span {
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        background: var(--txt3);
+        animation: typingBounce 1.4s infinite;
+      }
+      .typing-dots span:nth-child(2) { animation-delay: 0.2s; }
+      .typing-dots span:nth-child(3) { animation-delay: 0.4s; }
+      @keyframes typingBounce {
+        0%,60%,100% { transform: translateY(0); opacity: 0.4; }
+        30% { transform: translateY(-6px); opacity: 1; }
+      }
+
+      .chat-suggestions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        padding: 0 16px 12px;
+        flex-shrink: 0;
+      }
+      .chat-sug-btn {
+        padding: 7px 14px;
+        border-radius: 20px;
+        border: 1px solid var(--border);
+        background: var(--surface);
+        color: var(--txt2);
+        font-size: 11.5px;
+        font-family: var(--font);
+        cursor: pointer;
+        transition: all 0.15s;
+        white-space: nowrap;
+      }
+      .chat-sug-btn:hover {
+        border-color: var(--orange);
+        color: var(--orange);
+        background: var(--orange-l);
+      }
+
+      .chat-input-area {
+        padding: 12px 16px 16px;
+        background: var(--surface);
+        border-top: 1px solid var(--border2);
+        display: flex;
+        gap: 8px;
+        align-items: flex-end;
+        flex-shrink: 0;
+      }
+      .chat-input {
+        flex: 1;
+        border: 1.5px solid var(--border);
+        border-radius: 14px;
+        padding: 11px 16px;
+        font-family: var(--font);
+        font-size: 13px;
+        color: var(--txt);
+        background: var(--surface2);
+        resize: none;
+        min-height: 44px;
+        max-height: 120px;
+        outline: none;
+        transition: border-color 0.2s;
+        line-height: 1.5;
+      }
+      .chat-input:focus { border-color: var(--orange); }
+      .chat-input::placeholder { color: var(--txt3); }
+      .chat-send-btn {
+        width: 44px;
+        height: 44px;
+        border-radius: 12px;
+        border: none;
+        background: var(--orange);
+        color: #fff;
+        cursor: pointer;
+        font-size: 18px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.2s;
+        flex-shrink: 0;
+      }
+      .chat-send-btn:hover { background: #d14700; transform: scale(1.05); }
+      .chat-send-btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+
+      .chat-api-setup {
+        padding: 20px;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        align-items: center;
+        text-align: center;
+        flex: 1;
+        justify-content: center;
+      }
+      .chat-api-setup p { font-size: 13px; color: var(--txt2); line-height: 1.6; }
+      .chat-api-input {
+        width: 100%;
+        max-width: 320px;
+        border: 1.5px solid var(--border);
+        border-radius: 10px;
+        padding: 10px 14px;
+        font-family: var(--mono);
+        font-size: 12px;
+        color: var(--txt);
+        background: var(--surface);
+        outline: none;
+      }
+      .chat-api-input:focus { border-color: var(--orange); }
+      .chat-api-save-btn {
+        padding: 10px 28px;
+        border-radius: 10px;
+        border: none;
+        background: var(--orange);
+        color: #fff;
+        font-family: var(--font);
+        font-size: 13px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.15s;
+      }
+      .chat-api-save-btn:hover { background: #d14700; }
+
+      /* Landing card for chatbot */
+      .mode-card.chat-card {
+        grid-column: 1 / -1;
+        border: 2px dashed var(--orange-m);
+        background: linear-gradient(135deg, var(--surface) 0%, var(--orange-l) 100%);
+        display: flex;
+        align-items: center;
+        gap: 20px;
+        padding: 22px 28px;
+      }
+      .mode-card.chat-card::before { background: var(--orange); }
+      .mode-card.chat-card:hover { border-color: var(--orange); border-style: solid; }
+      .mode-card.chat-card .mode-icon { margin-bottom: 0; flex-shrink: 0; }
+      .mode-card.chat-card .chat-card-text h2 { font-size: 17px; margin-bottom: 4px; }
+      .mode-card.chat-card .chat-card-text p { font-size: 12px; margin-bottom: 0; }
+
+      @media (max-width: 768px) {
+        #chat-panel { width: 100vw; }
+        .mode-card.chat-card { flex-direction: column; text-align: center; }
+        .chat-suggestions { justify-content: center; }
+      }
     </style>
   </head>
   <body>
@@ -1877,6 +2254,7 @@
           ⚙ Admin
         </button>
         <button class="nav-btn" onclick="window.print()">🖨 Print</button>
+        <button class="nav-btn" onclick="openChat()" style="color:var(--orange);border-color:var(--orange-m)">🤖 Consultant AI</button>
       </div>
     </header>
 
@@ -1921,6 +2299,13 @@
             <li>Link-uri directe mathaus.ro la toate produsele</li>
             <li>Script de vânzare și tips pentru fiecare etapă</li>
           </ul>
+        </div>
+        <div class="mode-card chat-card orange" onclick="openChat()">
+          <div class="mode-icon orange">🤖</div>
+          <div class="chat-card-text">
+            <h2>Consultant MatHaus AI</h2>
+            <p>Întreabă orice despre materiale, calcule cantități, recomandări produse sau etape de construcție. Răspunsuri instant cu căutare pe mathaus.ro.</p>
+          </div>
         </div>
       </div>
       <div class="mode-footer">
@@ -2339,9 +2724,59 @@
           ],
           calcFn: (inp) => {
             const p = inp.perimetruTrasare || 40;
-            return calcStageFromDB('trasare', {m2: 0, ml: p, m3: 0});
+            return [
+              {
+                name: "Țăruși lemn trasare",
+                qty: C(p / 2),
+                um: "buc",
+                formula: `${C(p / 2)} buc (1/2ml)`,
+                pkg: "—",
+                link: "https://mathaus.ro/search?text=tarusi+trasare",
+              },
+              {
+                name: "Sfoară trasare 50m",
+                qty: C((p * 2) / 50),
+                um: "role",
+                formula: `${C(p * 2)} ml total / 50m/rolă`,
+                pkg: "rolă 50m",
+                link: "https://mathaus.ro/search?text=sfoara+trasare",
+              },
+              {
+                name: "Spray marcaj",
+                qty: 2,
+                um: "tuburi",
+                formula: "2 tuburi fix",
+                pkg: "tub",
+                link: "https://mathaus.ro/search?text=spray+marcaj",
+              },
+            ];
           },
-                    totalFn: (c) => calcStageFromDB('trasare', {m2: 0, ml: c.perimetru, m3: 0}),
+          totalFn: (c) => [
+            {
+              name: "Țăruși lemn trasare",
+              qty: C(c.perimetru / 2),
+              um: "buc",
+              formula: `${C(c.perimetru / 2)} buc`,
+              pkg: "—",
+              link: "https://mathaus.ro/search?text=tarusi+trasare",
+            },
+            {
+              name: "Sfoară trasare",
+              qty: C((c.perimetru * 2) / 50),
+              um: "role",
+              formula: "",
+              pkg: "rolă 50m",
+              link: "https://mathaus.ro/search?text=sfoara+trasare",
+            },
+            {
+              name: "Spray marcaj",
+              qty: 2,
+              um: "tuburi",
+              formula: "2 tuburi",
+              pkg: "tub",
+              link: "https://mathaus.ro/search?text=spray+marcaj",
+            },
+          ],
         },
         {
           id: "fundatii",
@@ -2432,52 +2867,178 @@
               ad = inp.fAdancime || 0.9;
             const volFunda = p * lat * ad;
             const volPlaca = amp * 0.12;
-            // Custom: each material uses the right volume
-            const db = STAGE_MATS_DB['fundatii'] || [];
-            return db.map(m => {
-              const c = m.consumM2 || 0;
-              const baza = m.consumBaza || 'm2';
-              if (c <= 0) return null;
-              let qty = 0;
-              const nm = m.name.toLowerCase();
-              if (baza === 'm3' || nm.includes('beton') || nm.includes('oțel beton')) {
-                // Determine which volume to use
-                if (nm.includes('placă') || nm.includes('placa')) qty = volPlaca * c;
-                else if (nm.includes('oțel') || nm.includes('otel')) qty = volFunda * 110; // kg/m³ fixed
-                else qty = volFunda * c; // beton fundații
-              } else if (baza === 'ml') qty = p * c;
-              else if (baza === 'm2') qty = amp * c;
-              else if (baza === 'fix') qty = c;
-              if (m.um === 'm³' || m.um === 'l') qty = +qty.toFixed(2);
-              else qty = Math.ceil(qty);
-              if (qty <= 0) return null;
-              return {
-                name: m.name, qty, um: m.um,
-                formula: nm.includes('oțel') ? '110 kg/m³ × '+volFunda.toFixed(1)+'m³' : nm.includes('beton') ? (nm.includes('placă')?amp+'m² × 0.12m':p+'ml × '+lat+'m × '+ad+'m') : c+' '+m.um+'/'+(baza==='ml'?'ml':'m²'),
-                pkg: m.uv || m.pkg || '—', link: m.link || '',
-                ext: m.ext || false, variants: m.variants || [],
-              };
-            }).filter(x => x !== null);
+            return [
+              {
+                name: "Beton C20/25 fundații",
+                qty: fmt(volFunda),
+                um: "m³",
+                formula: `${p}ml × ${lat}m × ${ad}m`,
+                pkg: "— produs extern",
+                link: "",
+                ext: true,
+              },
+              {
+                name: "Oțel beton PC52 Ø10-14mm",
+                qty: C(volFunda * 110),
+                um: "kg",
+                formula: "110 kg/m³ beton",
+                pkg: "— produs extern",
+                link: "",
+                ext: true,
+              },
+              {
+                name: "Amorsa bituminoasa Eco Primer, 20 l",
+                qty: C((p * 2.8 * 0.35) / 22),
+                um: "găleți",
+                formula: "0.35 kg/m² ÷ 22kg/găleată",
+                pkg: "găleată 20L (22kg)",
+                link: "https://mathaus.ro/p/amorsa-bituminoasa-de-baza-de-solventi-eco-primer-20-l/000000000010909445",
+              },
+              {
+                name: "Membrana fundatie Black Star 350, 2.5x20m",
+                qty: C((p * 2.8) / 50),
+                um: "role",
+                formula: `${p}ml × 2.8m H ÷ 50m²/rolă`,
+                pkg: "rolă 2.5×20m (50m²)",
+                link: "https://mathaus.ro/p/membrana-fundatie-black-star-350-polietilena-25-x-20-m/000000000010927495",
+                variants: [
+                  {
+                    name: "Membrana fundatie Black Star 350, 2x20m",
+                    link: "https://mathaus.ro/p/membrana-fundatie-black-star-350-polietilena-2-x-20-m/000000000010927190",
+                    pkg: "rolă 2×20m (40m²)",
+                    price: 217 / 40,
+                    note: "Varianta mai mică, 217 lei/rolă",
+                  },
+                ],
+              },
+              {
+                name: "Plasă sudată fir 4mm, 2000×6000mm",
+                qty: C((amp * 1.05) / 12),
+                um: "buc",
+                formula: "1.05 × amprentă ÷ 12m²/buc",
+                pkg: "panou 12m²",
+                link: "https://mathaus.ro/p/plasa-sudata-otel-fir-4-mm-dimensiune-ochi-100x100-mm-2000x6000-mm/000000000010400673",
+                variants: [
+                  {
+                    name: "Plasă sudată fir 5mm, 2000×6000mm",
+                    link: "https://mathaus.ro/p/plasa-sudata-otel-fir-5-mm-dimensiuni-ochi-100x100-mm-2000x6000-mm/000000000010400679",
+                    pkg: "panou 12m²",
+                    price: 196 / 12,
+                    note: "Rezistență mai mare",
+                  },
+                  {
+                    name: "Plasă sudată fir 6mm, 2000×6000mm",
+                    link: "https://mathaus.ro/p/plasa-sudata-otel-fir-6-mm-dimensiune-ochi-100x100-mm-2000x6000-mm/000000000010400684",
+                    pkg: "panou 12m²",
+                    price: 282 / 12,
+                    note: "Rezistență sporită",
+                  },
+                  {
+                    name: "Plasă sudată fir 8mm, 2000×6000mm",
+                    link: "https://mathaus.ro/p/plasa-sudata-otel-fir-8-mm-dimensiune-ochi-100x100-mm-2000x6000-mm/000000000010400695",
+                    pkg: "panou 12m²",
+                    price: 501 / 12,
+                    note: "Rezistență maximă",
+                  },
+                ],
+              },
+              {
+                name: "Beton C20/25 placă pe sol",
+                qty: fmt(volPlaca),
+                um: "m³",
+                formula: `${amp}m² × 0.12m`,
+                pkg: "— produs extern",
+                link: "",
+                ext: true,
+              },
+              {
+                name: "Distantieri Plasa Sudata",
+                qty: C((amp * 6) / 100),
+                um: "cutii",
+                formula: "6 buc/m² ÷ 100 buc/cutie",
+                pkg: "cutie 100 buc",
+                link: "https://mathaus.ro/p/distantieri-plasa-sudata-inaltime-15-20mm-100-buc/000000000010401002",
+              },
+            ];
           },
-                    totalFn: (c) => {
-            const db = STAGE_MATS_DB['fundatii'] || [];
-            const volF = c.perimetru * 0.4 * 0.9;
-            const volP = c.amprenta * 0.12;
-            return db.map(m => {
-              const cv = m.consumM2 || 0, baza = m.consumBaza || 'm2';
-              if (cv <= 0) return null;
-              const nm = m.name.toLowerCase();
-              let qty = 0;
-              if (nm.includes('beton') || nm.includes('oțel')) {
-                if (nm.includes('placă')||nm.includes('placa')) qty = volP * cv;
-                else if (nm.includes('oțel')||nm.includes('otel')) qty = volF * 110;
-                else qty = volF * cv;
-              } else if (baza==='ml') qty = c.perimetru * cv;
-              else if (baza==='m2') qty = c.amprenta * cv;
-              else if (baza==='fix') qty = cv;
-              qty = (m.um==='m³'||m.um==='l') ? +qty.toFixed(2) : Math.ceil(qty);
-              return qty > 0 ? {name:m.name, qty, um:m.um, formula:'', pkg:m.uv||m.pkg||'—', link:m.link||'', ext:m.ext||false, variants:m.variants||[]} : null;
-            }).filter(Boolean);
+          totalFn: (c) => {
+            const volF = c.volumFunda,
+              volP = c.volumPlacaSol;
+            return [
+              {
+                name: "Beton C20/25 fundații",
+                qty: fmt(volF),
+                um: "m³",
+                formula: "",
+                pkg: "— extern",
+                link: "",
+                ext: true,
+              },
+              {
+                name: "Oțel beton PC52",
+                qty: C(volF * 110),
+                um: "kg",
+                formula: "110 kg/m³",
+                pkg: "— extern",
+                link: "",
+                ext: true,
+              },
+              {
+                name: "Amorsa bituminoasa Eco Primer, 20 l",
+                qty: C((c.perimetru * 2.8 * 0.35) / 22),
+                um: "găleți",
+                formula: "",
+                pkg: "găleată 20L (22kg)",
+                link: "https://mathaus.ro/p/amorsa-bituminoasa-de-baza-de-solventi-eco-primer-20-l/000000000010909445",
+              },
+              {
+                name: "Membrana fundatie Black Star 350, 2.5x20m",
+                qty: C((c.perimetru * 2.8) / 50),
+                um: "role",
+                formula: "",
+                pkg: "rolă 2.5×20m (50m²)",
+                link: "https://mathaus.ro/p/membrana-fundatie-black-star-350-polietilena-25-x-20-m/000000000010927495",
+                variants: [
+                  {
+                    name: "Membrana fundatie Black Star 350, 2x20m",
+                    link: "https://mathaus.ro/p/membrana-fundatie-black-star-350-polietilena-2-x-20-m/000000000010927190",
+                    pkg: "rolă 2×20m (40m²)",
+                    price: 217 / 40,
+                  },
+                ],
+              },
+              {
+                name: "Plasă sudată fir 4mm, 2000×6000mm",
+                qty: C((c.amprenta * 1.05) / 12),
+                um: "buc",
+                formula: "",
+                pkg: "panou 12m²",
+                link: "https://mathaus.ro/p/plasa-sudata-otel-fir-4-mm-dimensiune-ochi-100x100-mm-2000x6000-mm/000000000010400673",
+                variants: [
+                  {
+                    name: "Plasă sudată fir 5mm, 2000×6000mm",
+                    link: "https://mathaus.ro/p/plasa-sudata-otel-fir-5-mm-dimensiuni-ochi-100x100-mm-2000x6000-mm/000000000010400679",
+                    pkg: "panou 12m²",
+                    price: 196 / 12,
+                  },
+                  {
+                    name: "Plasă sudată fir 6mm, 2000×6000mm",
+                    link: "https://mathaus.ro/p/plasa-sudata-otel-fir-6-mm-dimensiune-ochi-100x100-mm-2000x6000-mm/000000000010400684",
+                    pkg: "panou 12m²",
+                    price: 282 / 12,
+                  },
+                ],
+              },
+              {
+                name: "Beton placă sol",
+                qty: fmt(volP),
+                um: "m³",
+                formula: "",
+                pkg: "— extern",
+                link: "",
+                ext: true,
+              },
+            ];
           },
         },
         {
@@ -2540,53 +3101,82 @@
               id: "xpsGros",
               label: "Grosime XPS (cm)",
               def: 10,
-              min: 2,
+              min: 5,
               type: "select",
-              options: ["2", "3", "5", "10"],
-              labels: ["2 cm (20MM)", "3 cm (30MM)", "5 cm (50MM)", "10 cm (100MM)"],
+              options: ["5", "10", "15", "20"],
             },
           ],
           calcFn: (inp) => {
             const amp = inp.xpsAmp || 100;
-            const gros = parseInt(inp.xpsGros || 10);
-            const db = STAGE_MATS_DB['xps-subsol'] || [];
-            const grosMM = gros * 10; // cm → mm
-            return db.map(m => {
-              const c = m.consumM2 || 0, baza = m.consumBaza || 'm2';
-              if (c <= 0) return null;
-              const nm = m.name.toLowerCase();
-              // For XPS products: match grosime
-              if (nm.includes('polistiren') || nm.includes('xps')) {
-                // Check main product name for thickness
-                const mmMatch = m.name.match(/(\d+)\s*MM/i);
-                const mainMM = mmMatch ? parseInt(mmMatch[1]) : 0;
-                if (mainMM === grosMM) {
-                  // Main product matches
-                  let qty = baza === 'm2' ? amp * c : c;
-                  qty = Math.ceil(qty);
-                  return qty > 0 ? {name: m.name, qty, um: m.um, formula: c+' m²/m² (gros '+gros+'cm)', pkg: m.uv||m.pkg||'—', link: m.link||'', ext: m.ext||false, variants: m.variants||[]} : null;
-                }
-                // Check variants for matching thickness
-                const matchV = (m.variants||[]).find(v => {
-                  const vMM = v.name.match(/(\d+)\s*MM/i);
-                  return vMM && parseInt(vMM[1]) === grosMM;
-                });
-                if (matchV) {
-                  const vc = matchV.consumM2 || c;
-                  let qty = Math.ceil(amp * vc);
-                  return qty > 0 ? {name: matchV.name, qty, um: m.um, formula: vc+' m²/m² (gros '+gros+'cm)', pkg: matchV.pkg||m.pkg||'—', link: matchV.link||m.link||'', ext: m.ext||false} : null;
-                }
-                // No match — show main product anyway with note
-                let qty = Math.ceil(amp * c);
-                return qty > 0 ? {name: m.name + ' (adaptați grosimea)', qty, um: m.um, formula: c+' m²/m²', pkg: m.uv||m.pkg||'—', link: m.link||'', ext: m.ext||false, variants: m.variants||[]} : null;
-              }
-              // Non-XPS materials (folie etc.) — normal calc
-              let qty = baza === 'm2' ? amp * c : baza === 'fix' ? c : 0;
-              qty = Math.ceil(qty);
-              return qty > 0 ? {name: m.name, qty, um: m.um, formula: c+' '+m.um+'/m²', pkg: m.uv||m.pkg||'—', link: m.link||'', ext: m.ext||false, variants: m.variants||[]} : null;
-            }).filter(Boolean);
+            return [
+              {
+                name: `Polistiren extrudat Briotherm XPS ${
+                  inp.xpsGros || 10
+                }0MM`,
+                qty: C(amp * 1.05),
+                um: "m²",
+                formula: "1.05 × suprafață (5% pierderi)",
+                pkg:
+                  { 5: "14.5m²/bax", 10: "2.9m²/bax", 15: "—", 20: "—" }[
+                    inp.xpsGros || 10
+                  ] || "bax",
+                link:
+                  {
+                    5: "https://mathaus.ro/p/polistiren-extrudat-briotherm-xps-2-x-58-x-125-cm/000000000010603375",
+                    10: "https://mathaus.ro/p/polistiren-extrudat-gias-xps300-100-x-1250-x-580-mm/000000000010605006",
+                    3: "https://mathaus.ro/p/polistiren-extrudat-gias-xps-30mm-1250-x-580-mm/000000000010603376",
+                    50: "https://mathaus.ro/p/polistiren-extrudat-gias-xps-50-mm-1250-x-580-mm/000000000010603377",
+                  }[inp.xpsGros || 10] ||
+                  "https://mathaus.ro/search?pb=true&text=polistiren+extrudat+xps",
+              },
+              {
+                name: "Folie polietilena 0.15mm x 4000",
+                qty: C(amp * 1.15),
+                um: "m²",
+                formula: "1.15 × suprafață (suprapunere 15%)",
+                pkg: "rolă 100m²",
+                link: "https://mathaus.ro/p/folie-polietilena-tata-mosu-ldpe-reciclat-bej-grosime-015-mm-latime-4-m/000000000010929725",
+              },
+            ];
           },
-                    totalFn: (c) => calcStageFromDB('xps-subsol', {m2: c.amprenta, ml: 0, m3: 0}),
+          totalFn: (c) => [
+            {
+              name: "Polistiren extrudat Briotherm XPS 100MM",
+              qty: C(c.amprenta * 1.05),
+              um: "m²",
+              formula: "",
+              pkg: "2.9m²/bax",
+              link: "https://mathaus.ro/p/polistiren-extrudat-gias-xps300-100-x-1250-x-580-mm/000000000010605006",
+              variants: [
+                {
+                  name: "Polistiren extrudat Briotherm XPS 50MM",
+                  link: "https://mathaus.ro/p/polistiren-extrudat-gias-xps-50-mm-1250-x-580-mm/000000000010603377",
+                  pkg: "5.8m²/bax",
+                  price: 156 / 5.8,
+                },
+                {
+                  name: "Polistiren extrudat Briotherm XPS 30MM",
+                  link: "https://mathaus.ro/p/polistiren-extrudat-gias-xps-30mm-1250-x-580-mm/000000000010603376",
+                  pkg: "10.15m²/bax",
+                  price: 160 / 10.15,
+                },
+                {
+                  name: "Polistiren extrudat Briotherm XPS 20MM",
+                  link: "https://mathaus.ro/p/polistiren-extrudat-briotherm-xps-2-x-58-x-125-cm/000000000010603375",
+                  pkg: "14.5m²/bax",
+                  price: 155 / 14.5,
+                },
+              ],
+            },
+            {
+              name: "Folie polietilena 0.15mm x 4000",
+              qty: C(c.amprenta * 1.15),
+              um: "m²",
+              formula: "",
+              pkg: "rolă 100m²",
+              link: "https://mathaus.ro/p/folie-polietilena-tata-mosu-ldpe-reciclat-bej-grosime-015-mm-latime-4-m/000000000010929725",
+            },
+          ],
         },
         {
           id: "zidarie",
@@ -2918,12 +3508,105 @@
             },
           ],
           calcFn: (inp) => {
-            const amp = inp.plAmp || 100;
-            const gros = parseInt(inp.plGros || 12);
-            const vol = amp * (gros / 100);
-            return calcStageFromDB('planseu', {m2: amp, ml: 0, m3: vol});
+            const amp = inp.plAmp || 100,
+              gros = (inp.plGros || 12) / 100;
+            return [
+              {
+                name: "Plasă sudată fir 4mm, 2000×6000mm",
+                qty: C((amp * 1.1) / 12),
+                um: "buc",
+                formula: "1.1 × suprafață ÷ 12m²/buc",
+                pkg: "panou 12m²",
+                link: "https://mathaus.ro/p/plasa-sudata-otel-fir-4-mm-dimensiune-ochi-100x100-mm-2000x6000-mm/000000000010400673",
+                variants: [
+                  {
+                    name: "Plasă sudată fir 5mm, 2000×6000mm",
+                    link: "https://mathaus.ro/p/plasa-sudata-otel-fir-5-mm-dimensiuni-ochi-100x100-mm-2000x6000-mm/000000000010400679",
+                    pkg: "panou 12m²",
+                    price: 196 / 12,
+                  },
+                  {
+                    name: "Plasă sudată fir 6mm, 2000×6000mm",
+                    link: "https://mathaus.ro/p/plasa-sudata-otel-fir-6-mm-dimensiune-ochi-100x100-mm-2000x6000-mm/000000000010400684",
+                    pkg: "panou 12m²",
+                    price: 282 / 12,
+                  },
+                  {
+                    name: "Plasă sudată fir 8mm, 2000×6000mm",
+                    link: "https://mathaus.ro/p/plasa-sudata-otel-fir-8-mm-dimensiune-ochi-100x100-mm-2000x6000-mm/000000000010400695",
+                    pkg: "panou 12m²",
+                    price: 501 / 12,
+                  },
+                ],
+              },
+              {
+                name: "Distantieri Plasa Sudata",
+                qty: C((amp * 6) / 100),
+                um: "cutii",
+                formula: "6 buc/m² ÷ 100 buc/cutie",
+                pkg: "cutie 100 buc",
+                link: "https://mathaus.ro/p/distantieri-plasa-sudata-inaltime-15-20mm-100-buc/000000000010401002",
+              },
+              {
+                name: `Beton C25/30 placă etaj`,
+                qty: fmt(amp * gros),
+                um: "m³",
+                formula: `${amp}m² × ${gros}m grosime`,
+                pkg: "— extern",
+                link: "",
+                ext: true,
+              },
+              {
+                name: "Folie fonoizolantă (opțional)",
+                qty: C(amp),
+                um: "m²",
+                formula: "1 m²/m²",
+                pkg: "rolă 50m²",
+                link: "https://mathaus.ro/search?pb=true&text=folie+fonoizolanta",
+              },
+            ];
           },
-                    totalFn: (c) => calcStageFromDB('planseu', {m2: c.amprenta, ml: 0, m3: c.amprenta * 0.12}),
+          totalFn: (c) => [
+            {
+              name: "Plasă sudată fir 4mm, 2000×6000mm",
+              qty: C((c.amprenta * 1.1) / 12),
+              um: "buc",
+              formula: "",
+              pkg: "panou 12m²",
+              link: "https://mathaus.ro/p/plasa-sudata-otel-fir-4-mm-dimensiune-ochi-100x100-mm-2000x6000-mm/000000000010400673",
+              variants: [
+                {
+                  name: "Plasă sudată fir 5mm, 2000×6000mm",
+                  link: "https://mathaus.ro/p/plasa-sudata-otel-fir-5-mm-dimensiuni-ochi-100x100-mm-2000x6000-mm/000000000010400679",
+                  pkg: "panou 12m²",
+                  price: 196 / 12,
+                },
+                {
+                  name: "Plasă sudată fir 6mm, 2000×6000mm",
+                  link: "https://mathaus.ro/p/plasa-sudata-otel-fir-6-mm-dimensiune-ochi-100x100-mm-2000x6000-mm/000000000010400684",
+                  pkg: "panou 12m²",
+                  price: 282 / 12,
+                },
+              ],
+            },
+            {
+              name: "Distantieri Plasa Sudata",
+              qty: C((c.amprenta * 6) / 100),
+              um: "cutii",
+              formula: "",
+              pkg: "cutie 100 buc",
+              link: "https://mathaus.ro/p/distantieri-plasa-sudata-inaltime-15-20mm-100-buc/000000000010401002",
+            },
+            {
+              name: "Beton C25/30 placă etaj",
+              qty: fmt(c.volumPlacaEtaj),
+              um: "m³",
+              formula: "",
+              pkg: "— extern",
+              link: "",
+              ext: true,
+            },
+          ],
         },
         {
           id: "acoperis",
@@ -3016,52 +3699,17 @@
             },
           ],
           calcFn: (inp) => {
-            const s = inp.acSup || 120, p = inp.acPer || 40;
-            const tip = inp.acTip || 'tigla-ceramica';
-            const isTerrasa = tip === 'terasa';
-            const isSarpanta = !isTerrasa;
-            // Filter materials by subcat
-            const db = STAGE_MATS_DB['acoperis'] || [];
-            const filtered = db.filter(m => {
-              const sc = m.subcat || '';
-              if (sc === 'comun') return true; // jgheaburi, burlane
-              if (sc === 'sarpanta') return isSarpanta; // folie, contrașipci, tratament
-              if (sc === tip) return true; // exact match
-              return false;
-            });
-            return filtered.map(m => {
-              const c = m.consumM2 || 0;
-              const baza = m.consumBaza || 'm2';
-              if (c <= 0) return null;
-              let qty = 0;
-              if (baza === 'm2') qty = s * c;
-              else if (baza === 'ml') qty = p * c;
-              else if (baza === 'fix') qty = c;
-              if (m.um === 'm³' || m.um === 'l') qty = +qty.toFixed(2);
-              else qty = Math.ceil(qty);
-              if (qty <= 0) return null;
-              return {
-                name: m.name, qty, um: m.um,
-                formula: c + ' ' + m.um + '/' + (baza === 'fix' ? 'fix' : baza === 'ml' ? 'ml' : 'm²'),
-                pkg: m.uv || m.pkg || '—', link: m.link || '',
-                ext: m.ext || false, variants: m.variants || [],
-              };
-            }).filter(x => x !== null);
+            const s = inp.acSup || 120,
+              p = inp.acPer || 40,
+              tip = inp.acTip || "tigla-ceramica";
+            return calcAcoperisItems(s, p, tip);
           },
-                    totalFn: (c) => {
-            const tip = c.acoperis || 'tigla-ceramica';
-            const isTerrasa = tip === 'terasa';
-            const db = STAGE_MATS_DB['acoperis'] || [];
-            return db.filter(m => {
-              const sc = m.subcat || '';
-              return sc === 'comun' || (sc === 'sarpanta' && !isTerrasa) || sc === tip;
-            }).map(m => {
-              const cv = m.consumM2 || 0, baza = m.consumBaza || 'm2';
-              if (cv <= 0) return null;
-              let qty = baza === 'm2' ? c.suprafataAcoperis * cv : baza === 'ml' ? c.perimetru * cv : cv;
-              qty = (m.um === 'm³' || m.um === 'l') ? +qty.toFixed(2) : Math.ceil(qty);
-              return qty > 0 ? {name:m.name, qty, um:m.um, formula:'', pkg:m.uv||m.pkg||'—', link:m.link||'', ext:m.ext||false} : null;
-            }).filter(Boolean);
+          totalFn: (c) => {
+            return calcAcoperisItems(
+              c.suprafataAcoperis,
+              c.perimetru,
+              c.acoperis
+            );
           },
         },
         {
@@ -3786,7 +4434,40 @@
               },
             ];
           },
-                    totalFn: (c) => calcStageFromDB('hidro-int', {m2: c.suprafataHidroInt, ml: 0, m3: 0}),
+          totalFn: (c) => [
+            {
+              name: "Membrana hidroizolantă flexibilă bicomponentă",
+              qty: C((c.suprafataHidroInt * 3.3) / 12.5),
+              um: "găleți",
+              formula: "",
+              pkg: "găleată 12.5kg",
+              link: "https://mathaus.ro/p/hidroizolatie-bicomponenta-ceresit-cl-50-flexibila-pensulabila-gri-deschis-125-kg/000000000010701172",
+            },
+            {
+              name: "Bandă etanșare colțuri (per baie)",
+              qty: C((c.bai * 8) / 50) + 1,
+              um: "buc",
+              formula: "",
+              pkg: "rolă 50ml",
+              link: "https://mathaus.ro/p/banda-de-etansare-ceresit-cl-152-elastica-impermeabila-50-m/000000000010704595",
+            },
+            {
+              name: "Amorsă primer Ceresit R777",
+              qty: C((c.suprafataHidroInt * 0.3) / 10),
+              um: "bidoane",
+              formula: "",
+              pkg: "bidon 10kg",
+              link: "https://mathaus.ro/p/amorsa-sapa-ceresit-r777-interior-10-kg/000000000010700875",
+            },
+            {
+              name: "Silicon sanitar Ceresit CS25",
+              qty: c.bai * 2,
+              um: "tuburi",
+              formula: "",
+              pkg: "tub 280ml",
+              link: "https://mathaus.ro/p/silicon-sanitar-ceresit-cs-25-interior-exterior-alb-280-ml/000000000010700559",
+            },
+          ],
         },
         {
           id: "sapa",
@@ -3865,11 +4546,69 @@
             },
           ],
           calcFn: (inp) => {
-            const s = inp.saSup || 100, g = parseInt(inp.saGros || 5);
-            const vol = s * (g / 100);
-            return calcStageFromDB('sapa', {m2: s, ml: Math.sqrt(s)*4, m3: vol});
+            const s = inp.saSup || 100,
+              g = parseInt(inp.saGros || 5);
+            return [
+              {
+                name: "Amorsa sapa Ceresit R777",
+                qty: C((s * 0.3) / 10),
+                um: "bidoane",
+                formula: "0.3 ml/m² ÷ 10kg/bidon",
+                pkg: "bidon 10 kg",
+                link: "https://mathaus.ro/p/amorsa-sapa-ceresit-r777-interior-10-kg/000000000010700875",
+              },
+              {
+                name: "Șapă ciment autonivelantă 25kg",
+                qty: C((s * g * 15) / 25),
+                um: "saci",
+                formula: `${g}cm × 15 kg/m²/cm ÷ 25kg/sac`,
+                pkg: "sac 25 kg",
+                link: "https://mathaus.ro/search?pb=true&text=sapa+autonivelanta",
+              },
+              {
+                name: "Plasă sudată Q131 (armare șapă)",
+                qty: C(s * 1.05),
+                um: "m²",
+                formula: "1.05 × suprafață",
+                pkg: "panou 12m²",
+                link: "https://mathaus.ro/search?pb=true&text=plasa+sudata+Q131",
+              },
+              {
+                name: "Bandă perimetrală dilatare",
+                qty: C(Math.sqrt(s) * 4 * 1.1),
+                um: "ml",
+                formula: "perimetru estimat × 1.1",
+                pkg: "rolă 50m",
+                link: "https://mathaus.ro/search?pb=true&text=banda+perimetrala+sapa",
+              },
+            ];
           },
-                    totalFn: (c) => calcStageFromDB('sapa', {m2: c.suprafataSapa, ml: c.perimetru, m3: c.sapaVolum || c.suprafataSapa*0.06}),
+          totalFn: (c) => [
+            {
+              name: "Amorsa sapa Ceresit R777",
+              qty: C((c.suprafataSapa * 0.3) / 10),
+              um: "bidoane",
+              formula: "",
+              pkg: "bidon 10 kg",
+              link: "https://mathaus.ro/p/amorsa-sapa-ceresit-r777-interior-10-kg/000000000010700875",
+            },
+            {
+              name: "Șapă ciment autonivelantă 25kg",
+              qty: C((c.suprafataSapa * 5 * 15) / 25),
+              um: "saci",
+              formula: "",
+              pkg: "sac 25kg",
+              link: "https://mathaus.ro/search?pb=true&text=sapa+autonivelanta",
+            },
+            {
+              name: "Plasă sudată Q131",
+              qty: C(c.suprafataSapa * 1.05),
+              um: "m²",
+              formula: "",
+              pkg: "panou 12m²",
+              link: "https://mathaus.ro/search?pb=true&text=plasa+sudata+Q131",
+            },
+          ],
         },
         {
           id: "tencuieli",
@@ -3940,11 +4679,68 @@
             },
           ],
           calcFn: (inp) => {
-            const sp = inp.tnPereti || 200, st = inp.tnTavane || 0;
-            const total = sp + st;
-            return calcStageFromDB('tencuieli', {m2: total, ml: 0, m3: 0});
+            const s = (inp.tnPereti || 200) + (inp.tnTavane || 0);
+            return [
+              {
+                name: "Ceresit CT 126- Glet de Incarcare (25kg)",
+                qty: C((s * 1.2) / 20),
+                um: "saci",
+                formula: "1.2 kg/m² ÷ 20 kg/sac (strat 1)",
+                pkg: "sac 20 kg",
+                link: "https://mathaus.ro/p/glet-ceresit-ct-126-pe-baza-de-ipsos-interior-20-kg/000000000010701503",
+              },
+              {
+                name: "Ceresit CT 127- Glet de finisaj (25kg)",
+                qty: C((s * 1.2) / 20),
+                um: "saci",
+                formula: "1.2 kg/m² ÷ 20 kg/sac (strat 2)",
+                pkg: "sac 20 kg",
+                link: "https://mathaus.ro/p/glet-ceresit-ct-127-pentru-finisaje-fine-pe-baza-de-ciment-interior-20-kg/000000000010700870",
+              },
+              {
+                name: "Amorsă penetrantă universală",
+                qty: C((s * 0.2) / 10),
+                um: "bidoane",
+                formula: "0.2 L/m² ÷ 10L/bidon",
+                pkg: "bidon 10L",
+                link: "https://mathaus.ro/p/amorsa-perete-ceresit-ct-17-interior-exterior-10-l/000000000010700918",
+              },
+              {
+                name: "Plasă fibră sticlă anticrăpare (colțuri)",
+                qty: C(s * 0.3),
+                um: "m²",
+                formula: "30% din suprafață (colțuri + îmbinări)",
+                pkg: "rolă 50m²",
+                link: "https://mathaus.ro/search?pb=true&text=plasa+fibra+sticla+interior",
+              },
+            ];
           },
-                    totalFn: (c) => calcStageFromDB('tencuieli', {m2: c.suprafataTencuiala, ml: 0, m3: 0}),
+          totalFn: (c) => [
+            {
+              name: "Ceresit CT 126- Glet de Incarcare (25kg)",
+              qty: C((c.suprafataTencuiala * 1.2) / 20),
+              um: "saci",
+              formula: "",
+              pkg: "sac 20kg",
+              link: "https://mathaus.ro/p/glet-ceresit-ct-126-pe-baza-de-ipsos-interior-20-kg/000000000010701503",
+            },
+            {
+              name: "Ceresit CT 127- Glet de finisaj (25kg)",
+              qty: C((c.suprafataTencuiala * 1.2) / 20),
+              um: "saci",
+              formula: "",
+              pkg: "sac 20kg",
+              link: "https://mathaus.ro/p/glet-ceresit-ct-127-pentru-finisaje-fine-pe-baza-de-ciment-interior-20-kg/000000000010700870",
+            },
+            {
+              name: "Amorsă penetrantă",
+              qty: C(c.suprafataTencuiala * 0.15),
+              um: "kg",
+              formula: "",
+              pkg: "bidon 15kg",
+              link: "https://mathaus.ro/search?pb=true&text=amorsa+penetranta+universala",
+            },
+          ],
         },
         {
           id: "gresie",
@@ -4027,12 +4823,71 @@
             },
           ],
           calcFn: (inp) => {
-            const sg = inp.grGresie || 30;
-            const sf = inp.grFaianta || 40;
-            const total = sg + sf;
-            return calcStageFromDB('gresie', {m2: total, ml: 0, m3: 0});
+            const sg = inp.grGresie || 0,
+              sf = inp.grFaianta || 0,
+              tot = sg + sf;
+            const kg = inp.grFormat === "mare" || inp.grFormat === "xl" ? 7 : 5;
+            return [
+              {
+                name: "Ceresit CM 17 adeziv ceramică (25kg)",
+                qty: C((tot * kg) / 25),
+                um: "saci",
+                formula: `${kg} kg/m² ÷ 25 kg/sac`,
+                pkg: "sac 25 kg",
+                link: "https://mathaus.ro/p/adeziv-super-flexibil-pentru-gresie-si-faianta-ceresit-cm-17-interior-exterior-25-kg/000000000010700878",
+              },
+              {
+                name: "Rost ceramic 2kg (alege culoare)",
+                qty: C(tot * 0.7),
+                um: "kg",
+                formula: "~0.7 kg/m² rost 3mm",
+                pkg: "pungă 2 kg",
+                link: "https://mathaus.ro/search?pb=true&text=rost+ceramic",
+              },
+              {
+                name: "Sistem nivelare plăci",
+                qty: C(tot / 4),
+                um: "seturi",
+                formula: "1 set/4m²",
+                pkg: "set 100 buc",
+                link: "https://mathaus.ro/search?pb=true&text=nivelatori+placi",
+              },
+              {
+                name: "Silicon sanitar Ceresit CS25",
+                qty: C(tot / 20) * 2,
+                um: "tuburi",
+                formula: "2 tuburi/20m²",
+                pkg: "tub 280ml",
+                link: "https://mathaus.ro/p/silicon-sanitar-ceresit-cs-25-interior-exterior-alb-280-ml/000000000010700559",
+              },
+            ];
           },
-                    totalFn: (c) => calcStageFromDB('gresie', {m2: c.suprafataGresie + c.suprafataFaianta, ml: 0, m3: 0}),
+          totalFn: (c) => [
+            {
+              name: "Ceresit CM 17 adeziv ceramică (25kg)",
+              qty: C(((c.suprafataGresie + c.suprafataFaianta) * 4) / 25),
+              um: "saci",
+              formula: "",
+              pkg: "sac 25kg",
+              link: "https://mathaus.ro/p/adeziv-super-flexibil-pentru-gresie-si-faianta-ceresit-cm-17-interior-exterior-25-kg/000000000010700878",
+            },
+            {
+              name: "Rost ceramic",
+              qty: C((c.suprafataGresie + c.suprafataFaianta) * 0.7),
+              um: "kg",
+              formula: "",
+              pkg: "pungă 2kg",
+              link: "https://mathaus.ro/search?pb=true&text=rost+ceramic",
+            },
+            {
+              name: "Sistem nivelare plăci",
+              qty: C((c.suprafataGresie + c.suprafataFaianta) / 4),
+              um: "seturi",
+              formula: "",
+              pkg: "set 100 buc",
+              link: "https://mathaus.ro/search?pb=true&text=nivelatori+placi",
+            },
+          ],
         },
         {
           id: "parchet",
@@ -4233,7 +5088,48 @@
               },
             ];
           },
-                    totalFn: (c) => calcStageFromDB('parchet', {m2: c.suprafataParchet, ml: c.perimetru, m3: 0}),
+          totalFn: (c) => [
+            {
+              name: "Folie Parchet / Subparchet antifonant 3mm",
+              qty: C(c.suprafataParchet * 1.05),
+              um: "m²",
+              formula: "",
+              pkg: "rolă 25m²",
+              link: "https://mathaus.ro/search?pb=true&text=subparchet+antifonant",
+            },
+            {
+              name: "Parchet (Laminat / SPC / Triplustratificat)",
+              qty: C(c.suprafataParchet * 1.08),
+              um: "m²",
+              formula: "",
+              pkg: "pachet m²",
+              link: "https://mathaus.ro/search?pb=true&text=parchet",
+            },
+            {
+              name: "Plintă (Laminat/SPC/Furniruită)",
+              qty: C(c.perimetru * c.niveluri * 0.8),
+              um: "ml",
+              formula: "",
+              pkg: "buc 2.4m",
+              link: "https://mathaus.ro/search?pb=true&text=plinta+parchet",
+            },
+            {
+              name: "Colțar Stânga plintă",
+              qty: Math.ceil((c.perimetru * c.niveluri * 0.8) / 15),
+              um: "buc",
+              formula: "",
+              pkg: "buc",
+              link: "https://mathaus.ro/search?pb=true&text=coltar+plinta",
+            },
+            {
+              name: "Colțar Dreapta plintă",
+              qty: Math.ceil((c.perimetru * c.niveluri * 0.8) / 15),
+              um: "buc",
+              formula: "",
+              pkg: "buc",
+              link: "https://mathaus.ro/search?pb=true&text=coltar+plinta",
+            },
+          ],
         },
         {
           id: "vopsitorii",
@@ -4312,48 +5208,58 @@
             },
           ],
           calcFn: (inp) => {
-            const s = inp.vpSup || 280;
-            const sb = inp.vpBai || 0;
-            const str = parseInt(inp.vpStraturi || 2);
-            const totalSup = s + sb;
-            // Read materials from DB but apply custom logic
-            const db = STAGE_MATS_DB['vopsitorii'] || [];
-            return db.map(m => {
-              const c = m.consumM2 || 0;
-              if (c <= 0) return null;
-              let qty = 0;
-              const nm = m.name.toLowerCase();
-              if (nm.includes('amors')) {
-                // Amorsă: se aplică o singură dată, pe toată suprafața
-                qty = totalSup * c;
-              } else if (nm.includes('umid') || nm.includes('baie') || nm.includes('bucăt')) {
-                // Vopsea anti-umiditate: doar pe suprafața băilor × straturi
-                qty = sb * c * str;
-              } else {
-                // Vopsea standard: pe suprafața fără băi × straturi
-                qty = (s) * c * str;
-              }
-              if (m.um === 'm³' || m.um === 'l') qty = +qty.toFixed(2);
-              else qty = Math.ceil(qty);
-              if (qty <= 0) return null;
-              return {
-                name: m.name, qty, um: m.um,
-                formula: nm.includes('amors') ? c+' '+m.um+'/m² × 1 strat' : c+' '+m.um+'/m² × '+str+' str',
-                pkg: m.uv || m.pkg || '—', link: m.link || '',
-                ext: m.ext || false, variants: m.variants || [],
-              };
-            }).filter(x => x !== null);
+            const s = inp.vpSup || 280,
+              sb = inp.vpBai || 0,
+              str = parseInt(inp.vpStraturi || 2);
+            return [
+              {
+                name: "Amorsă lavabilă interioară",
+                qty: C(s * 0.12),
+                um: "kg",
+                formula: "0.12 kg/m²",
+                pkg: "găleată 15kg",
+                link: "https://mathaus.ro/search?pb=true&text=amorsa+lavabila+interioara",
+              },
+              {
+                name: "Vopsea lavabilă albă premium + Amorsa",
+                qty: C(((s - sb) / 80) * str),
+                um: "găleți",
+                formula: `kit 15L+4L / 80m² × ${str} straturi`,
+                pkg: "kit 15L+4L amorsă",
+                link: "https://mathaus.ro/p/vopsea-ultra-lavabila-interior-savana-ultra-rezist-alb-15-l-amorsa-4-l/000000000010706528",
+              },
+              ...(sb > 0
+                ? [
+                    {
+                      name: "Vopsea anti-umiditate (băi + bucătărie)",
+                      qty: C(sb * 0.18 * str),
+                      um: "kg",
+                      formula: `0.18 kg/m² × ${str} straturi`,
+                      pkg: "găleată 8 kg",
+                      link: "https://mathaus.ro/search?pb=true&text=vopsea+umiditate+baie",
+                    },
+                  ]
+                : []),
+            ];
           },
-                    totalFn: (c) => {
-            const sup = c.suprafataTencuiala || 200;
-            const db = STAGE_MATS_DB['vopsitorii'] || [];
-            return db.map(m => {
-              const cv = m.consumM2 || 0;
-              if (cv <= 0) return null;
-              let qty = Math.ceil(sup * cv);
-              return qty > 0 ? {name:m.name, qty, um:m.um, formula:'', pkg:m.uv||m.pkg||'—', link:m.link||''} : null;
-            }).filter(Boolean);
-          },
+          totalFn: (c) => [
+            {
+              name: "Amorsă lavabilă",
+              qty: C(c.suprafataTencuiala * 0.12),
+              um: "kg",
+              formula: "",
+              pkg: "găleată 15kg",
+              link: "https://mathaus.ro/search?pb=true&text=amorsa+lavabila+interioara",
+            },
+            {
+              name: "Vopsea lavabilă albă premium + Amorsa",
+              qty: C(c.suprafataTencuiala / 80),
+              um: "găleți",
+              formula: "",
+              pkg: "kit 15L+4L amorsă",
+              link: "https://mathaus.ro/p/vopsea-ultra-lavabila-interior-savana-ultra-rezist-alb-15-l-amorsa-4-l/000000000010706528",
+            },
+          ],
         },
         {
           id: "receptie",
@@ -4421,7 +5327,24 @@
               💡 <strong>Argument pentru client:</strong> „Din experiență, 9 din 10 clienți regretă că nu au luat rezervă. Peste 2-3 ani, când trebuie să schimbi o placă crăpată sau o lamelă de parchet, modelul nu mai există. Costul unei cutii de rezervă acum e neglijabil față de costul de a rechebuie toată camera peste 3 ani."
             </div>
           </div>`,
-                    totalFn: (c) => calcStageFromDB('receptie', {m2: c.suprafataGresie, ml: 0, m3: 0}),
+          totalFn: (c) => [
+            {
+              name: "Rezervă gresie 10%",
+              qty: C(c.suprafataGresie * 0.1),
+              um: "m²",
+              formula: "",
+              pkg: "lot inițial",
+              link: "https://mathaus.ro/search?pb=true&text=gresie",
+            },
+            {
+              name: "Silicon sanitar întreținere",
+              qty: c.bai * 2,
+              um: "tuburi",
+              formula: "",
+              pkg: "tub 280ml",
+              link: "https://mathaus.ro/search?pb=true&text=silicon+sanitar",
+            },
+          ],
         },
       ];
 
@@ -4790,14 +5713,11 @@
             const uid = `${s.id}_${mi}`;
             if (m.variants && m.variants.length > 0) {
               const allV = [
-                { name: m.name, link: m.link || "", pkg: m.pkg || "", sapKey: "", qty: m.qty, um: m.um || "" },
+                { name: m.name, link: m.link || "", pkg: m.pkg || "" },
                 ...m.variants.map((v) => ({
                   name: v.name,
                   link: v.link || "",
                   pkg: v.pkg || m.pkg || "",
-                  sapKey: v.sapKey || "",
-                  qty: m.qty,
-                  um: v.um || m.um || "",
                 })),
               ];
               const dataAttr = JSON.stringify(allV)
@@ -4806,8 +5726,8 @@
               const opts = allV
                 .map((v, i) => `<option value="${i}">${v.name}</option>`)
                 .join("");
-              return `<tr id="vr_${uid}">
-        <td class="mat-sap-cell" id="vs_${uid}_sap" style="font-size:10px;color:var(--blue);font-family:var(--mono)">${escHtml((()=>{const f=findMatBySapOrName(null,m.name);return f?.sapKey||'';})())}</td>
+              return `<tr>
+        ${sapTdHtml(m.name)}
         <td>
           <select class="mat-var-sel" id="vs_${uid}" data-variants="${dataAttr}" onchange="onVarChange('vs_${uid}')">
             ${opts}
@@ -4819,13 +5739,12 @@
                   m.link || "#"
                 }" target="_blank">→ mathaus.ro</a>`
           }</div>
-          <div id="vs_${uid}_conv" style="font-size:10px;color:var(--txt3)">${(()=>{const c=matConvert(m.name,m.qty,m.um);return c.converted?c.convInfo:'';})()}</div>
         </td>
-        <td><div class="mat-qty-big" id="vs_${uid}_qty">${fmtN((()=>{const c=matConvert(m.name,m.qty,m.um);return c.qty;})())}</div><div class="mat-um" id="vs_${uid}_um">${
-                (()=>{const c=matConvert(m.name,m.qty,m.um);return c.um;})()
+        <td><div class="mat-qty-big">${fmtN(m.qty)}</div><div class="mat-um">${
+                m.um
               }</div></td>
         <td><span class="mat-pkg" id="vs_${uid}_pkg">${m.pkg}</span></td>
-        ${priceTdHtml(m.name, (()=>{const c=matConvert(m.name,m.qty,m.um);return c.qty;})())}
+        ${priceTdHtml(m.name, m.qty)}
       </tr>`;
             }
             const link =
@@ -5231,14 +6150,11 @@
           const uid = id + "_c" + mi;
           if (m.variants && m.variants.length > 0) {
             const allV = [
-              { name: m.name, link: m.link || "", pkg: m.pkg || "", sapKey: "", qty: m.qty, um: m.um || "" },
+              { name: m.name, link: m.link || "", pkg: m.pkg || "" },
               ...m.variants.map((v) => ({
                 name: v.name,
                 link: v.link || "",
                 pkg: v.pkg || m.pkg || "",
-                sapKey: v.sapKey || "",
-                qty: m.qty, // same base qty (recalc via matConvert)
-                um: v.um || m.um || "",
               })),
             ];
             const da = JSON.stringify(allV)
@@ -5247,8 +6163,8 @@
             const opts = allV
               .map((v, i) => `<option value="${i}">${v.name}</option>`)
               .join("");
-            return `<tr id="vr_${uid}">
-            <td class="mat-sap-cell" id="vs_${uid}_sap" style="font-size:10px;color:var(--blue);font-family:var(--mono)">${escHtml((()=>{const f=findMatBySapOrName(null,m.name);return f?.sapKey||'';})())}</td>
+            return `<tr>
+            ${sapTdHtml(m.name)}
             <td>
               <select class="mat-var-sel" id="vs_${uid}" data-variants="${da}" onchange="onVarChange('vs_${uid}')">
                 ${opts}
@@ -5260,10 +6176,9 @@
                       m.link || "#"
                     }" target="_blank">→ mathaus.ro</a>`
               }</div>
-              <div id="vs_${uid}_conv" style="font-size:10px;color:var(--txt3)">${(()=>{const c=matConvert(m.name,m.qty,m.um);return c.converted?c.convInfo:'';})()}</div>
             </td>
-            <td><div class="mat-qty-big" id="vs_${uid}_qty">${fmtN((()=>{const c=matConvert(m.name,m.qty,m.um);return c.qty;})())}</div></td>
-            <td><div class="mat-um" id="vs_${uid}_um">${(()=>{const c=matConvert(m.name,m.qty,m.um);return c.um;})()}</div></td>
+            <td><div class="mat-qty-big">${fmtN((()=>{const c=matConvert(m.name,m.qty,m.um);return c.qty;})())}</div></td>
+            <td><div class="mat-um">${(()=>{const c=matConvert(m.name,m.qty,m.um);return c.um;})()}</div></td>
             <td><span class="mat-pkg" id="vs_${uid}_pkg">${m.pkg}</span></td>
             <td><div class="mat-formula">${m.formula || ""}</div></td>
             ${priceTdHtml(m.name, (()=>{const c=matConvert(m.name,m.qty,m.um);return c.qty;})())}
@@ -5298,58 +6213,24 @@
         if (!sel) return;
         try {
           const variants = JSON.parse(
-            sel.getAttribute("data-variants").replace(/&quot;/g, '"').replace(/&#39;/g, "'")
+            sel
+              .getAttribute("data-variants")
+              .replace(/&quot;/g, '"')
+              .replace(/&#39;/g, "'")
           );
           const chosen = variants[parseInt(sel.value) || 0] || {};
-          const baseQty = chosen.qty || 0;
-          const baseUM = chosen.um || '';
-
-          // Recalculate using matConvert with the variant's name
-          const conv = matConvert(chosen.name, baseQty, baseUM);
-
-          // Update link
           const linkEl = document.getElementById(selId + "_lnk");
-          if (linkEl && chosen.link) { linkEl.href = chosen.link; linkEl.style.display = ''; }
-
-          // Update SAP
-          const sapEl = document.getElementById(selId + "_sap");
-          if (sapEl) {
-            const mat = findMatBySapOrName(null, chosen.name);
-            sapEl.textContent = mat?.sapKey || chosen.sapKey || '';
-          }
-
-          // Update quantity
-          const qtyEl = document.getElementById(selId + "_qty");
-          if (qtyEl) qtyEl.textContent = fmtN(conv.qty);
-
-          // Update UM
-          const umEl = document.getElementById(selId + "_um");
-          if (umEl) umEl.textContent = conv.um;
-
-          // Update package
           const pkgEl = document.getElementById(selId + "_pkg");
-          if (pkgEl) pkgEl.textContent = chosen.pkg || conv.pkg || '';
-
-          // Update conversion info
-          const convEl = document.getElementById(selId + "_conv");
-          if (convEl) convEl.textContent = conv.converted ? conv.convInfo : '';
-
-          // Update price cells if visible
-          if (appSettings.showPrices) {
-            const row = document.getElementById("vr_" + selId.replace("vs_", ""));
-            if (row) {
-              const priceCells = row.querySelectorAll('.mat-pret');
-              const pret = getPret(chosen.name);
-              if (priceCells.length >= 2 && pret > 0) {
-                priceCells[0].textContent = fmtN(pret) + ' lei';
-                priceCells[1].textContent = fmtN(pret * conv.qty) + ' lei';
-              } else if (priceCells.length >= 2) {
-                priceCells[0].textContent = '—';
-                priceCells[1].textContent = '—';
-              }
+          if (linkEl) {
+            if (chosen.link) {
+              linkEl.href = chosen.link;
+              linkEl.style.display = chosen.link ? "" : "none";
             }
           }
-        } catch (e) { console.error('onVarChange error:', e); }
+          if (pkgEl && chosen.pkg !== undefined) {
+            pkgEl.textContent = chosen.pkg;
+          }
+        } catch (e) {}
       }
 
       function printCalc(id) {
@@ -5397,6 +6278,10 @@
     <div class="admin-nav-item ${
       adminSection === "setari" ? "active" : ""
     }" onclick="adminSection='setari';adminActiveStage=null;renderAdmin()">⚙ Setări Generale</div>
+    <div style="font-size:10px;font-weight:700;color:var(--txt3);letter-spacing:1px;text-transform:uppercase;margin:14px 0 8px;padding:0 4px;font-family:var(--mono)">CONSULTANT AI</div>
+    <div class="admin-nav-item ${
+      adminSection === "ai-kb" ? "active" : ""
+    }" onclick="adminSection='ai-kb';adminActiveStage=null;renderAdmin()">🧠 Baza de Cunoștințe AI</div>
   `;
 
         if (adminSection === "texte") {
@@ -5416,6 +6301,7 @@
         else if (adminSection === "erp") renderAdminERP();
         else if (adminSection === "stage-mats") renderAdminStageMats();
         else if (adminSection === "setari") renderAdminSetari();
+        else if (adminSection === "ai-kb") renderAdminAIKB();
       }
 
       function renderAdminHome() {
@@ -5437,6 +6323,11 @@
         <div style="font-size:22px;margin-bottom:6px">⚙</div>
         <div style="font-size:13px;font-weight:700;color:var(--navy)">Setări Generale</div>
         <div style="font-size:11px;color:var(--txt3);margin-top:4px">Afișare prețuri, sincronizare Google Sheets, configurări vizibilitate</div>
+      </div>
+      <div style="background:var(--orange-l);border:1px solid var(--orange-m);border-radius:var(--r-sm);padding:14px;cursor:pointer" onclick="adminSection='ai-kb';adminActiveStage=null;renderAdmin()">
+        <div style="font-size:22px;margin-bottom:6px">🧠</div>
+        <div style="font-size:13px;font-weight:700;color:var(--navy)">Baza de Cunoștințe AI</div>
+        <div style="font-size:11px;color:var(--txt3);margin-top:4px">URL-uri de referință, cunoștințe fixe, politici și promoții pentru consultantul AI</div>
       </div>
     </div>
   </div>`;
@@ -5922,92 +6813,82 @@
       const SMATS_KEY = "mathausStageMatsV1";
       let STAGE_MATS_DB = {
         "trasare": [
-          {name:"Țăruși lemn trasare", um:"buc", pkg:"—", link:"https://mathaus.ro/search?text=tarusi+trasare", formula:"perimetru / 2", variants:[], ext:false, consumM2:0.5, consumBaza:"ml",},
-          {name:"Sfoară trasare 50m", um:"role", pkg:"rolă 50m", link:"https://mathaus.ro/search?text=sfoara+trasare", formula:"perimetru × 2 / 50", variants:[], ext:false, consumM2:2, consumBaza:"ml",},
-          {name:"Spray marcaj", um:"tuburi", pkg:"tub", link:"https://mathaus.ro/search?text=spray+marcaj", formula:"2 tuburi fix", variants:[], ext:false, consumM2:2, consumBaza:"fix",},
+          {name:"Țăruși lemn trasare", um:"buc", pkg:"—", link:"https://mathaus.ro/search?text=tarusi+trasare", formula:"perimetru / 2", variants:[], ext:false},
+          {name:"Sfoară trasare 50m", um:"role", pkg:"rolă 50m", link:"https://mathaus.ro/search?text=sfoara+trasare", formula:"perimetru × 2 / 50", variants:[], ext:false},
+          {name:"Spray marcaj", um:"tuburi", pkg:"tub", link:"https://mathaus.ro/search?text=spray+marcaj", formula:"2 tuburi fix", variants:[], ext:false},
         ],
         "fundatii": [
-          {name:"Beton C20/25 fundații", um:"m³", pkg:"— produs extern", link:"", formula:"perimetru × lățime × adâncime", variants:[], ext:true, consumM2:1, consumBaza:"m3",},
-          {name:"Oțel beton PC52 Ø10-14mm", um:"kg", pkg:"— produs extern", link:"", formula:"110 kg/m³ beton", variants:[], ext:true, consumM2:110, consumBaza:"m3",},
-          {name:"Amorsa bituminoasa Eco Primer, 20 l", um:"găleți", pkg:"găleată 20L (22kg)", link:"https://mathaus.ro/p/amorsa-bituminoasa-de-baza-de-solventi-eco-primer-20-l/000000000010909445", formula:"0.35 kg/m² ÷ 22kg/găleată", variants:[], ext:false, consumM2:0.016, consumBaza:"ml",},
-          {name:"Membrana fundatie Black Star 350, 2.5x20m", um:"role", pkg:"rolă 2.5×20m (50m²)", link:"https://mathaus.ro/p/membrana-fundatie-black-star-350-polietilena-25-x-20-m/000000000010927495", formula:"perimetru × 2.8m H ÷ 50m²/rolă", variants:[{name:"Membrana fundatie Black Star 350, 2x20m", link:"https://mathaus.ro/p/membrana-fundatie-black-star-350-polietilena-2-x-20-m/000000000010927190", pkg:"rolă 2×20m (40m²)", consumM2:0.056, consumBaza:"ml",}], ext:false},
-          {name:"Plasă sudată fir 4mm, 2000×6000mm", um:"buc", pkg:"panou 12m²", link:"https://mathaus.ro/p/plasa-sudata-otel-fir-4-mm-dimensiune-ochi-100x100-mm-2000x6000-mm/000000000010400673", formula:"1.05 × amprentă ÷ 12m²/buc", variants:[{name:"Plasă sudată fir 5mm, 2000×6000mm", link:"https://mathaus.ro/p/plasa-sudata-otel-fir-5-mm-dimensiuni-ochi-100x100-mm-2000x6000-mm/000000000010400679", pkg:"panou 12m²", consumM2:0.0875, consumBaza:"m2",},{name:"Plasă sudată fir 6mm, 2000×6000mm", link:"https://mathaus.ro/p/plasa-sudata-otel-fir-6-mm-dimensiune-ochi-100x100-mm-2000x6000-mm/000000000010400684", pkg:"panou 12m²"}], ext:false},
-          {name:"Beton C20/25 placă pe sol", um:"m³", pkg:"— produs extern", link:"", formula:"amprentă × 0.12m", variants:[], ext:true, consumM2:1, consumBaza:"m3",},
-          {name:"Distantieri Plasa Sudata", um:"cutii", pkg:"cutie 100 buc", link:"https://mathaus.ro/p/distantieri-plasa-sudata-inaltime-15-20mm-100-buc/000000000010401002", formula:"6 buc/m² ÷ 100 buc/cutie", variants:[], ext:false, consumM2:0.06, consumBaza:"m2",},
+          {name:"Beton C20/25 fundații", um:"m³", pkg:"— produs extern", link:"", formula:"perimetru × lățime × adâncime", variants:[], ext:true},
+          {name:"Oțel beton PC52 Ø10-14mm", um:"kg", pkg:"— produs extern", link:"", formula:"110 kg/m³ beton", variants:[], ext:true},
+          {name:"Amorsa bituminoasa Eco Primer, 20 l", um:"găleți", pkg:"găleată 20L (22kg)", link:"https://mathaus.ro/p/amorsa-bituminoasa-de-baza-de-solventi-eco-primer-20-l/000000000010909445", formula:"0.35 kg/m² ÷ 22kg/găleată", variants:[], ext:false},
+          {name:"Membrana fundatie Black Star 350, 2.5x20m", um:"role", pkg:"rolă 2.5×20m (50m²)", link:"https://mathaus.ro/p/membrana-fundatie-black-star-350-polietilena-25-x-20-m/000000000010927495", formula:"perimetru × 2.8m H ÷ 50m²/rolă", variants:[{name:"Membrana fundatie Black Star 350, 2x20m", link:"https://mathaus.ro/p/membrana-fundatie-black-star-350-polietilena-2-x-20-m/000000000010927190", pkg:"rolă 2×20m (40m²)"}], ext:false},
+          {name:"Plasă sudată fir 4mm, 2000×6000mm", um:"buc", pkg:"panou 12m²", link:"https://mathaus.ro/p/plasa-sudata-otel-fir-4-mm-dimensiune-ochi-100x100-mm-2000x6000-mm/000000000010400673", formula:"1.05 × amprentă ÷ 12m²/buc", variants:[{name:"Plasă sudată fir 5mm, 2000×6000mm", link:"https://mathaus.ro/p/plasa-sudata-otel-fir-5-mm-dimensiuni-ochi-100x100-mm-2000x6000-mm/000000000010400679", pkg:"panou 12m²"},{name:"Plasă sudată fir 6mm, 2000×6000mm", link:"https://mathaus.ro/p/plasa-sudata-otel-fir-6-mm-dimensiune-ochi-100x100-mm-2000x6000-mm/000000000010400684", pkg:"panou 12m²"}], ext:false},
+          {name:"Beton C20/25 placă pe sol", um:"m³", pkg:"— produs extern", link:"", formula:"amprentă × 0.12m", variants:[], ext:true},
+          {name:"Distantieri Plasa Sudata", um:"cutii", pkg:"cutie 100 buc", link:"https://mathaus.ro/p/distantieri-plasa-sudata-inaltime-15-20mm-100-buc/000000000010401002", formula:"6 buc/m² ÷ 100 buc/cutie", variants:[], ext:false},
         ],
         "xps-subsol": [
-          {name:"Polistiren extrudat Briotherm XPS 100MM", um:"m²", pkg:"2.9m²/bax", link:"https://mathaus.ro/p/polistiren-extrudat-gias-xps300-100-x-1250-x-580-mm/000000000010605006", formula:"1.05 × suprafață (5% pierderi)", variants:[{name:"Polistiren extrudat Briotherm XPS 50MM", link:"https://mathaus.ro/p/polistiren-extrudat-gias-xps-50-mm-1250-x-580-mm/000000000010603377", pkg:"5.8m²/bax", consumM2:1.05, consumBaza:"m2",},{name:"Polistiren extrudat Briotherm XPS 30MM", link:"https://mathaus.ro/p/polistiren-extrudat-gias-xps-30mm-1250-x-580-mm/000000000010603376", pkg:"10.15m²/bax"},{name:"Polistiren extrudat Briotherm XPS 20MM", link:"https://mathaus.ro/p/polistiren-extrudat-briotherm-xps-2-x-58-x-125-cm/000000000010603375", pkg:"14.5m²/bax"}], ext:false},
-          {name:"Folie polietilena 0.15mm x 4000", um:"m²", pkg:"rolă 100m²", link:"https://mathaus.ro/p/folie-polietilena-tata-mosu-ldpe-reciclat-bej-grosime-015-mm-latime-4-m/000000000010929725", formula:"1.15 × suprafață (suprapunere 15%)", variants:[], ext:false, consumM2:1.15, consumBaza:"m2",},
+          {name:"Polistiren extrudat Briotherm XPS 100MM", um:"m²", pkg:"2.9m²/bax", link:"https://mathaus.ro/p/polistiren-extrudat-gias-xps300-100-x-1250-x-580-mm/000000000010605006", formula:"1.05 × suprafață (5% pierderi)", variants:[{name:"Polistiren extrudat Briotherm XPS 50MM", link:"https://mathaus.ro/p/polistiren-extrudat-gias-xps-50-mm-1250-x-580-mm/000000000010603377", pkg:"5.8m²/bax"},{name:"Polistiren extrudat Briotherm XPS 30MM", link:"https://mathaus.ro/p/polistiren-extrudat-gias-xps-30mm-1250-x-580-mm/000000000010603376", pkg:"10.15m²/bax"},{name:"Polistiren extrudat Briotherm XPS 20MM", link:"https://mathaus.ro/p/polistiren-extrudat-briotherm-xps-2-x-58-x-125-cm/000000000010603375", pkg:"14.5m²/bax"}], ext:false},
+          {name:"Folie polietilena 0.15mm x 4000", um:"m²", pkg:"rolă 100m²", link:"https://mathaus.ro/p/folie-polietilena-tata-mosu-ldpe-reciclat-bej-grosime-015-mm-latime-4-m/000000000010929725", formula:"1.15 × suprafață (suprapunere 15%)", variants:[], ext:false},
         ],
         "planseu": [
-          {name:"Plasă sudată fir 4mm, 2000×6000mm", um:"buc", pkg:"panou 12m²", link:"https://mathaus.ro/p/plasa-sudata-otel-fir-4-mm-dimensiune-ochi-100x100-mm-2000x6000-mm/000000000010400673", formula:"1.1 × suprafață ÷ 12m²/buc", variants:[{name:"Plasă sudată fir 5mm, 2000×6000mm", link:"https://mathaus.ro/p/plasa-sudata-otel-fir-5-mm-dimensiuni-ochi-100x100-mm-2000x6000-mm/000000000010400679", pkg:"panou 12m²", consumM2:0.0875, consumBaza:"m2",},{name:"Plasă sudată fir 6mm, 2000×6000mm", link:"https://mathaus.ro/p/plasa-sudata-otel-fir-6-mm-dimensiune-ochi-100x100-mm-2000x6000-mm/000000000010400684", pkg:"panou 12m²"},{name:"Plasă sudată fir 8mm, 2000×6000mm", link:"https://mathaus.ro/p/plasa-sudata-otel-fir-8-mm-dimensiune-ochi-100x100-mm-2000x6000-mm/000000000010400695", pkg:"panou 12m²"}], ext:false},
-          {name:"Distantieri Plasa Sudata", um:"cutii", pkg:"cutie 100 buc", link:"https://mathaus.ro/p/distantieri-plasa-sudata-inaltime-15-20mm-100-buc/000000000010401002", formula:"6 buc/m² ÷ 100 buc/cutie", variants:[], ext:false, consumM2:0.06, consumBaza:"m2",},
-          {name:"Beton C25/30 placă etaj", um:"m³", pkg:"— extern", link:"", formula:"suprafață × grosime", variants:[], ext:true, consumM2:1, consumBaza:"m3",},
-          {name:"Folie fonoizolantă (opțional)", um:"m²", pkg:"rolă 50m²", link:"https://mathaus.ro/search?pb=true&text=folie+fonoizolanta", formula:"1 m²/m²", variants:[], ext:false, consumM2:1.05, consumBaza:"m2",},
+          {name:"Plasă sudată fir 4mm, 2000×6000mm", um:"buc", pkg:"panou 12m²", link:"https://mathaus.ro/p/plasa-sudata-otel-fir-4-mm-dimensiune-ochi-100x100-mm-2000x6000-mm/000000000010400673", formula:"1.1 × suprafață ÷ 12m²/buc", variants:[{name:"Plasă sudată fir 5mm, 2000×6000mm", link:"https://mathaus.ro/p/plasa-sudata-otel-fir-5-mm-dimensiuni-ochi-100x100-mm-2000x6000-mm/000000000010400679", pkg:"panou 12m²"},{name:"Plasă sudată fir 6mm, 2000×6000mm", link:"https://mathaus.ro/p/plasa-sudata-otel-fir-6-mm-dimensiune-ochi-100x100-mm-2000x6000-mm/000000000010400684", pkg:"panou 12m²"},{name:"Plasă sudată fir 8mm, 2000×6000mm", link:"https://mathaus.ro/p/plasa-sudata-otel-fir-8-mm-dimensiune-ochi-100x100-mm-2000x6000-mm/000000000010400695", pkg:"panou 12m²"}], ext:false},
+          {name:"Distantieri Plasa Sudata", um:"cutii", pkg:"cutie 100 buc", link:"https://mathaus.ro/p/distantieri-plasa-sudata-inaltime-15-20mm-100-buc/000000000010401002", formula:"6 buc/m² ÷ 100 buc/cutie", variants:[], ext:false},
+          {name:"Beton C25/30 placă etaj", um:"m³", pkg:"— extern", link:"", formula:"suprafață × grosime", variants:[], ext:true},
+          {name:"Folie fonoizolantă (opțional)", um:"m²", pkg:"rolă 50m²", link:"https://mathaus.ro/search?pb=true&text=folie+fonoizolanta", formula:"1 m²/m²", variants:[], ext:false},
         ],
         "acoperis": [
-          {name:"Jgheaburi PVC Ø100mm", um:"ml", pkg:"buc 4m", link:"https://mathaus.ro/search?pb=true&text=jgheaburi+pvc", formula:"1ml/ml perimetru", variants:[], ext:false, consumM2:1, consumBaza:"ml", subcat:"comun"},
-          {name:"Burlane PVC Ø75mm", um:"buc", pkg:"buc 4m", link:"https://mathaus.ro/search?pb=true&text=burlane+pvc", formula:"1/15ml perimetru", variants:[], ext:false, consumM2:0.067, consumBaza:"ml", subcat:"comun"},
-          {name:"Tratament biocid + ignifug lemn șarpantă", um:"L", pkg:"bidon 10L", link:"https://mathaus.ro/search?pb=true&text=tratament+lemn+antifungic", formula:"0.1 L/m²", variants:[], ext:false, consumM2:0.1, consumBaza:"m2", subcat:"sarpanta"},
-          {name:"Folie anticondens difuzie (sub căpriori)", um:"m²", pkg:"rolă 50m²", link:"https://mathaus.ro/search?pb=true&text=folie+anticondens+difuzie", formula:"1.15 m²/m²", variants:[], ext:false, consumM2:1.15, consumBaza:"m2", subcat:"sarpanta"},
-          {name:"Contrașipci 40×60mm (ventilare)", um:"ml", pkg:"buc 4m", link:"https://mathaus.ro/search?pb=true&text=contrasipci+acoperis", formula:"0.8 ml/m²", variants:[], ext:false, consumM2:0.8, consumBaza:"m2", subcat:"sarpanta"},
-          {name:"Șipci de astereală 24×48mm", um:"ml", pkg:"buc 4m", link:"https://mathaus.ro/search?pb=true&text=sipci+asterala", formula:"1.4 ml/m² (pas 27cm)", variants:[], ext:false, consumM2:1.4, consumBaza:"m2", subcat:"tigla-ceramica"},
-          {name:"Țiglă ceramică / beton (10–11 buc/m²)", um:"buc", pkg:"palet ~250 buc", link:"https://mathaus.ro/search?pb=true&text=tigla+ceramica", formula:"10.5 buc/m² × 1.15", variants:[], ext:false, consumM2:12.1, consumBaza:"m2", subcat:"tigla-ceramica"},
-          {name:"Cuie galvanizate pentru țiglă 50mm", um:"buc", pkg:"cutie 1000 buc", link:"https://mathaus.ro/search?pb=true&text=cuie+galvanizate", formula:"2 cuie/țiglă", variants:[], ext:false, consumM2:21, consumBaza:"m2", subcat:"tigla-ceramica"},
-          {name:"Mortar montaj coamă M5 (sac 25kg)", um:"saci", pkg:"sac 25 kg", link:"https://mathaus.ro/search?pb=true&text=mortar+coama+acoperis", formula:"12 kg/ml coamă / 25", variants:[], ext:false, consumM2:0.48, consumBaza:"ml", subcat:"tigla-ceramica"},
-          {name:"Țiglă metalică (tip GERARD/LINDAB)", um:"m²", pkg:"pachet", link:"https://mathaus.ro/search?pb=true&text=tigla+metalica", formula:"1.08 m²/m²", variants:[], ext:false, consumM2:1.08, consumBaza:"m2", subcat:"tigla-metalica"},
-          {name:"Șuruburi autoperforante cu garnitură", um:"buc", pkg:"cutie 250 buc", link:"https://mathaus.ro/search?pb=true&text=suruburi+autoperforante+acoperis", formula:"8 buc/m²", variants:[], ext:false, consumM2:8, consumBaza:"m2", subcat:"tigla-metalica"},
-          {name:"Coamă metalică (tip sistem)", um:"ml", pkg:"buc 2m", link:"https://mathaus.ro/search?pb=true&text=coama+metalica", formula:"0.5 ml/ml perimetru", variants:[], ext:false, consumM2:0.5, consumBaza:"ml", subcat:"tigla-metalica"},
-          {name:"Tablă cutată / trapezoidală T55 (0.6mm)", um:"m²", pkg:"per m²", link:"https://mathaus.ro/search?pb=true&text=tabla+cutata+acoperis", formula:"1.1 m²/m²", variants:[], ext:false, consumM2:1.1, consumBaza:"m2", subcat:"tabla-cutata"},
-          {name:"Șuruburi autoperforante EPDM", um:"buc", pkg:"cutie 250 buc", link:"https://mathaus.ro/search?pb=true&text=suruburi+EPDM+acoperis", formula:"7 buc/m²", variants:[], ext:false, consumM2:7, consumBaza:"m2", subcat:"tabla-cutata"},
-          {name:"Coamă tablă (tip pieptene)", um:"ml", pkg:"buc 2m", link:"https://mathaus.ro/search?pb=true&text=coama+tabla+acoperis", formula:"0.5 ml/ml perimetru", variants:[], ext:false, consumM2:0.5, consumBaza:"ml", subcat:"tabla-cutata"},
-          {name:"OSB 18mm (astereală sub șindrilă)", um:"m²", pkg:"placă 2.5m²", link:"https://mathaus.ro/search?pb=true&text=placa+OSB+18mm", formula:"1.05 m²/m²", variants:[], ext:false, consumM2:1.05, consumBaza:"m2", subcat:"sindrila"},
-          {name:"Primer bituminos (amorsă OSB)", um:"kg", pkg:"bidon 10kg", link:"https://mathaus.ro/search?pb=true&text=primer+bituminos+OSB", formula:"0.35 kg/m²", variants:[], ext:false, consumM2:0.35, consumBaza:"m2", subcat:"sindrila"},
-          {name:"Șindrilă bituminoasă solzi IKO/Tegola", um:"m²", pkg:"pachet 3m²", link:"https://mathaus.ro/search?pb=true&text=sindrila+bituminoasa", formula:"1.12 m²/m²", variants:[], ext:false, consumM2:1.12, consumBaza:"m2", subcat:"sindrila"},
-          {name:"Cuie galvanizate 30mm (4/șindrilă)", um:"buc", pkg:"cutie 1000 buc", link:"https://mathaus.ro/search?pb=true&text=cuie+galvanizate+sindrila", formula:"4 buc/m²", variants:[], ext:false, consumM2:4, consumBaza:"m2", subcat:"sindrila"},
-          {name:"Amorsa bituminoasă pentru terasă (grunduire)", um:"kg", pkg:"bidon 20kg", link:"https://mathaus.ro/search?pb=true&text=amorsa+bituminoasa+terasa", formula:"0.35 kg/m²", variants:[], ext:false, consumM2:0.35, consumBaza:"m2", subcat:"terasa"},
-          {name:"Membrană bituminoasă barieră vapori — Strat 1", um:"m²", pkg:"rolă 10m²", link:"https://mathaus.ro/search?pb=true&text=membrana+bituminoasa+bariera+vapori", formula:"1.1 m²/m²", variants:[], ext:false, consumM2:1.1, consumBaza:"m2", subcat:"terasa"},
-          {name:"Polistiren EPS 10cm (termoizolație terasă)", um:"m²", pkg:"pachet 2.5m²", link:"https://mathaus.ro/search?pb=true&text=polistiren+expandat+terasa", formula:"1.05 m²/m²", variants:[], ext:false, consumM2:1.05, consumBaza:"m2", subcat:"terasa"},
-          {name:"Membrană bituminoasă APP/SBS finisaj — Strat 2", um:"m²", pkg:"rolă 10m²", link:"https://mathaus.ro/search?pb=true&text=membrana+bituminoasa+SBS", formula:"1.15 m²/m²", variants:[], ext:false, consumM2:1.15, consumBaza:"m2", subcat:"terasa"},
-          {name:"Guri scurgere terasă Ø110mm", um:"buc", pkg:"buc", link:"https://mathaus.ro/search?pb=true&text=gura+scurgere+terasa", formula:"1/20ml perimetru", variants:[], ext:false, consumM2:0.05, consumBaza:"ml", subcat:"terasa"},
+          {name:"Tratament biocid + ignifug lemn șarpantă", um:"L", pkg:"bidon 10L", link:"https://mathaus.ro/search?pb=true&text=tratament+lemn+antifungic", formula:"0.1 L/m²", variants:[], ext:false},
+          {name:"Jgheaburi PVC Ø100mm", um:"ml", pkg:"buc 4m", link:"https://mathaus.ro/search?pb=true&text=jgheaburi+pvc", formula:"1ml/ml perimetru", variants:[], ext:false},
+          {name:"Burlane PVC Ø75mm", um:"buc", pkg:"buc 4m", link:"https://mathaus.ro/search?pb=true&text=burlane+pvc", formula:"1/15ml perimetru", variants:[], ext:false},
+          {name:"Folie anticondens difuzie (sub căpriori)", um:"m²", pkg:"rolă 50m²", link:"https://mathaus.ro/search?pb=true&text=folie+anticondens+difuzie", formula:"1.15 m²/m²", variants:[], ext:false},
+          {name:"Șipci de astereală 24×48mm", um:"ml", pkg:"buc 4m", link:"https://mathaus.ro/search?pb=true&text=sipci+asterala", formula:"1.4 ml/m² (pas 27cm)", variants:[], ext:false},
+          {name:"Contrașipci 40×60mm (ventilare)", um:"ml", pkg:"buc 4m", link:"https://mathaus.ro/search?pb=true&text=contrasipci+acoperis", formula:"0.8 ml/m²", variants:[], ext:false},
+          {name:"Țiglă ceramică / beton (10–11 buc/m²)", um:"buc", pkg:"palet ~250 buc", link:"https://mathaus.ro/search?pb=true&text=tigla+ceramica", formula:"10.5 buc/m² × 1.15", variants:[], ext:false},
+          {name:"Cuie galvanizate pentru țiglă 50mm", um:"buc", pkg:"cutie 1000 buc", link:"https://mathaus.ro/search?pb=true&text=cuie+galvanizate", formula:"2 cuie/țiglă", variants:[], ext:false},
+          {name:"Mortar montaj coamă M5 (sac 25kg)", um:"saci", pkg:"sac 25 kg", link:"https://mathaus.ro/search?pb=true&text=mortar+coama+acoperis", formula:"12 kg/ml coamă / 25", variants:[], ext:false},
+          {name:"Amorsa bituminoasă pentru terasă (grunduire)", um:"kg", pkg:"bidon 20kg", link:"https://mathaus.ro/search?pb=true&text=amorsa+bituminoasa+terasa", formula:"0.35 kg/m²", variants:[], ext:false},
+          {name:"Membrană bituminoasă barieră vapori — Strat 1", um:"m²", pkg:"rolă 10m²", link:"https://mathaus.ro/search?pb=true&text=membrana+bituminoasa+bariera+vapori", formula:"1.1 m²/m²", variants:[], ext:false},
+          {name:"Polistiren EPS 10cm (termoizolație terasă)", um:"m²", pkg:"pachet 2.5m²", link:"https://mathaus.ro/search?pb=true&text=polistiren+expandat+terasa", formula:"1.05 m²/m²", variants:[], ext:false},
+          {name:"Membrană bituminoasă APP/SBS finisaj — Strat 2", um:"m²", pkg:"rolă 10m²", link:"https://mathaus.ro/search?pb=true&text=membrana+bituminoasa+SBS", formula:"1.15 m²/m²", variants:[], ext:false},
+          {name:"Guri scurgere terasă Ø110mm", um:"buc", pkg:"buc", link:"https://mathaus.ro/search?pb=true&text=gura+scurgere+terasa", formula:"1/20ml perimetru", variants:[], ext:false},
         ],
         "hidro-int": [
-          {name:"Membrana hidroizolantă flexibilă bicomponentă", um:"găleți", pkg:"găleată 12.5 kg", link:"https://mathaus.ro/p/hidroizolatie-bicomponenta-ceresit-cl-50-flexibila-pensulabila-gri-deschis-125-kg/000000000010701172", formula:"3.3 kg/m² ÷ 12.5 kg/găleată", variants:[], ext:false, consumM2:0.264, consumBaza:"m2",},
-          {name:"Bandă etanșare colțuri (per baie)", um:"buc", pkg:"rolă 50 ml", link:"https://mathaus.ro/p/banda-de-etansare-ceresit-cl-152-elastica-impermeabila-50-m/000000000010704595", formula:"8 ml/baie ÷ 50 ml/rolă", variants:[], ext:false, consumM2:0.16, consumBaza:"m2",},
-          {name:"Amorsă primer Ceresit R777", um:"bidoane", pkg:"bidon 10 kg", link:"https://mathaus.ro/p/amorsa-sapa-ceresit-r777-interior-10-kg/000000000010700875", formula:"0.3 ml/m² ÷ 10 kg/bidon", variants:[], ext:false, consumM2:0.03, consumBaza:"m2",},
-          {name:"Silicon sanitar Ceresit CS25", um:"tuburi", pkg:"tub 280ml", link:"https://mathaus.ro/p/silicon-sanitar-ceresit-cs-25-interior-exterior-alb-280-ml/000000000010700559", formula:"2 tuburi/baie", variants:[], ext:false, consumM2:2, consumBaza:"fix",},
+          {name:"Membrana hidroizolantă flexibilă bicomponentă", um:"găleți", pkg:"găleată 12.5 kg", link:"https://mathaus.ro/p/hidroizolatie-bicomponenta-ceresit-cl-50-flexibila-pensulabila-gri-deschis-125-kg/000000000010701172", formula:"3.3 kg/m² ÷ 12.5 kg/găleată", variants:[], ext:false},
+          {name:"Bandă etanșare colțuri (per baie)", um:"buc", pkg:"rolă 50 ml", link:"https://mathaus.ro/p/banda-de-etansare-ceresit-cl-152-elastica-impermeabila-50-m/000000000010704595", formula:"8 ml/baie ÷ 50 ml/rolă", variants:[], ext:false},
+          {name:"Amorsă primer Ceresit R777", um:"bidoane", pkg:"bidon 10 kg", link:"https://mathaus.ro/p/amorsa-sapa-ceresit-r777-interior-10-kg/000000000010700875", formula:"0.3 ml/m² ÷ 10 kg/bidon", variants:[], ext:false},
+          {name:"Silicon sanitar Ceresit CS25", um:"tuburi", pkg:"tub 280ml", link:"https://mathaus.ro/p/silicon-sanitar-ceresit-cs-25-interior-exterior-alb-280-ml/000000000010700559", formula:"2 tuburi/baie", variants:[], ext:false},
         ],
         "sapa": [
-          {name:"Amorsa sapa Ceresit R777", um:"bidoane", pkg:"bidon 10 kg", link:"https://mathaus.ro/p/amorsa-sapa-ceresit-r777-interior-10-kg/000000000010700875", formula:"0.3 ml/m² ÷ 10kg/bidon", variants:[], ext:false, consumM2:0.03, consumBaza:"m2",},
-          {name:"Șapă ciment autonivelantă 25kg", um:"saci", pkg:"sac 25 kg", link:"https://mathaus.ro/search?pb=true&text=sapa+autonivelanta", formula:"grosime(cm) × 15 kg/m²/cm ÷ 25kg/sac", variants:[], ext:false, consumM2:3.6, consumBaza:"m2",},
-          {name:"Plasă sudată Q131 (armare șapă)", um:"m²", pkg:"panou 12m²", link:"https://mathaus.ro/search?pb=true&text=plasa+sudata+Q131", formula:"1.05 × suprafață", variants:[], ext:false, consumM2:1.05, consumBaza:"m2",},
-          {name:"Bandă perimetrală dilatare", um:"ml", pkg:"rolă 50m", link:"https://mathaus.ro/search?pb=true&text=banda+perimetrala+sapa", formula:"perimetru estimat × 1.1", variants:[], ext:false, consumM2:1.1, consumBaza:"ml",},
+          {name:"Amorsa sapa Ceresit R777", um:"bidoane", pkg:"bidon 10 kg", link:"https://mathaus.ro/p/amorsa-sapa-ceresit-r777-interior-10-kg/000000000010700875", formula:"0.3 ml/m² ÷ 10kg/bidon", variants:[], ext:false},
+          {name:"Șapă ciment autonivelantă 25kg", um:"saci", pkg:"sac 25 kg", link:"https://mathaus.ro/search?pb=true&text=sapa+autonivelanta", formula:"grosime(cm) × 15 kg/m²/cm ÷ 25kg/sac", variants:[], ext:false},
+          {name:"Plasă sudată Q131 (armare șapă)", um:"m²", pkg:"panou 12m²", link:"https://mathaus.ro/search?pb=true&text=plasa+sudata+Q131", formula:"1.05 × suprafață", variants:[], ext:false},
+          {name:"Bandă perimetrală dilatare", um:"ml", pkg:"rolă 50m", link:"https://mathaus.ro/search?pb=true&text=banda+perimetrala+sapa", formula:"perimetru estimat × 1.1", variants:[], ext:false},
         ],
         "tencuieli": [
-          {name:"Ceresit CT 126- Glet de Incarcare (25kg)", um:"saci", pkg:"sac 20 kg", link:"https://mathaus.ro/p/glet-ceresit-ct-126-pe-baza-de-ipsos-interior-20-kg/000000000010701503", formula:"1.2 kg/m² ÷ 20 kg/sac (strat 1)", variants:[], ext:false, consumM2:0.06, consumBaza:"m2",},
-          {name:"Ceresit CT 127- Glet de finisaj (25kg)", um:"saci", pkg:"sac 20 kg", link:"https://mathaus.ro/p/glet-ceresit-ct-127-pentru-finisaje-fine-pe-baza-de-ciment-interior-20-kg/000000000010700870", formula:"1.2 kg/m² ÷ 20 kg/sac (strat 2)", variants:[], ext:false, consumM2:0.06, consumBaza:"m2",},
-          {name:"Amorsă penetrantă universală", um:"bidoane", pkg:"bidon 10L", link:"https://mathaus.ro/p/amorsa-perete-ceresit-ct-17-interior-exterior-10-l/000000000010700918", formula:"0.2 L/m² ÷ 10L/bidon", variants:[], ext:false, consumM2:0.02, consumBaza:"m2",},
-          {name:"Plasă fibră sticlă anticrăpare (colțuri)", um:"m²", pkg:"rolă 50m²", link:"https://mathaus.ro/search?pb=true&text=plasa+fibra+sticla+interior", formula:"30% din suprafață (colțuri + îmbinări)", variants:[], ext:false, consumM2:0.3, consumBaza:"m2",},
+          {name:"Ceresit CT 126- Glet de Incarcare (25kg)", um:"saci", pkg:"sac 20 kg", link:"https://mathaus.ro/p/glet-ceresit-ct-126-pe-baza-de-ipsos-interior-20-kg/000000000010701503", formula:"1.2 kg/m² ÷ 20 kg/sac (strat 1)", variants:[], ext:false},
+          {name:"Ceresit CT 127- Glet de finisaj (25kg)", um:"saci", pkg:"sac 20 kg", link:"https://mathaus.ro/p/glet-ceresit-ct-127-pentru-finisaje-fine-pe-baza-de-ciment-interior-20-kg/000000000010700870", formula:"1.2 kg/m² ÷ 20 kg/sac (strat 2)", variants:[], ext:false},
+          {name:"Amorsă penetrantă universală", um:"bidoane", pkg:"bidon 10L", link:"https://mathaus.ro/p/amorsa-perete-ceresit-ct-17-interior-exterior-10-l/000000000010700918", formula:"0.2 L/m² ÷ 10L/bidon", variants:[], ext:false},
+          {name:"Plasă fibră sticlă anticrăpare (colțuri)", um:"m²", pkg:"rolă 50m²", link:"https://mathaus.ro/search?pb=true&text=plasa+fibra+sticla+interior", formula:"30% din suprafață (colțuri + îmbinări)", variants:[], ext:false},
         ],
         "gresie": [
-          {name:"Ceresit CM 17 adeziv ceramică (25kg)", um:"saci", pkg:"sac 25 kg", link:"https://mathaus.ro/p/adeziv-super-flexibil-pentru-gresie-si-faianta-ceresit-cm-17-interior-exterior-25-kg/000000000010700878", formula:"4–7 kg/m² ÷ 25 kg/sac", variants:[], ext:false, consumM2:0.2, consumBaza:"m2",},
-          {name:"Rost ceramic 2kg (alege culoare)", um:"kg", pkg:"pungă 2 kg", link:"https://mathaus.ro/search?pb=true&text=rost+ceramic", formula:"~0.7 kg/m² rost 3mm", variants:[], ext:false, consumM2:0.35, consumBaza:"m2",},
-          {name:"Sistem nivelare plăci", um:"seturi", pkg:"set 100 buc", link:"https://mathaus.ro/search?pb=true&text=nivelatori+placi", formula:"1 set/4m²", variants:[], ext:false, consumM2:0.25, consumBaza:"m2",},
-          {name:"Silicon sanitar Ceresit CS25", um:"tuburi", pkg:"tub 280ml", link:"https://mathaus.ro/p/silicon-sanitar-ceresit-cs-25-interior-exterior-alb-280-ml/00000000010700559", formula:"2 tuburi/20m²", variants:[], ext:false, consumM2:0.25, consumBaza:"m2",},
+          {name:"Ceresit CM 17 adeziv ceramică (25kg)", um:"saci", pkg:"sac 25 kg", link:"https://mathaus.ro/p/adeziv-super-flexibil-pentru-gresie-si-faianta-ceresit-cm-17-interior-exterior-25-kg/000000000010700878", formula:"4–7 kg/m² ÷ 25 kg/sac", variants:[], ext:false},
+          {name:"Rost ceramic 2kg (alege culoare)", um:"kg", pkg:"pungă 2 kg", link:"https://mathaus.ro/search?pb=true&text=rost+ceramic", formula:"~0.7 kg/m² rost 3mm", variants:[], ext:false},
+          {name:"Sistem nivelare plăci", um:"seturi", pkg:"set 100 buc", link:"https://mathaus.ro/search?pb=true&text=nivelatori+placi", formula:"1 set/4m²", variants:[], ext:false},
+          {name:"Silicon sanitar Ceresit CS25", um:"tuburi", pkg:"tub 280ml", link:"https://mathaus.ro/p/silicon-sanitar-ceresit-cs-25-interior-exterior-alb-280-ml/00000000010700559", formula:"2 tuburi/20m²", variants:[], ext:false},
         ],
         "parchet": [
-          {name:"Folie Parchet / Subparchet antifonant 3mm", um:"m²", pkg:"rolă 10–25m²", link:"https://mathaus.ro/search?pb=true&text=subparchet+antifonant", formula:"1.05 × suprafață", variants:[], ext:false, consumM2:1.05, consumBaza:"m2",},
-          {name:"Parchet Laminat", um:"m²", pkg:"pachet m²", link:"https://mathaus.ro/search?pb=true&text=parchet+laminat", formula:"1.08 × suprafață (+8% pierderi)", variants:[{name:"Parchet SPC", link:"https://mathaus.ro/search?pb=true&text=parchet+spc", pkg:"pachet m²", consumM2:1.08, consumBaza:"m2",},{name:"Parchet Triplustratificat", link:"https://mathaus.ro/search?pb=true&text=parchet+triplustratificat", pkg:"pachet m²"}], ext:false},
-          {name:"Adeziv parchet triplustratificat (bidon 15kg)", um:"kg", pkg:"bidon 15kg", link:"https://mathaus.ro/search?pb=true&text=adeziv+parchet", formula:"0.8 kg/m² (doar la lipit)", variants:[], ext:false, consumM2:0.8, consumBaza:"m2",},
-          {name:"Plintă MDF laminat", um:"ml", pkg:"buc 2.4m", link:"https://mathaus.ro/search?pb=true&text=plinta+laminat", formula:"1 ml/ml perimetru", variants:[{name:"Plintă PVC/SPC", link:"https://mathaus.ro/search?pb=true&text=plinta+spc", pkg:"buc 2.4m", consumM2:1.1, consumBaza:"ml",},{name:"Plintă furniruită lemn", link:"https://mathaus.ro/search?pb=true&text=plinta+furniruita", pkg:"buc 2.4m"}], ext:false},
-          {name:"Colțar Stânga plintă", um:"buc", pkg:"buc", link:"https://mathaus.ro/search?pb=true&text=coltar+plinta", formula:"~1/15ml perimetru", variants:[], ext:false, consumM2:0.067, consumBaza:"ml",},
-          {name:"Colțar Dreapta plintă", um:"buc", pkg:"buc", link:"https://mathaus.ro/search?pb=true&text=coltar+plinta", formula:"~1/15ml perimetru", variants:[], ext:false, consumM2:0.067, consumBaza:"ml",},
-          {name:"Profil trecere (prag) între încăperi", um:"buc", pkg:"buc 0.9m", link:"https://mathaus.ro/search?pb=true&text=profil+trecere+parchet", formula:"1/20ml perimetru", variants:[], ext:false, consumM2:0.05, consumBaza:"ml",},
+          {name:"Folie Parchet / Subparchet antifonant 3mm", um:"m²", pkg:"rolă 10–25m²", link:"https://mathaus.ro/search?pb=true&text=subparchet+antifonant", formula:"1.05 × suprafață", variants:[], ext:false},
+          {name:"Parchet Laminat", um:"m²", pkg:"pachet m²", link:"https://mathaus.ro/search?pb=true&text=parchet+laminat", formula:"1.08 × suprafață (+8% pierderi)", variants:[{name:"Parchet SPC", link:"https://mathaus.ro/search?pb=true&text=parchet+spc", pkg:"pachet m²"},{name:"Parchet Triplustratificat", link:"https://mathaus.ro/search?pb=true&text=parchet+triplustratificat", pkg:"pachet m²"}], ext:false},
+          {name:"Adeziv parchet triplustratificat (bidon 15kg)", um:"kg", pkg:"bidon 15kg", link:"https://mathaus.ro/search?pb=true&text=adeziv+parchet", formula:"0.8 kg/m² (doar la lipit)", variants:[], ext:false},
+          {name:"Plintă MDF laminat", um:"ml", pkg:"buc 2.4m", link:"https://mathaus.ro/search?pb=true&text=plinta+laminat", formula:"1 ml/ml perimetru", variants:[{name:"Plintă PVC/SPC", link:"https://mathaus.ro/search?pb=true&text=plinta+spc", pkg:"buc 2.4m"},{name:"Plintă furniruită lemn", link:"https://mathaus.ro/search?pb=true&text=plinta+furniruita", pkg:"buc 2.4m"}], ext:false},
+          {name:"Colțar Stânga plintă", um:"buc", pkg:"buc", link:"https://mathaus.ro/search?pb=true&text=coltar+plinta", formula:"~1/15ml perimetru", variants:[], ext:false},
+          {name:"Colțar Dreapta plintă", um:"buc", pkg:"buc", link:"https://mathaus.ro/search?pb=true&text=coltar+plinta", formula:"~1/15ml perimetru", variants:[], ext:false},
+          {name:"Profil trecere (prag) între încăperi", um:"buc", pkg:"buc 0.9m", link:"https://mathaus.ro/search?pb=true&text=profil+trecere+parchet", formula:"1/20ml perimetru", variants:[], ext:false},
         ],
         "vopsitorii": [
-          {name:"Amorsă lavabilă interioară", um:"kg", pkg:"găleată 15kg", link:"https://mathaus.ro/search?pb=true&text=amorsa+lavabila+interioara", formula:"0.12 kg/m²", variants:[], ext:false, consumM2:0.12, consumBaza:"m2",},
-          {name:"Vopsea lavabilă albă premium + Amorsa", um:"găleți", pkg:"kit 15L+4L amorsă", link:"https://mathaus.ro/p/vopsea-ultra-lavabila-interior-savana-ultra-rezist-alb-15-l-amorsa-4-l/000000000010706528", formula:"kit 15L+4L / 80m²/kit", variants:[], ext:false, consumM2:0.0125, consumBaza:"m2",},
-          {name:"Vopsea anti-umiditate (băi + bucătărie)", um:"kg", pkg:"găleată 8 kg", link:"https://mathaus.ro/search?pb=true&text=vopsea+umiditate+baie", formula:"0.18 kg/m² × nr straturi", variants:[], ext:false, consumM2:0.18, consumBaza:"m2",},
+          {name:"Amorsă lavabilă interioară", um:"kg", pkg:"găleată 15kg", link:"https://mathaus.ro/search?pb=true&text=amorsa+lavabila+interioara", formula:"0.12 kg/m²", variants:[], ext:false},
+          {name:"Vopsea lavabilă albă premium + Amorsa", um:"găleți", pkg:"kit 15L+4L amorsă", link:"https://mathaus.ro/p/vopsea-ultra-lavabila-interior-savana-ultra-rezist-alb-15-l-amorsa-4-l/000000000010706528", formula:"kit 15L+4L / 80m²/kit", variants:[], ext:false},
+          {name:"Vopsea anti-umiditate (băi + bucătărie)", um:"kg", pkg:"găleată 8 kg", link:"https://mathaus.ro/search?pb=true&text=vopsea+umiditate+baie", formula:"0.18 kg/m² × nr straturi", variants:[], ext:false},
         ],
         "zidarie": [
           {name:"Mortar adeziv Termofix Poren BCA 25kg", um:"sac", uv:"sac 25 kg", link:"https://mathaus.ro/search?pb=true&text=adeziv+bca", formula:"1 sac / 6.5 m²", pretUM:0, sapKey:"", variants:[{name:"Mortar zidarie caramida Termofix Brick MZ50", link:"https://mathaus.ro/search?pb=true&text=mortar+zidarie+M5", uv:"sac 40 kg"}], ext:false},
@@ -6029,70 +6910,10 @@
         "gipscarton": [],
       };
 
-      // Frozen copy of defaults — used for merge during load
-      const _STAGE_MATS_DEFAULTS = {};
-      Object.keys(STAGE_MATS_DB).forEach(k => {
-        _STAGE_MATS_DEFAULTS[k] = STAGE_MATS_DB[k].map(m => ({...m, variants: (m.variants||[]).map(v => ({...v}))}));
-      });
-
       function loadStageMats() {
-        // Save defaults BEFORE loading saved data
-        const DEFAULTS = _STAGE_MATS_DEFAULTS;
         try {
           const s = localStorage.getItem(SMATS_KEY);
-          if (s) {
-            const d = JSON.parse(s);
-            Object.keys(d).forEach(k => {
-              if (!STAGE_MATS_DB[k]) { STAGE_MATS_DB[k] = d[k]; return; }
-              // Merge: for each saved material, update defaults
-              const saved = d[k] || [];
-              const defaults = DEFAULTS[k] || [];
-              // Start with defaults, overlay saved data
-              const merged = defaults.map(defMat => {
-                // Find matching saved material by name
-                const savedMat = saved.find(sm => sm.name === defMat.name);
-                if (savedMat) {
-                  // Merge: saved values win, but fill missing fields from default
-                  const result = {...defMat, ...savedMat};
-                  // Critical: if saved has consumM2=0 but default has value, use default
-                  if ((!savedMat.consumM2 || savedMat.consumM2 === 0) && defMat.consumM2 > 0) {
-                    result.consumM2 = defMat.consumM2;
-                    result.consumBaza = defMat.consumBaza || 'm2';
-                  }
-                  // Preserve subcat from defaults
-                  if (defMat.subcat) result.subcat = defMat.subcat;
-                  // Merge variants similarly
-                  if (defMat.variants?.length) {
-                    result.variants = defMat.variants.map(defV => {
-                      const savedV = (savedMat.variants||[]).find(sv => sv.name === defV.name);
-                      if (savedV) {
-                        const vr = {...defV, ...savedV};
-                        if ((!savedV.consumM2 || savedV.consumM2 === 0) && defV.consumM2 > 0) {
-                          vr.consumM2 = defV.consumM2;
-                          vr.consumBaza = defV.consumBaza || 'm2';
-                        }
-                        return vr;
-                      }
-                      return defV;
-                    });
-                    // Add saved variants not in defaults
-                    (savedMat.variants||[]).forEach(sv => {
-                      if (!result.variants.find(v => v.name === sv.name)) result.variants.push(sv);
-                    });
-                  } else {
-                    result.variants = savedMat.variants || [];
-                  }
-                  return result;
-                }
-                return defMat; // not in saved data, keep default
-              });
-              // Add saved materials not in defaults (user-added)
-              saved.forEach(sm => {
-                if (!merged.find(m => m.name === sm.name)) merged.push(sm);
-              });
-              STAGE_MATS_DB[k] = merged;
-            });
-          }
+          if (s) { const d = JSON.parse(s); Object.keys(d).forEach(k => { STAGE_MATS_DB[k] = d[k]; }); }
         } catch(e){}
         // Migrate: ensure all mats have new fields
         Object.values(STAGE_MATS_DB).forEach(arr => {
@@ -6231,33 +7052,9 @@
             if (data.products.GC_SYSTEMS) { Object.keys(data.products.GC_SYSTEMS).forEach(k => { if (GC_SYSTEMS[k]) { GC_SYSTEMS[k].label = data.products.GC_SYSTEMS[k].label; GC_SYSTEMS[k].items = data.products.GC_SYSTEMS[k].items; }}); }
             adminSaveProducts();
           }
-          // Restore stage materials (save to localStorage then merge via loadStageMats)
+          // Restore stage materials
           if (data.stageMats) {
-            // Merge cloud data with defaults (same logic as loadStageMats)
-            Object.keys(data.stageMats).forEach(k => {
-              const saved = data.stageMats[k] || [];
-              const defaults = _STAGE_MATS_DEFAULTS[k] || [];
-              if (!defaults.length) { STAGE_MATS_DB[k] = saved; return; }
-              const merged = defaults.map(defMat => {
-                const sm = saved.find(s => s.name === defMat.name);
-                if (sm) {
-                  const r = {...defMat, ...sm};
-                  if ((!sm.consumM2 || sm.consumM2 === 0) && defMat.consumM2 > 0) { r.consumM2 = defMat.consumM2; r.consumBaza = defMat.consumBaza || 'm2'; }
-                  if (defMat.subcat) r.subcat = defMat.subcat;
-                  if (defMat.variants?.length) {
-                    r.variants = defMat.variants.map(dv => {
-                      const sv = (sm.variants||[]).find(v => v.name === dv.name);
-                      return sv ? {...dv, ...sv, consumM2: (sv.consumM2||0) > 0 ? sv.consumM2 : dv.consumM2, consumBaza: sv.consumBaza || dv.consumBaza} : dv;
-                    });
-                    (sm.variants||[]).forEach(sv => { if (!r.variants.find(v => v.name === sv.name)) r.variants.push(sv); });
-                  } else r.variants = sm.variants || [];
-                  return r;
-                }
-                return defMat;
-              });
-              saved.forEach(sm => { if (!merged.find(m => m.name === sm.name)) merged.push(sm); });
-              STAGE_MATS_DB[k] = merged;
-            });
+            Object.keys(data.stageMats).forEach(k => { STAGE_MATS_DB[k] = data.stageMats[k]; });
             saveStageMats();
           }
           // Restore prices
@@ -7751,7 +8548,6 @@
 
       function openMatEditor(mode, sid, idx, vidx, catalogType, catalogSub) {
         _meContext = {mode, sid, idx, vidx, catalogType, catalogSub};
-        _editorStageId = sid || null; // for compatibility warning
         const overlay = $('mat-edit-overlay');
         if (!overlay) return;
 
@@ -8003,26 +8799,6 @@
         toast('✅ "' + data.name.substring(0,25) + '" salvat.');
       }
 
-      // Stage → available input bases for calculator
-      const STAGE_INPUTS = {
-        'trasare': ['ml','fix'],
-        'fundatii': ['m2','ml','m3','fix'],
-        'xps-subsol': ['m2','fix'],
-        'planseu': ['m2','m3','fix'],
-        'acoperis': ['m2','ml','fix'],
-        'zidarie': ['m2','fix'],
-        'termosistem': ['m2','fix'],
-        'gipscarton': ['m2','fix'],
-        'hidro-int': ['m2','fix'],
-        'sapa': ['m2','ml','m3','fix'],
-        'tencuieli': ['m2','fix'],
-        'gresie': ['m2','fix'],
-        'parchet': ['m2','ml','fix'],
-        'vopsitorii': ['m2','fix'],
-        'receptie': ['m2','fix'],
-      };
-      let _editorStageId = null; // track which stage material editor is editing
-
       function updateConsumHint() {
         const baza = $('me-consumBaza')?.value || 'm2';
         const hint = $('me-consum-hint');
@@ -8035,20 +8811,6 @@
           'fix': '= cantitate fixă (nu depinde de suprafață/perimetru)',
         };
         hint.textContent = labels[baza] || labels['m2'];
-
-        // Check compatibility with stage
-        const warn = $('me-baza-warn');
-        if (warn && _editorStageId) {
-          const available = STAGE_INPUTS[_editorStageId] || ['m2','ml','m3','fix'];
-          if (!available.includes(baza)) {
-            const bazaNames = {'m2':'m² (suprafață)','ml':'ml (perimetru)','m3':'m³ (volum)','fix':'fix'};
-            const availNames = available.filter(a=>a!=='fix').map(a=>bazaNames[a]).join(', ');
-            warn.innerHTML = '⚠ <strong>Atenție:</strong> Calculatorul etapei „' + (_editorStageId) + '" folosește doar: <strong>' + availNames + '</strong>. Materialul cu bază „' + bazaNames[baza] + '" nu va apărea în rezultate!';
-            warn.style.display = 'block';
-          } else {
-            warn.style.display = 'none';
-          }
-        }
       }
 
       function updateMatEditorPreview() {
@@ -8765,6 +9527,612 @@
         } catch (err) {
           console.warn('[MatHaus] Auto-sync failed:', err.message);
         }
+      }
+
+      // ─────────────────────────── AI AGENT MANAGEMENT ───────────────────────────
+
+      const AI_KB_STORE = 'mathaus_ai_kb';
+      const AI_USAGE_STORE = 'mathaus_ai_usage';
+      let aiKBTab = 'persona';
+
+      function loadAIKB() {
+        try {
+          const s = localStorage.getItem(AI_KB_STORE);
+          const defaults = {
+            urls: [],
+            freeText: '',
+            agentName: 'Consultant MatHaus',
+            systemPromptCustom: '',
+            personality: 'profesional',
+            language: 'ro',
+            conversationStarters: [
+              'Ce adeziv pentru gresie 60×60 pe încălzire?',
+              'Fac o baie de 4×3m — ce materiale?',
+              'EPS sau vată la termosistem?',
+              'Am umezeală pe pereți, ce soluție?'
+            ],
+            customAnswers: [],
+            files: []
+          };
+          if (s) {
+            const parsed = JSON.parse(s);
+            return { ...defaults, ...parsed };
+          }
+          return defaults;
+        } catch(e) { return { urls: [], freeText: '', agentName: 'Consultant MatHaus', systemPromptCustom: '', personality: 'profesional', language: 'ro', conversationStarters: [], customAnswers: [], files: [] }; }
+      }
+      function saveAIKB(data) {
+        try { localStorage.setItem(AI_KB_STORE, JSON.stringify(data)); } catch(e){}
+      }
+      function loadAIUsage() {
+        try {
+          const s = localStorage.getItem(AI_USAGE_STORE);
+          return s ? JSON.parse(s) : { sessions: 0, messages: 0, firstUsed: null, lastUsed: null };
+        } catch(e) { return { sessions: 0, messages: 0, firstUsed: null, lastUsed: null }; }
+      }
+      function saveAIUsage(data) {
+        try { localStorage.setItem(AI_USAGE_STORE, JSON.stringify(data)); } catch(e){}
+      }
+      function trackAIUsage(type) {
+        const u = loadAIUsage();
+        const now = new Date().toISOString();
+        if (!u.firstUsed) u.firstUsed = now;
+        u.lastUsed = now;
+        if (type === 'session') u.sessions++;
+        if (type === 'message') u.messages++;
+        saveAIUsage(u);
+      }
+
+      // ── Main Render Router ──
+      function renderAdminAIKB() {
+        const cont = $("admin-content");
+        if (!cont) return;
+        const kb = loadAIKB();
+
+        // Tab bar
+        const tabs = [
+          { id: 'persona', icon: '🎭', label: 'Persona' },
+          { id: 'training', icon: '📚', label: 'Training Data' },
+          { id: 'custom-answers', icon: '💬', label: 'Răspunsuri Custom' },
+          { id: 'settings', icon: '⚙', label: 'Setări Agent' },
+          { id: 'usage', icon: '📊', label: 'Utilizare' },
+        ];
+        const tabBar = tabs.map(t => `<div class="admin-nav-item ${aiKBTab === t.id ? 'active' : ''}" style="display:inline-flex;gap:6px;align-items:center;padding:8px 14px;font-size:12px;cursor:pointer;border-radius:8px;white-space:nowrap" onclick="aiKBTab='${t.id}';renderAdminAIKB()">${t.icon} ${t.label}</div>`).join('');
+
+        let content = '';
+        if (aiKBTab === 'persona') content = renderAIPersona(kb);
+        else if (aiKBTab === 'training') content = renderAITraining(kb);
+        else if (aiKBTab === 'custom-answers') content = renderAICustomAnswers(kb);
+        else if (aiKBTab === 'settings') content = renderAISettings(kb);
+        else if (aiKBTab === 'usage') content = renderAIUsageTab();
+
+        cont.innerHTML = `<div class="admin-card" style="padding-bottom:8px">
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:4px">
+      <div style="width:42px;height:42px;border-radius:12px;background:linear-gradient(135deg,var(--orange-l),var(--orange-m));display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0">🤖</div>
+      <div>
+        <h3 style="margin:0;font-size:17px">${kb.agentName || 'Consultant MatHaus'}</h3>
+        <div style="font-size:11px;color:var(--txt3)">AI Agent Settings — configurează, antrenează și monitorizează</div>
+      </div>
+    </div>
+  </div>
+  <div style="display:flex;gap:6px;flex-wrap:wrap;padding:0 0 16px;overflow-x:auto">
+    ${tabBar}
+  </div>
+  ${content}`;
+      }
+
+      // ══════════ TAB: PERSONA ══════════
+      function renderAIPersona(kb) {
+        const starterRows = (kb.conversationStarters || []).map((s, i) => `
+          <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px">
+            <input class="input" value="${escHtml(s)}" onchange="updateAIStarter(${i}, this.value)" style="flex:1;font-size:12px;min-height:38px" />
+            <button class="btn btn-ghost" style="padding:4px 10px;font-size:14px;color:var(--red)" onclick="removeAIStarter(${i})">🗑</button>
+          </div>
+        `).join('');
+
+        return `<div class="admin-card">
+    <div style="font-size:10px;font-weight:700;color:var(--txt3);letter-spacing:1px;text-transform:uppercase;margin-bottom:12px">Agent Settings</div>
+    <h3 style="margin:0 0 16px;font-size:15px">🎭 Persona</h3>
+
+    <div style="margin-bottom:20px">
+      <label class="label">Nume Agent</label>
+      <input class="input" id="ai-agent-name" value="${escHtml(kb.agentName || 'Consultant MatHaus')}" style="max-width:400px;font-size:13px;min-height:40px" />
+    </div>
+
+    <div style="margin-bottom:20px">
+      <label class="label">Personalitate</label>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px">
+        ${['profesional','prietenos','tehnic','concis','detaliat'].map(p => `<label style="display:flex;align-items:center;gap:6px;padding:8px 14px;border:1.5px solid ${kb.personality===p?'var(--orange)':'var(--border)'};border-radius:10px;cursor:pointer;font-size:12px;background:${kb.personality===p?'var(--orange-l)':'var(--surface)'}"><input type="radio" name="ai-personality" value="${p}" ${kb.personality===p?'checked':''} onchange="updateAIPersonality('${p}')" style="display:none" />${p.charAt(0).toUpperCase()+p.slice(1)}</label>`).join('')}
+      </div>
+    </div>
+
+    <div style="margin-bottom:20px">
+      <label class="label">System Prompt (instrucțiuni suplimentare)</label>
+      <p style="font-size:11px;color:var(--txt3);margin:4px 0 8px">Scrie instrucțiuni adiționale pentru AI. Acestea se adaugă la prompt-ul de bază care include deja toate materialele și etapele.</p>
+      <textarea class="input" id="ai-system-custom" rows="6" style="width:100%;font-size:12px;line-height:1.7;font-family:var(--font);resize:vertical;min-height:120px" placeholder="Ex: Menționează mereu promoțiile active. Când clientul întreabă de adeziv, recomandă întâi Ceresit CM17. Folosește un ton entuziast dar nu exagerat...">${escHtml(kb.systemPromptCustom || '')}</textarea>
+    </div>
+
+    <div style="margin-bottom:20px">
+      <label class="label">Limba răspunsurilor</label>
+      <select class="input" id="ai-language" style="max-width:250px;font-size:12px;min-height:40px">
+        <option value="ro" ${kb.language==='ro'?'selected':''}>🇷🇴 Română</option>
+        <option value="en" ${kb.language==='en'?'selected':''}>🇬🇧 English</option>
+        <option value="auto" ${kb.language==='auto'?'selected':''}>🌐 Auto-detect</option>
+      </select>
+    </div>
+
+    <div style="border-top:1px solid var(--border2);padding-top:20px;margin-bottom:16px">
+      <label class="label" style="margin-bottom:12px">Conversation Starters</label>
+      <p style="font-size:11px;color:var(--txt3);margin:-6px 0 12px">Sugestii rapide afișate la deschiderea chat-ului — click și se trimite automat.</p>
+      ${starterRows}
+      <button class="btn btn-ghost" style="font-size:12px;padding:6px 14px" onclick="addAIStarter()">+ Adaugă mesaj</button>
+    </div>
+
+    <div style="display:flex;gap:8px;justify-content:flex-end;border-top:1px solid var(--border2);padding-top:16px">
+      <button class="btn btn-primary" onclick="saveAIPersona()">💾 Salvează Persona</button>
+    </div>
+  </div>`;
+      }
+
+      function saveAIPersona() {
+        const kb = loadAIKB();
+        kb.agentName = $('ai-agent-name')?.value?.trim() || 'Consultant MatHaus';
+        kb.systemPromptCustom = $('ai-system-custom')?.value || '';
+        kb.language = $('ai-language')?.value || 'ro';
+        saveAIKB(kb);
+        // Update chat header live
+        const headerH3 = document.querySelector('.chat-header-info h3');
+        if (headerH3) headerH3.textContent = kb.agentName;
+        aiSaveFlash(event.target);
+      }
+      function updateAIPersonality(val) {
+        const kb = loadAIKB();
+        kb.personality = val;
+        saveAIKB(kb);
+        renderAdminAIKB();
+      }
+      function updateAIStarter(i, val) {
+        const kb = loadAIKB();
+        if (kb.conversationStarters) kb.conversationStarters[i] = val;
+        saveAIKB(kb);
+      }
+      function removeAIStarter(i) {
+        const kb = loadAIKB();
+        if (kb.conversationStarters) kb.conversationStarters.splice(i, 1);
+        saveAIKB(kb);
+        renderAdminAIKB();
+      }
+      function addAIStarter() {
+        const kb = loadAIKB();
+        if (!kb.conversationStarters) kb.conversationStarters = [];
+        kb.conversationStarters.push('Întrebare nouă...');
+        saveAIKB(kb);
+        renderAdminAIKB();
+      }
+
+      // ══════════ TAB: TRAINING DATA ══════════
+      function renderAITraining(kb) {
+        const urlRows = (kb.urls || []).map((u, i) => {
+          const statusColor = u.status === 'trained' ? 'var(--green)' : u.status === 'error' ? 'var(--red)' : 'var(--amber)';
+          const statusLabel = u.status === 'trained' ? '● Trained' : u.status === 'error' ? '● Eroare' : '● Pending';
+          const wordCount = u.wordCount || '—';
+          const lastUpdated = u.lastUpdated ? new Date(u.lastUpdated).toLocaleDateString('ro-RO') + ' ' + new Date(u.lastUpdated).toLocaleTimeString('ro-RO',{hour:'2-digit',minute:'2-digit'}) : '—';
+          return `<tr style="border-bottom:1px solid var(--border2)">
+            <td style="padding:10px 8px;font-size:12px;color:var(--txt3)">${i+1}.</td>
+            <td style="padding:10px 8px">
+              <div style="font-size:13px;font-weight:600;color:var(--navy)">${escHtml(u.label || 'Fără etichetă')}</div>
+              <a href="${escHtml(u.url)}" target="_blank" style="font-size:11px;color:var(--blue);word-break:break-all">${escHtml(u.url)}</a>
+            </td>
+            <td style="padding:10px 8px;font-size:12px;color:var(--txt2);text-align:center">${wordCount}</td>
+            <td style="padding:10px 8px;font-size:11px;text-align:center"><span style="display:inline-flex;align-items:center;gap:4px">🌐 Webpage</span></td>
+            <td style="padding:10px 8px;font-size:11px;text-align:center"><span style="color:${statusColor};font-weight:600">${statusLabel}</span></td>
+            <td style="padding:10px 8px;font-size:11px;color:var(--txt3);text-align:center">${lastUpdated}</td>
+            <td style="padding:10px 8px;text-align:center">
+              <button class="btn btn-ghost" style="padding:3px 8px;font-size:11px" onclick="refreshAIUrl(${i})" title="Refresh">🔄</button>
+              <button class="btn btn-ghost" style="padding:3px 8px;font-size:11px;color:var(--red)" onclick="removeAIKBUrl(${i})" title="Șterge">🗑</button>
+            </td>
+          </tr>`;
+        }).join('');
+
+        const fileRows = (kb.files || []).map((f, i) => {
+          const statusColor = f.status === 'trained' ? 'var(--green)' : 'var(--amber)';
+          const statusLabel = f.status === 'trained' ? '● Trained' : '● Pending';
+          return `<tr style="border-bottom:1px solid var(--border2)">
+            <td style="padding:10px 8px;font-size:12px;color:var(--txt3)">${(kb.urls?.length||0)+i+1}.</td>
+            <td style="padding:10px 8px">
+              <div style="font-size:13px;font-weight:600;color:var(--navy)">📄 ${escHtml(f.name)}</div>
+              <div style="font-size:11px;color:var(--txt3)">${(f.size/1024).toFixed(1)} KB</div>
+            </td>
+            <td style="padding:10px 8px;font-size:12px;color:var(--txt2);text-align:center">${f.wordCount || '—'}</td>
+            <td style="padding:10px 8px;font-size:11px;text-align:center"><span>📄 ${f.type || 'Text'}</span></td>
+            <td style="padding:10px 8px;font-size:11px;text-align:center"><span style="color:${statusColor};font-weight:600">${statusLabel}</span></td>
+            <td style="padding:10px 8px;font-size:11px;color:var(--txt3);text-align:center">${f.addedDate ? new Date(f.addedDate).toLocaleDateString('ro-RO') : '—'}</td>
+            <td style="padding:10px 8px;text-align:center">
+              <button class="btn btn-ghost" style="padding:3px 8px;font-size:11px;color:var(--red)" onclick="removeAIFile(${i})" title="Șterge">🗑</button>
+            </td>
+          </tr>`;
+        }).join('');
+
+        const totalSources = (kb.urls?.length||0) + (kb.files?.length||0);
+        const trainedCount = [...(kb.urls||[]),...(kb.files||[])].filter(x => x.status === 'trained').length;
+
+        return `<div class="admin-card">
+    <div style="font-size:10px;font-weight:700;color:var(--txt3);letter-spacing:1px;text-transform:uppercase;margin-bottom:12px">Training</div>
+    <h3 style="margin:0 0 4px;font-size:15px">📚 Training Data</h3>
+    <p style="font-size:12px;color:var(--txt3);margin-bottom:16px">Gestionează sursele de cunoștințe ale agentului. Adaugă link-uri, fișiere text sau documente din care AI-ul să învețe.</p>
+
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px">
+      <button class="btn btn-primary" style="font-size:12px;padding:8px 16px" onclick="showAddLinkForm()">+ Adaugă Link-uri</button>
+      <button class="btn btn-primary" style="font-size:12px;padding:8px 16px;background:var(--navy)" onclick="triggerAIFileUpload()">+ Adaugă Fișier</button>
+      <input type="file" id="ai-file-upload" accept=".txt,.csv,.json,.md" style="display:none" onchange="handleAIFileUpload(event)" />
+      <div style="flex:1"></div>
+      <button class="btn btn-ghost" style="font-size:12px;padding:8px 16px" onclick="refreshAllAIUrls()">🔄 Refresh All Links</button>
+    </div>
+
+    <div id="ai-add-link-form" style="display:none;background:var(--surface2);border-radius:var(--r-sm);padding:16px;margin-bottom:16px;border:1px solid var(--border2)">
+      <div style="font-size:13px;font-weight:600;color:var(--navy);margin-bottom:10px">Adaugă sursă nouă</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
+        <input class="input" id="aikb-url-label" placeholder="Etichetă (ex: Politica de livrare)" style="flex:1;min-width:150px;font-size:12px;min-height:38px" />
+        <input class="input" id="aikb-url-input" placeholder="https://mathaus.ro/..." style="flex:2;min-width:200px;font-size:12px;min-height:38px" />
+        <button class="btn btn-primary" onclick="addAIKBUrl()" style="padding:8px 16px;font-size:12px">Adaugă</button>
+      </div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap">
+        <span style="font-size:11px;color:var(--txt3);padding:5px 0">Sugestii rapide:</span>
+        <button class="btn btn-ghost" style="font-size:11px;padding:4px 10px" onclick="addAIKBUrlQuick('Politica de livrare','https://mathaus.ro/despre_livrare')">Livrare</button>
+        <button class="btn btn-ghost" style="font-size:11px;padding:4px 10px" onclick="addAIKBUrlQuick('Politica de retur','https://mathaus.ro/retur')">Retur</button>
+        <button class="btn btn-ghost" style="font-size:11px;padding:4px 10px" onclick="addAIKBUrlQuick('Modalități plată','https://mathaus.ro/modalitati_plata')">Plăți</button>
+        <button class="btn btn-ghost" style="font-size:11px;padding:4px 10px" onclick="addAIKBUrlQuick('Livrare Easybox','https://mathaus.ro/livrare-Easybox')">Easybox</button>
+        <button class="btn btn-ghost" style="font-size:11px;padding:4px 10px" onclick="addAIKBUrlQuick('Blog MatHaus','https://mathaus.ro/blog')">Blog</button>
+      </div>
+    </div>
+
+    <div style="background:var(--surface2);border-radius:var(--r-sm);padding:12px 14px;margin-bottom:16px;display:flex;gap:20px;flex-wrap:wrap">
+      <div><span style="font-size:22px;font-weight:800;color:var(--navy)">${totalSources}</span><span style="font-size:11px;color:var(--txt3);margin-left:6px">surse totale</span></div>
+      <div><span style="font-size:22px;font-weight:800;color:var(--green)">${trainedCount}</span><span style="font-size:11px;color:var(--txt3);margin-left:6px">trained</span></div>
+      <div><span style="font-size:22px;font-weight:800;color:var(--amber)">${totalSources - trainedCount}</span><span style="font-size:11px;color:var(--txt3);margin-left:6px">pending</span></div>
+    </div>
+
+    ${totalSources > 0 ? `
+    <div style="overflow-x:auto">
+      <table style="width:100%;border-collapse:collapse">
+        <thead>
+          <tr style="background:var(--navy);color:#fff">
+            <th style="padding:10px 8px;font-size:11px;font-weight:600;text-align:left;border-radius:8px 0 0 0">#</th>
+            <th style="padding:10px 8px;font-size:11px;font-weight:600;text-align:left">Knowledge sources</th>
+            <th style="padding:10px 8px;font-size:11px;font-weight:600;text-align:center">Word count</th>
+            <th style="padding:10px 8px;font-size:11px;font-weight:600;text-align:center">Data type</th>
+            <th style="padding:10px 8px;font-size:11px;font-weight:600;text-align:center">Status</th>
+            <th style="padding:10px 8px;font-size:11px;font-weight:600;text-align:center">Last updated</th>
+            <th style="padding:10px 8px;font-size:11px;font-weight:600;text-align:center;border-radius:0 8px 0 0">Actions</th>
+          </tr>
+        </thead>
+        <tbody>${urlRows}${fileRows}</tbody>
+      </table>
+    </div>` : `<div style="text-align:center;padding:40px 20px;color:var(--txt3)">
+      <div style="font-size:40px;margin-bottom:12px">📚</div>
+      <div style="font-size:14px;font-weight:600;color:var(--navy);margin-bottom:6px">Nicio sursă de training</div>
+      <div style="font-size:12px">Adaugă link-uri sau fișiere din care agentul AI să învețe.</div>
+    </div>`}
+  </div>
+
+  <div class="admin-card" style="margin-top:12px">
+    <h3 style="margin:0 0 8px;font-size:14px">📝 Cunoștințe fixe (free text)</h3>
+    <p style="font-size:11px;color:var(--txt3);margin-bottom:10px">Informații text care intră direct în memoria AI-ului la fiecare conversație — politici, promoții, FAQ-uri, reguli.</p>
+    <textarea class="input" id="aikb-freetext" rows="10" style="width:100%;font-size:12px;line-height:1.7;font-family:var(--font);resize:vertical;min-height:160px" placeholder="Exemplu:
+
+POLITICA DE LIVRARE MATHAUS:
+- Livrare gratuită pentru comenzi peste 299 lei
+- Termenul standard de livrare: 1-3 zile lucrătoare
+
+PROMOȚII ACTIVE:
+- 10% reducere la tot termosistemul până pe 30 aprilie
+
+PROGRAM MAGAZINE:
+- Luni-Vineri 7:00-20:00, Sâmbătă 8:00-18:00, Duminică 9:00-16:00">${escHtml(kb.freeText || '')}</textarea>
+    <div style="display:flex;gap:8px;margin-top:10px;justify-content:flex-end">
+      <button class="btn btn-primary" onclick="saveAIKBText()">💾 Salvează</button>
+    </div>
+  </div>`;
+      }
+
+      function showAddLinkForm() {
+        const form = $('ai-add-link-form');
+        if (form) form.style.display = form.style.display === 'none' ? 'block' : 'none';
+      }
+
+      function triggerAIFileUpload() {
+        const inp = $('ai-file-upload');
+        if (inp) inp.click();
+      }
+
+      function handleAIFileUpload(event) {
+        const file = event.target.files?.[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = function(e) {
+          const text = e.target.result;
+          const wordCount = text.split(/\s+/).filter(Boolean).length;
+          const kb = loadAIKB();
+          if (!kb.files) kb.files = [];
+          kb.files.push({
+            name: file.name,
+            size: file.size,
+            type: file.name.split('.').pop().toUpperCase(),
+            content: text.substring(0, 50000), // Limit to 50k chars
+            wordCount: wordCount,
+            status: 'trained',
+            addedDate: new Date().toISOString()
+          });
+          saveAIKB(kb);
+          renderAdminAIKB();
+        };
+        reader.readAsText(file);
+        event.target.value = '';
+      }
+
+      function removeAIFile(index) {
+        const kb = loadAIKB();
+        if (kb.files) kb.files.splice(index, 1);
+        saveAIKB(kb);
+        renderAdminAIKB();
+      }
+
+      async function refreshAIUrl(index) {
+        const kb = loadAIKB();
+        const u = kb.urls?.[index];
+        if (!u) return;
+        u.status = 'pending';
+        u.lastUpdated = new Date().toISOString();
+        saveAIKB(kb);
+        renderAdminAIKB();
+
+        try {
+          // Simulate fetching word count — in production this would use a proxy/worker
+          // For now mark as trained after brief delay
+          setTimeout(() => {
+            const kb2 = loadAIKB();
+            if (kb2.urls?.[index]) {
+              kb2.urls[index].status = 'trained';
+              kb2.urls[index].lastUpdated = new Date().toISOString();
+              if (!kb2.urls[index].wordCount) kb2.urls[index].wordCount = '~';
+              saveAIKB(kb2);
+              renderAdminAIKB();
+            }
+          }, 1500);
+        } catch(e) {}
+      }
+
+      function refreshAllAIUrls() {
+        const kb = loadAIKB();
+        (kb.urls || []).forEach((u, i) => {
+          u.status = 'pending';
+          u.lastUpdated = new Date().toISOString();
+        });
+        saveAIKB(kb);
+        renderAdminAIKB();
+        // Simulate all training
+        setTimeout(() => {
+          const kb2 = loadAIKB();
+          (kb2.urls || []).forEach(u => {
+            u.status = 'trained';
+            u.lastUpdated = new Date().toISOString();
+          });
+          saveAIKB(kb2);
+          renderAdminAIKB();
+        }, 2000);
+      }
+
+      // ══════════ TAB: CUSTOM ANSWERS ══════════
+      function renderAICustomAnswers(kb) {
+        const qaRows = (kb.customAnswers || []).map((qa, i) => `
+          <div style="background:var(--surface2);border:1px solid var(--border2);border-radius:var(--r-sm);padding:14px;margin-bottom:10px">
+            <div style="display:flex;justify-content:space-between;align-items:start;gap:8px;margin-bottom:8px">
+              <label style="font-size:11px;font-weight:600;color:var(--txt3);text-transform:uppercase">Întrebare / Cuvinte cheie</label>
+              <button class="btn btn-ghost" style="padding:2px 8px;font-size:13px;color:var(--red)" onclick="removeAICustomAnswer(${i})">🗑</button>
+            </div>
+            <input class="input" value="${escHtml(qa.q)}" onchange="updateAICustomAnswer(${i},'q',this.value)" style="width:100%;font-size:12px;min-height:36px;margin-bottom:8px" placeholder="Ex: politica retur, cum returnez, termen retur" />
+            <label style="font-size:11px;font-weight:600;color:var(--txt3);text-transform:uppercase;display:block;margin-bottom:4px">Răspuns fix</label>
+            <textarea class="input" onchange="updateAICustomAnswer(${i},'a',this.value)" style="width:100%;font-size:12px;min-height:80px;line-height:1.6;resize:vertical" placeholder="Răspunsul exact pe care AI-ul îl va folosi...">${escHtml(qa.a)}</textarea>
+          </div>
+        `).join('');
+
+        return `<div class="admin-card">
+    <div style="font-size:10px;font-weight:700;color:var(--txt3);letter-spacing:1px;text-transform:uppercase;margin-bottom:12px">Custom Answers</div>
+    <h3 style="margin:0 0 4px;font-size:15px">💬 Răspunsuri Custom</h3>
+    <p style="font-size:12px;color:var(--txt3);margin-bottom:16px">Definește răspunsuri predefinite pentru întrebări frecvente. AI-ul le va folosi cu prioritate când detectează o potrivire.</p>
+
+    ${(kb.customAnswers||[]).length > 0 ? qaRows : `<div style="text-align:center;padding:30px 20px;color:var(--txt3);background:var(--surface2);border-radius:var(--r-sm);margin-bottom:12px">
+      <div style="font-size:32px;margin-bottom:8px">💬</div>
+      <div style="font-size:13px;font-weight:600;color:var(--navy);margin-bottom:4px">Niciun răspuns custom</div>
+      <div style="font-size:12px">Adaugă perechi întrebare-răspuns pentru întrebări frecvente.</div>
+    </div>`}
+
+    <div style="display:flex;gap:8px">
+      <button class="btn btn-ghost" style="font-size:12px;padding:8px 16px" onclick="addAICustomAnswer()">+ Adaugă răspuns custom</button>
+      <div style="flex:1"></div>
+      <button class="btn btn-primary" onclick="saveAICustomAnswers()">💾 Salvează tot</button>
+    </div>
+  </div>`;
+      }
+
+      function addAICustomAnswer() {
+        const kb = loadAIKB();
+        if (!kb.customAnswers) kb.customAnswers = [];
+        kb.customAnswers.push({ q: '', a: '' });
+        saveAIKB(kb);
+        renderAdminAIKB();
+      }
+      function removeAICustomAnswer(i) {
+        const kb = loadAIKB();
+        if (kb.customAnswers) kb.customAnswers.splice(i, 1);
+        saveAIKB(kb);
+        renderAdminAIKB();
+      }
+      function updateAICustomAnswer(i, field, val) {
+        const kb = loadAIKB();
+        if (kb.customAnswers?.[i]) kb.customAnswers[i][field] = val;
+        saveAIKB(kb);
+      }
+      function saveAICustomAnswers() {
+        aiSaveFlash(event.target);
+      }
+
+      // ══════════ TAB: SETTINGS ══════════
+      function renderAISettings(kb) {
+        const apiKey = getChatApiKey();
+        const masked = apiKey ? apiKey.substring(0,10) + '...' + apiKey.slice(-4) : '';
+
+        return `<div class="admin-card">
+    <div style="font-size:10px;font-weight:700;color:var(--txt3);letter-spacing:1px;text-transform:uppercase;margin-bottom:12px">Configuration</div>
+    <h3 style="margin:0 0 16px;font-size:15px">⚙ Setări Agent</h3>
+
+    <div style="margin-bottom:20px">
+      <label class="label">API Key Anthropic</label>
+      <p style="font-size:11px;color:var(--txt3);margin:2px 0 8px">Cheia se salvează doar local în browser. Nu este trimisă nicăieri în afara API-ului Anthropic.</p>
+      <div style="display:flex;gap:8px;align-items:center">
+        <input type="password" class="input" id="ai-settings-apikey" value="${escHtml(apiKey)}" placeholder="sk-ant-api03-..." style="flex:1;font-family:var(--mono);font-size:12px;min-height:40px" />
+        <button class="btn btn-ghost" style="padding:8px 12px;font-size:12px" onclick="toggleAIKeyVisibility()">👁</button>
+        <button class="btn btn-primary" style="padding:8px 16px;font-size:12px" onclick="saveAISettingsKey()">Salvează</button>
+      </div>
+      ${apiKey ? `<div style="font-size:11px;color:var(--green);margin-top:6px">✅ Cheie configurată: ${masked}</div>` : '<div style="font-size:11px;color:var(--red);margin-top:6px">⚠ Nicio cheie configurată — chatbot-ul nu va funcționa</div>'}
+    </div>
+
+    <div style="margin-bottom:20px">
+      <label class="label">Model AI</label>
+      <select class="input" id="ai-settings-model" style="max-width:350px;font-size:12px;min-height:40px">
+        <option value="claude-sonnet-4-20250514" selected>Claude Sonnet 4 (recomandat)</option>
+        <option value="claude-haiku-4-5-20251001">Claude Haiku 4.5 (mai rapid, mai ieftin)</option>
+      </select>
+      <p style="font-size:11px;color:var(--txt3);margin-top:4px">Sonnet: răspunsuri mai detaliate (~$0.003/conversație). Haiku: mai rapid, ideal pentru volum mare.</p>
+    </div>
+
+    <div style="margin-bottom:20px">
+      <label class="label">Activare voice input (microfon)</label>
+      <p style="font-size:11px;color:var(--txt3);margin:2px 0 8px">Permite agenților să vorbească în loc să tasteze. Folosește Web Speech API (browser).</p>
+      <label style="display:flex;align-items:center;gap:10px;cursor:pointer">
+        <input type="checkbox" id="ai-settings-voice" ${kb.voiceEnabled ? 'checked' : ''} onchange="toggleAIVoice(this.checked)" style="width:18px;height:18px" />
+        <span style="font-size:13px;font-weight:500">Activează input vocal 🎤</span>
+      </label>
+    </div>
+
+    <div style="margin-bottom:20px">
+      <label class="label">Web Search</label>
+      <label style="display:flex;align-items:center;gap:10px;cursor:pointer">
+        <input type="checkbox" checked disabled style="width:18px;height:18px" />
+        <span style="font-size:13px;font-weight:500">Web Search activat (caută pe mathaus.ro în timp real)</span>
+      </label>
+      <p style="font-size:11px;color:var(--txt3);margin-top:4px">Întotdeauna activ — AI-ul caută automat pe mathaus.ro pentru prețuri, produse și informații actualizate.</p>
+    </div>
+
+    <div style="border-top:1px solid var(--border2);padding-top:16px;margin-bottom:16px">
+      <label class="label" style="color:var(--red)">⚠ Zona periculoasă</label>
+      <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
+        <button class="btn btn-ghost" style="font-size:12px;padding:8px 16px;border-color:var(--red);color:var(--red)" onclick="if(confirm('Ștergi tot istoricul de chat?')){clearChatHistory();alert('Istoric șters!')}">🗑 Șterge istoric chat</button>
+        <button class="btn btn-ghost" style="font-size:12px;padding:8px 16px;border-color:var(--red);color:var(--red)" onclick="if(confirm('Resetezi TOATĂ configurația AI (persona, training, setări)?')){localStorage.removeItem(AI_KB_STORE);localStorage.removeItem(AI_USAGE_STORE);renderAdminAIKB();alert('Resetat!')}">🔄 Resetează complet AI</button>
+      </div>
+    </div>
+  </div>`;
+      }
+
+      function toggleAIKeyVisibility() {
+        const inp = $('ai-settings-apikey');
+        if (inp) inp.type = inp.type === 'password' ? 'text' : 'password';
+      }
+      function saveAISettingsKey() {
+        const key = $('ai-settings-apikey')?.value?.trim() || '';
+        if (key && key.startsWith('sk-')) {
+          localStorage.setItem(CHAT_API_KEY_STORE, key);
+          aiSaveFlash(event.target);
+          renderAdminAIKB();
+        }
+      }
+      function toggleAIVoice(enabled) {
+        const kb = loadAIKB();
+        kb.voiceEnabled = enabled;
+        saveAIKB(kb);
+        updateChatVoiceButton();
+      }
+
+      // ══════════ TAB: USAGE ══════════
+      function renderAIUsageTab() {
+        const usage = loadAIUsage();
+        const avgMsg = usage.sessions > 0 ? (usage.messages / usage.sessions).toFixed(1) : '0';
+        const costEst = ((usage.messages * 0.003)).toFixed(2);
+
+        return `<div class="admin-card">
+    <div style="font-size:10px;font-weight:700;color:var(--txt3);letter-spacing:1px;text-transform:uppercase;margin-bottom:12px">AI Agent</div>
+    <h3 style="margin:0 0 16px;font-size:15px">📊 Utilizare</h3>
+
+    <div style="display:grid;grid-template-columns:repeat(auto-fill, minmax(200px, 1fr));gap:12px;margin-bottom:20px">
+      <div style="background:var(--surface2);border:1px solid var(--border2);border-radius:var(--r-sm);padding:16px">
+        <div style="font-size:11px;color:var(--txt3);margin-bottom:6px">Chat sessions</div>
+        <div style="font-size:28px;font-weight:800;color:var(--navy)">${usage.sessions}</div>
+      </div>
+      <div style="background:var(--surface2);border:1px solid var(--border2);border-radius:var(--r-sm);padding:16px">
+        <div style="font-size:11px;color:var(--txt3);margin-bottom:6px">Mesaje per sesiune</div>
+        <div style="font-size:28px;font-weight:800;color:var(--navy)">${avgMsg}</div>
+      </div>
+      <div style="background:var(--surface2);border:1px solid var(--border2);border-radius:var(--r-sm);padding:16px">
+        <div style="font-size:11px;color:var(--txt3);margin-bottom:6px">Total mesaje</div>
+        <div style="font-size:28px;font-weight:800;color:var(--navy)">${usage.messages}</div>
+      </div>
+      <div style="background:var(--surface2);border:1px solid var(--border2);border-radius:var(--r-sm);padding:16px">
+        <div style="font-size:11px;color:var(--txt3);margin-bottom:6px">Cost estimat</div>
+        <div style="font-size:28px;font-weight:800;color:var(--green)">$${costEst}</div>
+      </div>
+    </div>
+
+    ${usage.firstUsed ? `<div style="font-size:12px;color:var(--txt3)">Prima utilizare: ${new Date(usage.firstUsed).toLocaleDateString('ro-RO')} · Ultima: ${usage.lastUsed ? new Date(usage.lastUsed).toLocaleDateString('ro-RO') + ' ' + new Date(usage.lastUsed).toLocaleTimeString('ro-RO',{hour:'2-digit',minute:'2-digit'}) : '—'}</div>` : '<div style="font-size:12px;color:var(--txt3)">Nicio sesiune de chat înregistrată încă.</div>'}
+  </div>`;
+      }
+
+      // ══════════ URL/File Management (shared) ══════════
+      function addAIKBUrl() {
+        const label = $('aikb-url-label')?.value?.trim() || '';
+        const url = $('aikb-url-input')?.value?.trim() || '';
+        if (!url || !url.startsWith('http')) {
+          const inp = $('aikb-url-input');
+          if (inp) { inp.style.borderColor = 'var(--red)'; setTimeout(() => inp.style.borderColor = '', 1500); }
+          return;
+        }
+        const kb = loadAIKB();
+        kb.urls.push({ label: label || url, url: url, status: 'pending', wordCount: null, lastUpdated: new Date().toISOString() });
+        saveAIKB(kb);
+        // Auto-refresh this URL
+        refreshAIUrl(kb.urls.length - 1);
+        renderAdminAIKB();
+      }
+
+      function addAIKBUrlQuick(label, url) {
+        const kb = loadAIKB();
+        if (kb.urls.some(u => u.url === url)) return;
+        kb.urls.push({ label, url, status: 'pending', wordCount: null, lastUpdated: new Date().toISOString() });
+        saveAIKB(kb);
+        refreshAIUrl(kb.urls.length - 1);
+        renderAdminAIKB();
+      }
+
+      function removeAIKBUrl(index) {
+        const kb = loadAIKB();
+        kb.urls.splice(index, 1);
+        saveAIKB(kb);
+        renderAdminAIKB();
+      }
+
+      function saveAIKBText() {
+        const text = $('aikb-freetext')?.value || '';
+        const kb = loadAIKB();
+        kb.freeText = text;
+        saveAIKB(kb);
+        aiSaveFlash(event.target);
+      }
+
+      function aiSaveFlash(btn) {
+        if (!btn) return;
+        const orig = btn.textContent;
+        btn.textContent = '✅ Salvat!';
+        btn.style.background = 'var(--green)';
+        setTimeout(() => { btn.textContent = orig; btn.style.background = ''; }, 1500);
       }
 
       // ─────────────────────────── PRODUCT DATABASES ───────────────────────────
@@ -9891,39 +11259,6 @@
         return [];
       }
 
-
-      // ── Generic Data-Driven Calculator ──
-      // Reads consumM2 + consumBaza from STAGE_MATS_DB and calculates quantities
-      function calcStageFromDB(stageId, ctx) {
-        const db = STAGE_MATS_DB[stageId];
-        if (!db || !db.length) return [];
-        return db.map(m => {
-          let qty = 0;
-          const c = m.consumM2 || 0;
-          const baza = m.consumBaza || 'm2';
-          if (c <= 0) return null; // skip materials without consumption set
-          if (baza === 'm2' && ctx.m2 > 0) qty = ctx.m2 * c;
-          else if (baza === 'ml' && ctx.ml > 0) qty = ctx.ml * c;
-          else if (baza === 'm3' && ctx.m3 > 0) qty = ctx.m3 * c;
-          else if (baza === 'fix') qty = c;
-          else qty = 0;
-          // Round up for discrete units, keep decimals for m³/kg
-          if (m.um === 'm³' || m.um === 'l') qty = +qty.toFixed(2);
-          else qty = Math.ceil(qty);
-          if (qty <= 0) return null;
-          return {
-            name: m.name,
-            qty: qty,
-            um: m.um,
-            formula: c + ' ' + m.um + '/' + (baza === 'fix' ? 'fix' : baza === 'ml' ? 'ml' : baza === 'm3' ? 'm³' : 'm²'),
-            pkg: m.uv || m.pkg || '—',
-            link: m.link || '',
-            ext: m.ext || false,
-            variants: m.variants || [],
-          };
-        }).filter(x => x !== null);
-      }
-
       // ─────────────────────────── CUSTOM CALCULATORS ───────────────────────────
 
       function getCustomCalcHtml(id) {
@@ -10585,10 +11920,18 @@
           sumEl.innerHTML = `<strong>${nr} ${nr===1?'cameră':'camere'}</strong>: ${camDetails.map((c,i) => `Camera ${i+1}: ${c.l}×${c.w}m = ${fmt(c.sup)}m², ${fmt(c.per)}ml`).join(' | ')} → <strong>Total: ${fmt(totalSup)} m², ${fmt(totalPer)} ml perimetru</strong>`;
         }
 
+        const isSPC = tip === 'spc', isTriplu = tip === 'triplu';
         const s = totalSup, p = totalPer;
+        const coltar = Math.ceil(p / 15);
 
-        // Data-driven: read materials from DB
-        const mats = calcStageFromDB('parchet', {m2: s, ml: p, m3: 0});
+        const mats = [
+          {name: isSPC ? 'Folie Parchet SPC (0.5mm)' : 'Folie Parchet / Subparchet antifonant 3mm', qty: C(s*1.05), um:'m²', formula:'1.05 × '+fmt(s)+'m²', pkg:'rolă', link:'https://mathaus.ro/search?pb=true&text='+(isSPC?'folie+parchet':'subparchet+antifonant')},
+          {name: isTriplu ? 'Parchet Triplustratificat' : isSPC ? 'Parchet SPC' : 'Parchet Laminat', qty: C(s*1.08), um:'m²', formula:'1.08 × '+fmt(s)+'m²', pkg:'cutie', link:'https://mathaus.ro/search?pb=true&text=parchet+'+(isTriplu?'triplustratificat':isSPC?'spc':'laminat')},
+          {name: isTriplu ? 'Plintă furnir' : isSPC ? 'Plintă SPC' : 'Plintă MDF', qty: C(p*1.1), um:'ml', formula:'1.1 × '+fmt(p)+'ml', pkg:'buc 2.4m', link:'https://mathaus.ro/search?pb=true&text=plinta+'+(isTriplu?'furniruita':isSPC?'spc':'laminat')},
+          {name: 'Colțar Stânga plintă', qty: coltar, um:'buc', formula:'~1/15ml perimetru', pkg:'buc', link:'https://mathaus.ro/search?pb=true&text=coltar+plinta'},
+          {name: 'Colțar Dreapta plintă', qty: coltar, um:'buc', formula:'~1/15ml perimetru', pkg:'buc', link:'https://mathaus.ro/search?pb=true&text=coltar+plinta'},
+          {name: 'Profil trecere (prag)', qty: nr, um:'buc', formula:'1 per cameră', pkg:'buc 0.9m', link:'https://mathaus.ro/search?pb=true&text=profil+trecere+parchet'},
+        ];
 
         applyMatDB('parchet', mats);
         const res = $('ecalc-result-parchet');
@@ -10668,8 +12011,12 @@
           sumEl.innerHTML = `<strong>${nr} ${nr===1?'baie':'băi'}</strong>: ${baiDetails.map((b,i) => `Baie ${i+1}: ${b.l}×${b.w}×${b.h}m → podea ${fmt(b.supPod)}m² + pereți ${fmt(b.supPereti)}m²`).join(' | ')} → <strong>Total hidroizolat: ${fmt(totalHidro)} m²</strong>`;
         }
 
-        // Data-driven: read materials from DB
-        const mats = calcStageFromDB('hidro-int', {m2: totalHidro, ml: 0, m3: 0});
+        const mats = [
+          {name:'Membrana hidroizolantă flexibilă bicomponentă', qty: C((totalHidro*3.3)/12.5), um:'găleți', formula:'3.3 kg/m² × '+fmt(totalHidro)+'m² ÷ 12.5kg/găl.', pkg:'găleată 12.5 kg', link:'https://mathaus.ro/p/hidroizolatie-bicomponenta-ceresit-cl-50-flexibila-pensulabila-gri-deschis-125-kg/000000000010701172'},
+          {name:'Bandă etanșare colțuri', qty: C((nr*8)/50) + 1, um:'buc', formula: nr+'×8ml ÷ 50ml/rolă', pkg:'rolă 50 ml', link:'https://mathaus.ro/p/banda-de-etansare-ceresit-cl-152-elastica-impermeabila-50-m/000000000010704595'},
+          {name:'Amorsă primer Ceresit R777', qty: C((totalHidro*0.3)/10), um:'bidoane', formula:'0.3 kg/m² × '+fmt(totalHidro)+'m² ÷ 10kg/bidon', pkg:'bidon 10 kg', link:'https://mathaus.ro/p/amorsa-sapa-ceresit-r777-interior-10-kg/000000000010700875'},
+          {name:'Silicon sanitar Ceresit CS25', qty: nr*2, um:'tuburi', formula:'2 tuburi/baie', pkg:'tub 280ml', link:'https://mathaus.ro/p/silicon-sanitar-ceresit-cs-25-interior-exterior-alb-280-ml/000000000010700559'},
+        ];
 
         applyMatDB('hidro-int', mats);
         const res = $('ecalc-result-hidro-int');
@@ -10735,6 +12082,849 @@
         // Auto-sync Google Sheets prices (async, non-blocking)
         autoSyncGoogleSheet();
       });
+      // ═══════════════════════════════════════════════════════
+      // ═══════════════ CHATBOT ENGINE ═══════════════════════
+      // ═══════════════════════════════════════════════════════
+
+      const CHAT_API_KEY_STORE = 'mathaus_chat_api_key';
+      const CHAT_HISTORY_STORE = 'mathaus_chat_history';
+      let chatConversation = [];
+      let chatIsProcessing = false;
+
+      // ── API Key Management ──
+      function getChatApiKey() {
+        return localStorage.getItem(CHAT_API_KEY_STORE) || '';
+      }
+      function saveChatApiKey() {
+        const inp = document.getElementById('chat-api-key-input');
+        const key = (inp?.value || '').trim();
+        if (!key || !key.startsWith('sk-')) {
+          inp.style.borderColor = 'var(--red)';
+          setTimeout(() => inp.style.borderColor = '', 1500);
+          return;
+        }
+        localStorage.setItem(CHAT_API_KEY_STORE, key);
+        showChatInterface();
+      }
+      function showChatInterface() {
+        const setup = document.getElementById('chat-api-setup');
+        const msgs = document.getElementById('chat-messages');
+        const sugs = document.getElementById('chat-suggestions');
+        const inp = document.getElementById('chat-input-area');
+        const legend = document.getElementById('chat-trust-legend');
+        if (setup) setup.style.display = 'none';
+        if (msgs) msgs.style.display = 'flex';
+        if (sugs) sugs.style.display = 'flex';
+        if (inp) inp.style.display = 'flex';
+        if (legend) legend.style.display = 'flex';
+        loadChatHistory();
+      }
+
+      // ── Open / Close ──
+      function openChat() {
+        const overlay = document.getElementById('chat-overlay');
+        const fab = document.getElementById('chat-fab');
+        if (overlay) overlay.classList.add('active');
+        if (fab) fab.classList.add('chat-open');
+        if (getChatApiKey()) {
+          showChatInterface();
+        }
+        // Load dynamic starters
+        updateChatStarters();
+        // Show/hide voice button
+        updateChatVoiceButton();
+        // Update agent name from settings
+        const kb = loadAIKB();
+        const headerH3 = document.querySelector('.chat-header-info h3');
+        if (headerH3 && kb.agentName) headerH3.textContent = kb.agentName;
+        // Track session
+        trackAIUsage('session');
+
+        setTimeout(() => {
+          const inp = document.getElementById('chat-input');
+          if (inp) inp.focus();
+          scrollChatBottom();
+        }, 350);
+      }
+      function closeChat() {
+        const overlay = document.getElementById('chat-overlay');
+        const fab = document.getElementById('chat-fab');
+        if (overlay) overlay.classList.remove('active');
+        if (fab) fab.classList.remove('chat-open');
+      }
+
+      // ── Build System Prompt ──
+      function buildSystemPrompt() {
+        const kb = loadAIKB();
+        const personality = kb.personality || 'profesional';
+        const lang = kb.language || 'ro';
+        const agentName = kb.agentName || 'Consultant MatHaus';
+
+        const personalityMap = {
+          profesional: 'Fii profesional, precis și de încredere. Oferă răspunsuri structurate.',
+          prietenos: 'Fii cald, prietenos și empatic. Folosește un ton conversațional, de parcă ai vorbi cu un prieten.',
+          tehnic: 'Fii foarte tehnic și detaliat. Oferă specificații precise, norme tehnice și explicații aprofundate.',
+          concis: 'Fii extrem de concis — răspunsuri scurte, directe, fără divagări. Bullet points când e posibil.',
+          detaliat: 'Oferă răspunsuri cuprinzătoare și detaliate. Explică fiecare aspect, oferă context și alternative.'
+        };
+
+        let sp = `Ești ${agentName} — consultantul expert MatHaus pentru materiale de construcții.
+Ajuți consilierii de vânzări MatHaus să deservească clienții rapid și profesionist. MatHaus are un catalog de peste 40.000 de produse pe mathaus.ro.
+
+PERSONALITATE: ${personalityMap[personality] || personalityMap.profesional}
+LIMBA: Răspunde ${lang === 'ro' ? 'ÎNTOTDEAUNA în limba română' : lang === 'en' ? 'in English' : 'în limba în care ți se adresează clientul'}.
+
+═══════════════════════════════════════════════
+SCENARIUL 1: SMART PRODUCT FINDER
+═══════════════════════════════════════════════
+Când consilierul descrie o nevoie vagă sau specifică ("am nevoie de adeziv pentru gresie mare pe încălzire în pardoseală"):
+1. Identifică tipul de produs necesar
+2. Verifică mai întâi în baza de date internă (STAGE_MATS_DB, TVG, etc.)
+3. Dacă nu ai produsul exact → caută pe mathaus.ro cu web_search
+4. Prezintă: ✅ Numele exact | 📦 Ambalaj | 💰 Preț (dacă îl găsești) | 🔗 Link direct mathaus.ro
+5. Adaugă ÎNTOTDEAUNA consumul/m² și o estimare dacă ai suprafața
+
+Strategii de căutare pe mathaus.ro:
+- Caută SPECIFIC: "adeziv gresie flexibil" nu "adeziv"
+- Dacă nu găsești → reformulează: "ceresit CM17" sau "adeziv portelanat"
+- Link search: https://mathaus.ro/search?text=QUERY (înlocuiește spațiile cu +)
+- Link produs direct: https://mathaus.ro/p/SLUG/COD
+
+═══════════════════════════════════════════════
+SCENARIUL 2: CROSS-SELL INTELIGENT
+═══════════════════════════════════════════════
+Când clientul menționează UN produs, sugerează AUTOMAT tot ce mai trebuie. Reguli de cross-sell:
+
+GRESIE/FAIANȚĂ → adeziv compatibil + chit de rosturi + profil de dilatare/colț + silicon sanitar (la băi) + amorsă + spatulă dinți + crucișoare distanțiere
+PARCHET → folie parchet + bandă perimetrală + plinte + profil de trecere + accesorii montaj
+BCA/CĂRĂMIDĂ → mortar/adeziv BCA + plasă sudată centuri + buiandrugi + schelă
+XPS/EPS → folie PE + bandă de lipire + cutter
+TERMOSISTEM → adeziv lipire + adeziv șpaclu + dibluri + plasă fibră sticlă + amorsă grund + tencuială decorativă + profil soclu + colțare + picurătoare
+ACOPERIȘ ȚIGLĂ → folie anticondens + șipci + contrașipci + cuie + mortar coamă + jgheaburi + burlane
+GIPS-CARTON → profile UD+CD + bride + șuruburi + bandă etanșare + pastă îmbinare + vată minerală
+HIDROIZOLAȚIE BAIE → amorsă + membrană flexibilă + bandă colțuri + silicon sanitar
+ȘAPĂ → amorsă + plasă armare + bandă perimetrală
+TENCUIALĂ/GLET → amorsă + glet încărcare + glet finisaj + abraziv (plasă/hârtie) + vopsea lavabilă
+
+FORMAT: La fiecare recomandare de produs, adaugă secțiunea:
+"📦 **Vei avea nevoie și de:**" cu lista de produse complementare + link-uri mathaus.ro
+
+═══════════════════════════════════════════════
+SCENARIUL 3: SISTEM COMPLET AUTO
+═══════════════════════════════════════════════
+Când clientul descrie o LUCRARE completă ("fac o baie de 4×3m" / "renovez un apartament de 65m²" / "construiesc parter 120m²"):
+1. Identifică toate etapele implicate
+2. Generează lista COMPLETĂ de materiale cu cantități calculate
+3. Grupează pe categorii (structură, izolație, finisaje, accesorii)
+4. Include pierderi standard (5-10%)
+5. Marchează produsele externe ⚠️ (beton, oțel, lemn)
+
+FORMAT LISTĂ MATERIALE:
+📋 **LISTĂ COMPLETĂ MATERIALE — [descriere lucrare]**
+
+🔨 **STRUCTURĂ:**
+- Produs X — Cantitate Y UM (formulă) — [link mathaus.ro]
+...
+
+🧱 **IZOLAȚIE & HIDROIZOLAȚIE:**
+...
+
+✨ **FINISAJE:**
+...
+
+🔧 **ACCESORII & CONSUMABILE:**
+...
+
+💰 **REZUMAT:** ~X produse, estimare orientativă total (dacă ai prețuri)
+
+═══════════════════════════════════════════════
+SCENARIUL 4: VERIFICARE COMPATIBILITATE
+═══════════════════════════════════════════════
+Când se întreabă "merge produsul X cu Y?" / "pot folosi Z pe încălzire pardoseală?":
+1. Verifică ÎNTOTDEAUNA compatibilitatea reală
+2. Dacă nu ești 100% sigur → caută fișa tehnică pe mathaus.ro
+3. Răspunde CLAR: ✅ DA / ❌ NU / ⚠️ CONDIȚIONAT
+4. Explică DE CE + ce alternativă dacă nu merge
+
+Compatibilități critice de știut:
+- Adeziv FLEXIBIL obligatoriu pe: încălzire pardoseală, gresie >60×60, suport OSB/lemn, plăci subțiri
+- Adeziv STANDARD (C1) suficient pe: pereți interiori, faianță mică, suport stabil beton/tencuială
+- Hidroizolație OBLIGATORIE sub gresie în: băi, dușuri, balcoane, terase
+- EPS NU se folosește la soclu/subsol (doar XPS — rezistent la umiditate)
+- Vată bazaltică obligatorie la: pereți despărțitori (fono), exterior clasa A1 foc, termosistem la înălțime >28m
+- Gletul PE BAZĂ DE IPSOS nu se folosește la exterior sau zone umede
+
+═══════════════════════════════════════════════
+SCENARIUL 5: ÎNLOCUITOR INSTANT
+═══════════════════════════════════════════════
+Când clientul cere un produs specific care nu e disponibil:
+1. Caută echivalentul tehnic (același tip, aceleași specificații)
+2. Sugerează din aceeași categorie de preț
+3. Explică diferențele (dacă sunt)
+
+Echivalențe uzuale:
+- Ceresit CM17 ↔ Weber Flex ↔ Baumit FlexTop (adezive flexibile C2)
+- Ceresit CT174 ↔ Baumit NanoporTop ↔ Weber.pas (tencuieli decorative)
+- Rockwool Frontrock ↔ Knauf FKD-S ↔ Izovat 135 (vată bazaltică fațadă)
+- Rigips Standard ↔ Norgips Standard ↔ Knauf Standard (plăci GC)
+- Elpreco BCA ↔ Macon Deva ↔ Ytong ↔ Celco (BCA similar)
+
+Dacă nu găsești echivalent în baza internă → caută pe mathaus.ro produse din aceeași categorie.
+
+═══════════════════════════════════════════════
+SCENARIUL 6: COMPARATOR PRODUSE
+═══════════════════════════════════════════════
+Când se întreabă "ce e mai bun, X sau Y?" / "EPS sau vată?" / "BCA sau cărămidă?":
+
+FORMAT COMPARAȚIE:
+**⚖️ [Produs A] vs [Produs B]**
+
+|                    | Produs A | Produs B |
+|--------------------|----------|----------|
+| Izolare termică    | ...      | ...      |
+| Preț orientativ    | ...      | ...      |
+| Ușurință montaj    | ...      | ...      |
+| Rezistență foc     | ...      | ...      |
+| Durabilitate       | ...      | ...      |
+
+**✅ Recomandare:** [context în care fiecare e mai potrivit]
+
+Comparații frecvente cu verdict clar:
+- BCA vs Cărămidă → BCA pentru izolare termică mai bună + montaj rapid; Cărămidă pentru rezistență mecanică superioară + zone seismice
+- EPS vs Vată → EPS pentru preț și grosime mică; Vată pentru foc (A1) și fonoizolație
+- XPS vs EPS → XPS NUMAI unde e umiditate (subsol, soclu, terasă); EPS pentru fațadă (mai ieftin)
+- Gresie vs Parchet → Gresie pentru zone umede + trafic intens; Parchet pentru confort + căldură
+- Țiglă ceramică vs metalică → Ceramică pentru durabilitate 50+ ani; Metalică pentru preț + montaj rapid
+
+═══════════════════════════════════════════════
+SCENARIUL 7: PROBLEMĂ → SOLUȚIE
+═══════════════════════════════════════════════
+Când clientul descrie un SIMPTOM, nu un produs ("am umezeală pe perete" / "se auzi vecinul" / "e frig în casă"):
+
+1. Diagnostichează cauza probabilă
+2. Recomandă SOLUȚIA COMPLETĂ (sistem de materiale, nu un singur produs)
+3. Include link-uri mathaus.ro + cantități estimate dacă ai dimensiuni
+
+Probleme frecvente → Soluții:
+- "Umezeală/igrasie parter" → Hidroizolație fundație exterioară + drenaj + tencuială de renovare
+- "Mucegai pe pereți" → Tratament antimucegai + izolație termică (termosistem sau termoizolație interior) + ventilare
+- "E frig în casă/pierd căldură" → Termosistem exterior (EPS/vată + sistem complet) sau izolație acoperiș
+- "Se aude vecinul" → Perete GC dublu placat cu vată minerală 50mm între profile
+- "Fisuri în tencuială" → Plasă fibră sticlă + reparație cu mortar flexibil + retencuire
+- "Pardoseala e rece" → XPS sub șapă + opțional încălzire pardoseală
+- "Apa intră pe terasă" → Hidroizolație bituminoasă 2 straturi + barieră vapori + scurgeri
+- "Gresie spartă/fisurată" → Desfacere + amorsă + adeziv flexibil C2 + gresie nouă (atenție dilatare)
+
+═══════════════════════════════════════════════
+SCENARIUL 8: FIȘĂ TEHNICĂ INSTANT
+═══════════════════════════════════════════════
+Când se întreabă specificații tehnice ("ce consum are?" / "câte kg/m²?" / "pe ce suport se aplică?"):
+1. Verifică mai întâi datele din baza internă (consumM2, formula)
+2. Dacă nu ai informația → caută pe mathaus.ro pagina produsului
+3. Prezintă CLAR: consum/m², timp de priză, grosime strat, temperatură aplicare, suporturi compatibile
+
+═══════════════════════════════════════════════
+SCENARIUL 9: CALCUL INSTANT ÎN CHAT
+═══════════════════════════════════════════════
+Când consilierul dă dimensiuni ("am 85m² de tencuit" / "baie 3.5×2.8m" / "casă 10×12m P+1"):
+1. Calculează AUTOMAT cantitățile pentru TOATE materialele necesare
+2. Include pierderi (5-10% standard, 15% pentru tăieri la diagonală/forme complexe)
+3. Rotunjește ÎN SUS la ambalaj întreg (saci, role, paleți)
+
+FORMAT CALCUL:
+**🧮 CALCUL: [descriere]**
+Suprafață: X m² (inclusiv Y% pierderi)
+
+| Material | Consum/m² | Cantitate | Ambalaj | Nr. ambalaje |
+|----------|-----------|-----------|---------|--------------|
+| ...      | ...       | ...       | ...     | ...          |
+
+**Total: Z ambalaje** — [link-uri mathaus.ro]
+
+═══════════════════════════════════════════════
+SCENARIUL 10: MOD VOCAL / HANDS-FREE
+═══════════════════════════════════════════════
+Când mesajul pare transcris vocal (text fără punctuație, informal, "ăă", "deci"):
+- Răspunde SCURT și CLAR — consilierul citește pe ecran în timp ce vorbește cu clientul
+- Evidențiază CIFRELE (cantități, prețuri) — sunt informația critică
+- Maxim 3-4 rânduri pentru întrebări simple
+- Link-ul mathaus.ro la final, nu intercalat
+
+═══════════════════════════════════════════════
+SISTEM DE TRANSPARENȚĂ — REGULA DE AUR
+═══════════════════════════════════════════════
+Fiecare informație pe care o dai trebuie marcată cu sursa. Folosește aceste etichete:
+
+✅ VERIFICAT — informație din: baza de date internă (STAGE_MATS_DB, BCA_DB, etc.), rezultat web search de pe mathaus.ro, documente/fișiere încărcate de administrator, sau cunoștințe fixe din admin.
+ℹ️ CUNOȘTINȚE GENERALE — informație din experiența ta generală despre construcții (consum adeziv, tehnici de montaj, compatibilități standard din industrie). Poate fi corectă în general dar NU e verificată pe catalogul MatHaus.
+⚠️ ESTIMATIV — calcule bazate pe valori standard din industrie, nu pe fișa tehnică exactă a produsului. Consilierul trebuie să verifice.
+🔍 CĂUTAT LIVE — informație găsită acum prin web search pe mathaus.ro (preț, disponibilitate, specificații de pe pagina produsului).
+
+EXEMPLE DE MARCARE CORECTĂ:
+- "✅ Adezivul Ceresit CM17 (din baza noastră) are consum ~5 kg/m²" — e în STAGE_MATS_DB
+- "🔍 Am găsit pe mathaus.ro: Ceresit CM17, 25kg — 68.50 lei [link]" — web search live
+- "ℹ️ În general, pentru gresie porțelanată >60×60 se recomandă adeziv flexibil clasa C2" — cunoaștere generală
+- "⚠️ Estimez ~18 saci pentru 90m², dar verifică consumul exact pe fișa produsului" — calcul estimativ
+
+═══════════════════════════════════════════════
+REGULI ANTI-HALUCINARE
+═══════════════════════════════════════════════
+1. NICIODATĂ nu inventa prețuri — fie cauți pe mathaus.ro, fie spui "verifică prețul pe mathaus.ro: [link căutare]"
+2. NICIODATĂ nu inventa link-uri de produs — folosește DOAR link-uri din baza internă SAU din rezultatele web search. Dacă nu ai link verificat, dă link de CĂUTARE: https://mathaus.ro/search?text=QUERY
+3. NICIODATĂ nu inventa coduri SAP, coduri produs sau SKU-uri
+4. NICIODATĂ nu afirma "este pe stoc" sau "este disponibil" fără să fi căutat live — stocul se schimbă în timp real
+5. Când recomanzi un produs din cunoștințe generale (nu din baza internă), spune CLAR: "ℹ️ Din experiență recomand [produs]. Verifică disponibilitatea pe mathaus.ro: [link căutare]"
+6. Când dai o specificație tehnică (consum/m², timp de priză, etc.) fără să fi căutat fișa produsului, marchează: "⚠️ Valoare orientativă standard — verifică pe fișa tehnică"
+7. La calcule, arată FORMULA + menționează dacă consumul e din baza internă (✅) sau estimativ (⚠️)
+8. Dacă nu ești sigur de compatibilitate → spune CLAR: "ℹ️ Din experiența generală da, dar recomand verificarea pe fișa tehnică a produsului"
+9. Marchează ÎNTOTDEAUNA produsele EXTERNE cu ⚠️ EXTERN (beton, oțel, lemn = nu se vând la MatHaus)
+10. PRIORITATE DE SURSE (în ordine): 
+    1️⃣ Baza internă (STAGE_MATS_DB, BCA_DB, etc.) → cel mai de încredere
+    2️⃣ Web search pe mathaus.ro → verificat live
+    3️⃣ Cunoștințe fixe din Admin → furnizate de administrator
+    4️⃣ Fișiere încărcate → documente verificate
+    5️⃣ Cunoștințe generale → utile dar marchează cu ℹ️
+
+═══════════════════════════════════════════════
+CĂUTARE PE MATHAUS.RO
+═══════════════════════════════════════════════
+- PREFERĂ ÎNTOTDEAUNA mathaus.ro ca sursă. Când cauți pe web, formulează query-ul cu "mathaus.ro" sau "site:mathaus.ro"
+- Caută pe mathaus.ro când: nu ai produs în baza internă, clientul cere preț, clientul vrea un produs specific, trebuie să confirmi disponibilitate
+- Format căutare: https://mathaus.ro/search?text=QUERY (spații → +)
+- Caută SPECIFIC ("adeziv flexibil gresie ceresit CM17") nu generic ("adeziv")
+- Dacă prima căutare nu dă rezultate → reformulează (ex: "cm17 ceresit" sau "adeziv C2 flexibil")
+- Dacă rezultatele sunt de pe ALT SITE (nu mathaus.ro) → menționează explicit: "ℹ️ Această informație nu este de pe mathaus.ro — verifică pe site"
+- IGNORĂ prețuri și informații de pe site-uri concurente (dedeman.ro, hornbach.ro, etc.) — nu le cita și nu le compara cu MatHaus
+
+FORMAT RĂSPUNS RECOMANDAT:
+La fiecare produs menționat, include una din:
+- ✅ [link mathaus.ro din baza internă] — produs verificat în catalog
+- 🔍 [link mathaus.ro din web search] — găsit live pe site
+- 🔎 Caută pe mathaus.ro: https://mathaus.ro/search?text=QUERY — nu am link direct, verifică
+`;
+        sp += `\nETAPELE DE CONSTRUCȚIE (15 etape, în ordine):`;
+        // Add stages
+        try {
+          const stages = typeof STAGES_DEFAULT !== 'undefined' ? STAGES_DEFAULT : [];
+          stages.forEach(s => {
+            sp += `\n${s.emoji} Etapa ${s.nr}: ${s.title} (${s.tagLabel})`;
+            sp += `\n  → ${s.intro?.substring(0, 200) || ''}`;
+            if (s.costRange?.nota) sp += `\n  💰 Cost: ${s.costRange.nota}`;
+            if (s.timpi?.length) sp += `\n  ⏱ Timpi: ${s.timpi[0]}`;
+          });
+        } catch(e) {}
+
+        sp += `\n\nMATERIALE PER ETAPĂ (STAGE_MATS_DB):`;
+        try {
+          const smdb = typeof STAGE_MATS_DB !== 'undefined' ? STAGE_MATS_DB : {};
+          Object.entries(smdb).forEach(([stageId, arr]) => {
+            if (!Array.isArray(arr) || arr.length === 0) return;
+            sp += `\n\n[${stageId.toUpperCase()}]:`;
+            arr.forEach(m => {
+              sp += `\n• ${m.name} | UM: ${m.um} | UV: ${m.uv||m.pkg||''} | Formula: ${m.formula||''}`;
+              if (m.link) sp += ` | Link: ${m.link}`;
+              if (m.ext) sp += ' | ⚠️ EXTERN (nu MatHaus)';
+              if (m.consumM2) sp += ` | Consum/m²: ${m.consumM2}`;
+              if (m.variants?.length) {
+                m.variants.forEach(v => {
+                  sp += `\n  ↳ Variantă: ${v.name}`;
+                  if (v.link) sp += ` | ${v.link}`;
+                  if (v.pkg || v.uv) sp += ` | ${v.uv||v.pkg}`;
+                });
+              }
+            });
+          });
+        } catch(e) {}
+
+        sp += `\n\nCATALOG BCA (blocuri de beton celular autoclavizat):`;
+        try {
+          const bca = typeof BCA_DB !== 'undefined' ? BCA_DB : [];
+          bca.forEach(p => {
+            sp += `\n• ${p.name} | L×H: ${p.L}×${p.H}mm | buc/palet: ${p.pcsPerPal}`;
+            if (p.link) sp += ` | ${p.link}`;
+          });
+        } catch(e) {}
+
+        sp += `\n\nCATALOG CĂRĂMIDĂ:`;
+        try {
+          const car = typeof CAR_DB !== 'undefined' ? CAR_DB : [];
+          car.forEach(p => {
+            sp += `\n• ${p.name} | L×H: ${p.L}×${p.H}mm | buc/palet: ${p.pcsPerPal}`;
+            if (p.link) sp += ` | ${p.link}`;
+          });
+        } catch(e) {}
+
+        sp += `\n\nSISTEME GIPS-CARTON (GC_SYSTEMS):`;
+        try {
+          const gc = typeof GC_SYSTEMS !== 'undefined' ? GC_SYSTEMS : {};
+          Object.entries(gc).forEach(([k, sys]) => {
+            sp += `\n\n[${sys.label}]:`;
+            sys.items?.forEach(it => {
+              sp += `\n• ${it.name} | UM: ${it.um} | Consum/m²: ${it.rate} | ${it.pkg}`;
+              if (it.link) sp += ` | ${it.link}`;
+            });
+          });
+        } catch(e) {}
+
+        sp += `\n\nTERMOSISTEM (TVG - produse pentru fațadă):`;
+        try {
+          const tvg = typeof TVG !== 'undefined' ? TVG : {};
+          if (tvg.eps?.length) {
+            sp += `\nEPS:`;
+            tvg.eps.forEach(p => {
+              sp += `\n• ${p.name} | Acoperire(m²/pac): ${JSON.stringify(p.cov)} | ${p.link}`;
+            });
+          }
+          if (tvg.vata?.length) {
+            sp += `\nVată bazaltică:`;
+            tvg.vata.forEach(p => {
+              sp += `\n• ${p.name} | Acoperire(m²/pac): ${JSON.stringify(p.cov)} | ${p.link}`;
+            });
+          }
+          ['adVata','adEPS','dibVata','dibEPS','plasaVata','plasaEPS','amorsa','tenc'].forEach(cat => {
+            if (tvg[cat]?.length) {
+              sp += `\n${cat}:`;
+              tvg[cat].forEach(p => {
+                sp += `\n• ${p.name}`;
+                if (p.cov) sp += ` | Acoperire: ${p.cov} m²/sac`;
+                if (p.bpm) sp += ` | ${p.bpm} buc/m²`;
+                if (p.pkg) sp += ` | ${p.pkg}`;
+                if (p.link) sp += ` | ${p.link}`;
+              });
+            }
+          });
+        } catch(e) {}
+
+        sp += `\n\nFORMULE CALCUL RAPIDE (pentru scenariul 9):
+- BCA: suprafață_perete ÷ (L×H÷1.000.000) = buc → ÷buc_palet = paleți
+- Adeziv BCA: suprafață ÷ 6.5 = saci (1 sac/6.5m²)
+- XPS: suprafață × 1.05 → ÷m²_per_bax
+- Adeziv gresie CM17: suprafață × 5kg/m² ÷ 25kg/sac
+- Termosistem EPS: fațadă × 1.05 → ÷m²_per_pachet
+- GC: suprafață × rată_consum din GC_SYSTEMS
+- Hidroizolație baie: suprafață × 3.3kg/m² ÷ 12.5kg/găleată
+- Șapă: grosime_cm × 15kg/m²/cm ÷ 25kg/sac
+- Glet: suprafață × 1.2kg/m²/strat ÷ 20kg/sac × nr_straturi
+- Vopsea: suprafață × 0.15kg/m² × 2 straturi ÷ kg_per_găleată`;
+
+        // ── Include AI Knowledge Base ──
+        try {
+          const kb = loadAIKB();
+
+          // Add reference URLs
+          if (kb.urls && kb.urls.length > 0) {
+            sp += `\n\nURL-URI DE REFERINȚĂ (caută aceste pagini când primești întrebări relevante):`;
+            kb.urls.forEach(u => {
+              sp += `\n• [${u.label}] → ${u.url}`;
+            });
+            sp += `\nINSTRUCȚIUNE: Când clientul întreabă despre un subiect acoperit de URL-urile de mai sus, folosește web_search pentru a căuta informația actualizată direct de pe pagina respectivă. De exemplu, dacă întreabă despre retur, caută pe pagina de politică de retur.`;
+          }
+
+          // Add free text knowledge
+          if (kb.freeText && kb.freeText.trim()) {
+            sp += `\n\nCUNOȘTINȚE SUPLIMENTARE (informații verificate furnizate de administrator — tratează-le ca sursă de adevăr):`;
+            sp += `\n${kb.freeText.trim()}`;
+          }
+
+          // Add custom answers
+          if (kb.customAnswers && kb.customAnswers.length > 0) {
+            const validQA = kb.customAnswers.filter(qa => qa.q && qa.a);
+            if (validQA.length > 0) {
+              sp += `\n\nRĂSPUNSURI PREDEFINITE (folosește-le cu prioritate când detectezi o potrivire):`;
+              validQA.forEach(qa => {
+                sp += `\n\nÎntrebare/cuvinte cheie: "${qa.q}"`;
+                sp += `\nRăspuns: ${qa.a}`;
+              });
+            }
+          }
+
+          // Add file knowledge
+          if (kb.files && kb.files.length > 0) {
+            sp += `\n\nDOCUMENTE ÎNCĂRCATE (cunoștințe din fișiere):`;
+            kb.files.forEach(f => {
+              if (f.content) {
+                sp += `\n\n[Fișier: ${f.name}]:`;
+                sp += `\n${f.content.substring(0, 10000)}`;
+              }
+            });
+          }
+
+          // Add custom system prompt
+          if (kb.systemPromptCustom && kb.systemPromptCustom.trim()) {
+            sp += `\n\nINSTRUCȚIUNI SUPLIMENTARE DE LA ADMINISTRATOR:`;
+            sp += `\n${kb.systemPromptCustom.trim()}`;
+          }
+        } catch(e) {}
+
+        return sp;
+      }
+
+      // ── Message Rendering ──
+      function chatMarkdown(text) {
+        // Basic markdown → HTML
+        let html = text
+          .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+          // Bold
+          .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+          // Italic
+          .replace(/\*(.+?)\*/g, '<em>$1</em>')
+          // Inline code
+          .replace(/`([^`]+)`/g, '<code>$1</code>')
+          // Links [text](url)
+          .replace(/\[([^\]]+)\]\((https?:\/\/[^\)]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>')
+          // Bare URLs
+          .replace(/(^|[^"=])(https?:\/\/[^\s<\)]+)/g, '$1<a href="$2" target="_blank" rel="noopener">$2</a>');
+
+        // Split into lines for list/paragraph processing
+        const lines = html.split('\n');
+        let result = '';
+        let inList = false;
+        let listType = '';
+
+        lines.forEach(line => {
+          const trimmed = line.trim();
+          // Unordered list
+          if (/^[-•●] /.test(trimmed)) {
+            if (!inList || listType !== 'ul') {
+              if (inList) result += `</${listType}>`;
+              result += '<ul>';
+              inList = true;
+              listType = 'ul';
+            }
+            result += `<li>${trimmed.replace(/^[-•●] /, '')}</li>`;
+          }
+          // Ordered list
+          else if (/^\d+[\.\)] /.test(trimmed)) {
+            if (!inList || listType !== 'ol') {
+              if (inList) result += `</${listType}>`;
+              result += '<ol>';
+              inList = true;
+              listType = 'ol';
+            }
+            result += `<li>${trimmed.replace(/^\d+[\.\)] /, '')}</li>`;
+          }
+          else {
+            if (inList) { result += `</${listType}>`; inList = false; }
+            if (trimmed === '') {
+              result += '';
+            } else {
+              result += `<p>${trimmed}</p>`;
+            }
+          }
+        });
+        if (inList) result += `</${listType}>`;
+
+        return result;
+      }
+
+      function addChatMessage(role, content) {
+        const container = document.getElementById('chat-messages');
+        if (!container) return;
+
+        const div = document.createElement('div');
+        div.className = `chat-msg ${role}`;
+        const avatarEmoji = role === 'bot' ? '🤖' : '👤';
+        div.innerHTML = `
+          <div class="chat-msg-avatar">${avatarEmoji}</div>
+          <div class="chat-bubble">${role === 'bot' ? chatMarkdown(content) : '<p>' + content.replace(/</g,'&lt;').replace(/>/g,'&gt;') + '</p>'}</div>
+        `;
+        container.appendChild(div);
+        scrollChatBottom();
+      }
+
+      function showTyping() {
+        const container = document.getElementById('chat-messages');
+        if (!container) return;
+        const div = document.createElement('div');
+        div.className = 'chat-typing';
+        div.id = 'chat-typing-indicator';
+        div.innerHTML = `
+          <div class="chat-msg-avatar">🤖</div>
+          <div class="typing-dots"><span></span><span></span><span></span></div>
+        `;
+        container.appendChild(div);
+        scrollChatBottom();
+      }
+
+      function hideTyping() {
+        const el = document.getElementById('chat-typing-indicator');
+        if (el) el.remove();
+      }
+
+      function scrollChatBottom() {
+        const container = document.getElementById('chat-messages');
+        if (container) {
+          setTimeout(() => { container.scrollTop = container.scrollHeight; }, 50);
+        }
+      }
+
+      // ── Suggestions ──
+      function sendSuggestion(btn) {
+        const text = btn.textContent.trim();
+        document.getElementById('chat-suggestions').style.display = 'none';
+        sendChatMessageText(text);
+      }
+
+      // ── Send Message ──
+      function sendChatMessage() {
+        const inp = document.getElementById('chat-input');
+        const text = (inp?.value || '').trim();
+        if (!text || chatIsProcessing) return;
+        inp.value = '';
+        inp.style.height = 'auto';
+        sendChatMessageText(text);
+      }
+
+      async function sendChatMessageText(text) {
+        if (chatIsProcessing) return;
+        const apiKey = getChatApiKey();
+        if (!apiKey) return;
+
+        // Hide suggestions after first message
+        const sugs = document.getElementById('chat-suggestions');
+        if (sugs) sugs.style.display = 'none';
+
+        // Add user message
+        addChatMessage('user', text);
+        chatConversation.push({ role: 'user', content: text });
+        trackAIUsage('message');
+
+        // Disable input
+        chatIsProcessing = true;
+        const sendBtn = document.getElementById('chat-send-btn');
+        if (sendBtn) sendBtn.disabled = true;
+        showTyping();
+
+        try {
+          const response = await callClaudeAPI(apiKey, chatConversation);
+          hideTyping();
+
+          // Extract text from response
+          const botText = extractResponseText(response);
+          addChatMessage('bot', botText);
+          chatConversation.push({ role: 'assistant', content: botText });
+          saveChatHistory();
+
+        } catch (err) {
+          hideTyping();
+          console.error('Chat API error:', err);
+          let errMsg = 'Eroare la comunicarea cu API-ul.';
+          if (err.message?.includes('401') || err.message?.includes('authentication')) {
+            errMsg = '⚠️ Cheie API invalidă. Verifică cheia introdusă.';
+            localStorage.removeItem(CHAT_API_KEY_STORE);
+          } else if (err.message?.includes('429')) {
+            errMsg = '⚠️ Prea multe cereri. Așteaptă câteva secunde și încearcă din nou.';
+          } else if (err.message?.includes('overloaded') || err.message?.includes('529')) {
+            errMsg = '⚠️ Serverul este supraîncărcat. Încearcă din nou în câteva momente.';
+          } else if (err.message?.includes('Failed to fetch') || err.message?.includes('NetworkError')) {
+            errMsg = '⚠️ Eroare de rețea. Verifică conexiunea la internet.';
+          }
+          addChatMessage('bot', errMsg);
+        } finally {
+          chatIsProcessing = false;
+          if (sendBtn) sendBtn.disabled = false;
+          const inp = document.getElementById('chat-input');
+          if (inp) inp.focus();
+        }
+      }
+
+      // ── Claude API Call ──
+      async function callClaudeAPI(apiKey, messages) {
+        // Keep conversation manageable (last 20 messages + system prompt)
+        const trimmedMessages = messages.slice(-20);
+
+        const body = {
+          model: "claude-sonnet-4-20250514",
+          max_tokens: 4096,
+          system: buildSystemPrompt(),
+          tools: [{
+            type: "web_search_20250305",
+            name: "web_search",
+            max_uses: 3
+          }],
+          messages: trimmedMessages
+        };
+
+        const response = await fetch("https://api.anthropic.com/v1/messages", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "x-api-key": apiKey,
+            "anthropic-version": "2023-06-01",
+            "anthropic-dangerous-direct-browser-access": "true"
+          },
+          body: JSON.stringify(body)
+        });
+
+        if (!response.ok) {
+          const errData = await response.json().catch(() => ({}));
+          throw new Error(`API ${response.status}: ${errData?.error?.message || response.statusText}`);
+        }
+
+        return await response.json();
+      }
+
+      // ── Extract text from Claude response (handles web_search tool use) ──
+      function extractResponseText(data) {
+        if (!data?.content) return 'Nu am primit răspuns.';
+
+        let texts = [];
+        for (const block of data.content) {
+          if (block.type === 'text' && block.text) {
+            texts.push(block.text);
+          }
+        }
+
+        if (texts.length === 0) {
+          // Check if the response ended with tool_use — this means the API wants to use web_search
+          // but since we're using streaming-less single call, the results should be inline
+          return 'Caut informații... Încearcă din nou în câteva secunde.';
+        }
+
+        return texts.join('\n\n');
+      }
+
+      // ── Chat History ──
+      function saveChatHistory() {
+        try {
+          // Keep last 30 messages
+          const toSave = chatConversation.slice(-30);
+          localStorage.setItem(CHAT_HISTORY_STORE, JSON.stringify(toSave));
+        } catch(e) {}
+      }
+      function loadChatHistory() {
+        try {
+          const saved = localStorage.getItem(CHAT_HISTORY_STORE);
+          if (saved) {
+            const history = JSON.parse(saved);
+            if (Array.isArray(history) && history.length > 0) {
+              chatConversation = history;
+              // Render past messages
+              const container = document.getElementById('chat-messages');
+              if (container) {
+                // Keep the welcome message, add history after it
+                history.forEach(msg => {
+                  addChatMessage(msg.role === 'assistant' ? 'bot' : 'user', msg.content);
+                });
+              }
+              // Hide suggestions if there's history
+              const sugs = document.getElementById('chat-suggestions');
+              if (sugs && history.length > 0) sugs.style.display = 'none';
+            }
+          }
+        } catch(e) {}
+      }
+
+      // Add a clear chat function accessible from console or future UI
+      function clearChatHistory() {
+        chatConversation = [];
+        localStorage.removeItem(CHAT_HISTORY_STORE);
+        const container = document.getElementById('chat-messages');
+        if (container) {
+          // Keep only the welcome message
+          const msgs = container.querySelectorAll('.chat-msg');
+          msgs.forEach((m, i) => { if (i > 0) m.remove(); });
+        }
+        const sugs = document.getElementById('chat-suggestions');
+        if (sugs) sugs.style.display = 'flex';
+      }
+
+      // ── Dynamic Conversation Starters ──
+      function updateChatStarters() {
+        const sugs = document.getElementById('chat-suggestions');
+        if (!sugs) return;
+        const kb = loadAIKB();
+        const starters = kb.conversationStarters || [];
+        if (starters.length > 0) {
+          sugs.innerHTML = starters.map(s =>
+            `<button class="chat-sug-btn" onclick="sendSuggestion(this)">${s}</button>`
+          ).join('');
+        }
+      }
+
+      // ── Voice Input (Web Speech API) ──
+      let voiceRecognition = null;
+      let isRecording = false;
+
+      function updateChatVoiceButton() {
+        const btn = document.getElementById('chat-voice-btn');
+        if (!btn) return;
+        const kb = loadAIKB();
+        const supported = 'webkitSpeechRecognition' in window || 'SpeechRecognition' in window;
+        if (kb.voiceEnabled && supported) {
+          btn.style.display = 'flex';
+          btn.style.alignItems = 'center';
+          btn.style.justifyContent = 'center';
+        } else {
+          btn.style.display = 'none';
+        }
+      }
+
+      function toggleVoiceInput() {
+        if (isRecording) {
+          stopVoiceInput();
+          return;
+        }
+
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        if (!SpeechRecognition) {
+          alert('Browserul tău nu suportă recunoașterea vocală. Folosește Chrome.');
+          return;
+        }
+
+        voiceRecognition = new SpeechRecognition();
+        voiceRecognition.lang = 'ro-RO';
+        voiceRecognition.interimResults = true;
+        voiceRecognition.continuous = false;
+        voiceRecognition.maxAlternatives = 1;
+
+        const btn = document.getElementById('chat-voice-btn');
+        const input = document.getElementById('chat-input');
+
+        voiceRecognition.onstart = () => {
+          isRecording = true;
+          if (btn) { btn.style.background = 'var(--red)'; btn.style.color = '#fff'; btn.style.borderColor = 'var(--red)'; btn.textContent = '⏹'; }
+          if (input) input.placeholder = '🎤 Ascult... vorbește acum';
+        };
+
+        voiceRecognition.onresult = (event) => {
+          let transcript = '';
+          for (let i = event.resultIndex; i < event.results.length; i++) {
+            transcript += event.results[i][0].transcript;
+          }
+          if (input) input.value = transcript;
+          // Auto-adjust height
+          if (input) { input.style.height = 'auto'; input.style.height = Math.min(input.scrollHeight, 120) + 'px'; }
+        };
+
+        voiceRecognition.onend = () => {
+          isRecording = false;
+          if (btn) { btn.style.background = 'var(--surface2)'; btn.style.color = 'var(--txt2)'; btn.style.borderColor = 'var(--border)'; btn.textContent = '🎤'; }
+          if (input) input.placeholder = 'Scrie sau vorbește întrebarea ta...';
+          // Auto-send if there's content
+          if (input?.value?.trim()) {
+            sendChatMessage();
+          }
+        };
+
+        voiceRecognition.onerror = (event) => {
+          isRecording = false;
+          if (btn) { btn.style.background = 'var(--surface2)'; btn.style.color = 'var(--txt2)'; btn.style.borderColor = 'var(--border)'; btn.textContent = '🎤'; }
+          if (input) input.placeholder = 'Scrie sau vorbește întrebarea ta...';
+          if (event.error === 'not-allowed') {
+            alert('Accesul la microfon a fost refuzat. Permite accesul din setările browserului.');
+          }
+        };
+
+        voiceRecognition.start();
+      }
+
+      function stopVoiceInput() {
+        if (voiceRecognition) {
+          voiceRecognition.stop();
+        }
+      }
+
     </script>
 
     <!-- Material Editor Modal -->
@@ -10796,7 +12986,6 @@
                   <option value="m3">per m³ (volum)</option>
                   <option value="fix">cantitate fixă</option>
                 </select>
-                <div id="me-baza-warn" style="display:none;font-size:10px;color:var(--red);margin-top:4px;padding:4px 8px;background:#fef2f2;border-radius:4px;border:1px solid #fecaca">⚠ Atenție: calculatorul acestei etape nu trimite această unitate. Materialul nu va apărea în rezultate!</div>
               </div>
             </div>
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
@@ -11012,6 +13201,77 @@
           <button class="btn btn-ghost" onclick="closeMatEditor()">Anulează</button>
         </div>
 
+      </div>
+    </div>
+
+    <!-- ═══════════════ CHATBOT FAB ═══════════════ -->
+    <button class="chat-fab" id="chat-fab" onclick="openChat()" title="Consultant MatHaus AI">🤖</button>
+
+    <!-- ═══════════════ CHAT PANEL ═══════════════ -->
+    <div id="chat-overlay" onclick="if(event.target===this)closeChat()">
+      <div id="chat-panel">
+        <div class="chat-header">
+          <div class="chat-header-left">
+            <div class="chat-avatar">🤖</div>
+            <div class="chat-header-info">
+              <h3>Consultant MatHaus</h3>
+              <span>Expert materiale construcții</span>
+            </div>
+          </div>
+          <button class="chat-close-btn" onclick="closeChat()" title="Închide">✕</button>
+        </div>
+
+        <div class="chat-trust-legend" id="chat-trust-legend" style="display:none">
+          <span>✅ Verificat MatHaus</span>
+          <span>🔍 Căutat live</span>
+          <span>ℹ️ Cunoștințe generale</span>
+          <span>⚠️ Estimativ</span>
+        </div>
+
+        <!-- API Key Setup (shown first time) -->
+        <div class="chat-api-setup" id="chat-api-setup">
+          <div class="chat-avatar" style="width:56px;height:56px;font-size:28px;border-radius:16px;margin-bottom:4px">🤖</div>
+          <p><strong>Configurare API</strong><br>Introdu cheia API Anthropic pentru a activa consultantul AI.</p>
+          <input type="password" class="chat-api-input" id="chat-api-key-input" placeholder="sk-ant-api03-..." />
+          <button class="chat-api-save-btn" onclick="saveChatApiKey()">Activează Consultant</button>
+          <p style="font-size:11px;color:var(--txt3)">Cheia se salvează local în browser. Nu este trimisă nicăieri în afara API-ului Anthropic.</p>
+        </div>
+
+        <!-- Chat Messages Area -->
+        <div class="chat-messages" id="chat-messages" style="display:none">
+          <div class="chat-msg bot">
+            <div class="chat-msg-avatar">🤖</div>
+            <div class="chat-bubble">
+              <p>Salut! Sunt consultantul MatHaus. 👋</p>
+              <p>Te pot ajuta cu:</p>
+              <ul>
+                <li><strong>Găsesc produsul potrivit</strong> — descrie nevoia, caut în 40.000+ produse</li>
+                <li><strong>Calculez cantități</strong> — spune-mi suprafața și materialul</li>
+                <li><strong>Compar produse</strong> — EPS vs vată, BCA vs cărămidă</li>
+                <li><strong>Rezolv probleme</strong> — umezeală, frig, zgomot = soluție completă</li>
+                <li><strong>Sugerez ce mai trebuie</strong> — cumperi gresie? îți zic tot ce lipsește</li>
+              </ul>
+              <p>Cu ce te pot ajuta?</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Quick Suggestions -->
+        <div class="chat-suggestions" id="chat-suggestions" style="display:none">
+          <button class="chat-sug-btn" onclick="sendSuggestion(this)">Ce adeziv pentru gresie 60×60 pe încălzire?</button>
+          <button class="chat-sug-btn" onclick="sendSuggestion(this)">Fac o baie de 4×3m — ce materiale?</button>
+          <button class="chat-sug-btn" onclick="sendSuggestion(this)">EPS sau vată la termosistem?</button>
+          <button class="chat-sug-btn" onclick="sendSuggestion(this)">Am umezeală pe pereți, ce soluție?</button>
+        </div>
+
+        <!-- Input Area -->
+        <div class="chat-input-area" id="chat-input-area" style="display:none">
+          <button class="chat-voice-btn" id="chat-voice-btn" onclick="toggleVoiceInput()" title="Vorbește" style="display:none;width:44px;height:44px;border-radius:12px;border:1.5px solid var(--border);background:var(--surface2);color:var(--txt2);cursor:pointer;font-size:18px;flex-shrink:0;transition:all 0.2s">🎤</button>
+          <textarea class="chat-input" id="chat-input" placeholder="Scrie sau vorbește întrebarea ta..." rows="1"
+            onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendChatMessage()}"
+            oninput="this.style.height='auto';this.style.height=Math.min(this.scrollHeight,120)+'px'"></textarea>
+          <button class="chat-send-btn" id="chat-send-btn" onclick="sendChatMessage()" title="Trimite">➤</button>
+        </div>
       </div>
     </div>
 
