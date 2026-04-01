@@ -2570,6 +2570,7 @@
       const $ = (s) => document.getElementById(s);
       const fmt = (n) => (isFinite(n) ? Math.round(n * 10) / 10 : 0);
       const fmtN = (n) => Number(Math.round(n)).toLocaleString("ro-RO");
+      const fmtP = (n) => n % 1 === 0 ? Number(n).toLocaleString("ro-RO") : Number(n).toLocaleString("ro-RO", {minimumFractionDigits: 2, maximumFractionDigits: 2});
       const C = Math.ceil;
       const debounce = (fn, ms = 60) => {
         let t;
@@ -2838,17 +2839,10 @@
           ],
           calcInputs: [
             {
-              id: "fLung",
-              label: "Lungime clădire (m)",
-              def: 12,
-              min: 4,
-              type: "number",
-            },
-            {
-              id: "fLat2",
-              label: "Lățime clădire (m)",
-              def: 8,
-              min: 4,
+              id: "fSuprafata",
+              label: "Suprafață totală (m²)",
+              def: 96,
+              min: 10,
               type: "number",
             },
             {
@@ -2860,9 +2854,8 @@
             },
           ],
           calcFn: (inp) => {
-            const fL = inp.fLung || 12, fW = inp.fLat2 || 8;
-            const p = 2 * (fL + fW); // perimetru auto
-            const amp = fL * fW; // amprenta auto
+            const amp = inp.fSuprafata || 96;
+            const p = Math.ceil(4 * Math.sqrt(amp)); // perimetru estimat din suprafață
             const lat = 0.4, // lățime fundație standard
               ad = inp.fAdancime || 0.9;
             const volFunda = p * lat * ad;
@@ -2872,7 +2865,7 @@
                 name: "Beton C20/25 fundații",
                 qty: fmt(volFunda),
                 um: "m³",
-                formula: `${p}ml × ${lat}m × ${ad}m`,
+                formula: `~${p}ml per. × ${lat}m × ${ad}m`,
                 pkg: "— produs extern",
                 link: "",
                 ext: true,
@@ -2890,7 +2883,7 @@
                 name: "Amorsa bituminoasa Eco Primer, 20 l",
                 qty: C((p * 2.8 * 0.35) / 22),
                 um: "găleți",
-                formula: "0.35 kg/m² ÷ 22kg/găleată",
+                formula: `0.35 kg/m² × ~${fmtN(p*2.8)}m² ÷ 22kg`,
                 pkg: "găleată 20L (22kg)",
                 link: "https://mathaus.ro/p/amorsa-bituminoasa-de-baza-de-solventi-eco-primer-20-l/000000000010909445",
               },
@@ -2898,7 +2891,7 @@
                 name: "Membrana fundatie Black Star 350, 2.5x20m",
                 qty: C((p * 2.8) / 50),
                 um: "role",
-                formula: `${p}ml × 2.8m H ÷ 50m²/rolă`,
+                formula: `~${p}ml × 2.8m H ÷ 50m²/rolă`,
                 pkg: "rolă 2.5×20m (50m²)",
                 link: "https://mathaus.ro/p/membrana-fundatie-black-star-350-polietilena-25-x-20-m/000000000010927495",
                 variants: [
@@ -2906,8 +2899,6 @@
                     name: "Membrana fundatie Black Star 350, 2x20m",
                     link: "https://mathaus.ro/p/membrana-fundatie-black-star-350-polietilena-2-x-20-m/000000000010927190",
                     pkg: "rolă 2×20m (40m²)",
-                    price: 217 / 40,
-                    note: "Varianta mai mică, 217 lei/rolă",
                   },
                 ],
               },
@@ -2915,7 +2906,7 @@
                 name: "Plasă sudată fir 4mm, 2000×6000mm",
                 qty: C((amp * 1.05) / 12),
                 um: "buc",
-                formula: "1.05 × amprentă ÷ 12m²/buc",
+                formula: `1.05 × ${amp}m² ÷ 12m²/buc`,
                 pkg: "panou 12m²",
                 link: "https://mathaus.ro/p/plasa-sudata-otel-fir-4-mm-dimensiune-ochi-100x100-mm-2000x6000-mm/000000000010400673",
                 variants: [
@@ -5680,6 +5671,7 @@
           if (stageDef.id === "planseu" && c.niveluri <= 1) return;
           const s = getStage(stageDef.id);
           const mats = stageDef.totalFn(c);
+          mats.forEach(m => m._fromCalcFn = true);
           applyMatDB(stageDef.id, mats);
           // Sum cost for non-extern materials (MatHaus products only)
           mats.forEach(m => {
@@ -5744,7 +5736,7 @@
                 m.um
               }</div></td>
         <td><span class="mat-pkg" id="vs_${uid}_pkg">${m.pkg}</span></td>
-        ${priceTdHtml(m.name, m.qty)}
+        ${priceTdHtml(m.name, conv.qty)}
       </tr>`;
             }
             const link =
@@ -5756,11 +5748,11 @@
       <td><div class="mat-name">${m.name}</div>${
               m.ext ? `<span class="mat-ext">produs extern</span>` : link
             }</td>
-      <td><div class="mat-qty-big">${fmtN((()=>{const c=matConvert(m.name,m.qty,m.um);return c.qty;})())}</div><div class="mat-um">${
-              (()=>{const c=matConvert(m.name,m.qty,m.um);return c.um;})()
+      <td><div class="mat-qty-big">${fmtN((()=>{const c=safeConvert(m);return c.qty;})())}</div><div class="mat-um">${
+              (()=>{const c=safeConvert(m);return c.um;})()
             }</div></td>
-      <td><span class="mat-pkg">${(()=>{const c=matConvert(m.name,m.qty,m.um);return c.pkg||m.pkg;})()}</span></td>
-      ${priceTdHtml(m.name, (()=>{const c=matConvert(m.name,m.qty,m.um);return c.qty;})())}
+      <td><span class="mat-pkg">${(()=>{const c=safeConvert(m);return c.pkg||m.pkg;})()}</span></td>
+      ${priceTdHtml(m.name, (()=>{const c=safeConvert(m);return c.qty;})())}
     </tr>`;
           })
           .join("");
@@ -6132,6 +6124,7 @@
               i.type === "select" ? el.value : parseFloat(el.value) || i.def;
         });
         const mats = stageDef.calcFn(inp);
+        mats.forEach(m => m._fromCalcFn = true);
         applyMatDB(id, mats);
         const result = document.getElementById(`ecalc-result-${id}`);
         if (!result) return;
@@ -6177,18 +6170,18 @@
                     }" target="_blank">→ mathaus.ro</a>`
               }</div>
             </td>
-            <td><div class="mat-qty-big">${fmtN((()=>{const c=matConvert(m.name,m.qty,m.um);return c.qty;})())}</div></td>
-            <td><div class="mat-um">${(()=>{const c=matConvert(m.name,m.qty,m.um);return c.um;})()}</div></td>
+            <td><div class="mat-qty-big">${fmtN((()=>{const c=safeConvert(m);return c.qty;})())}</div></td>
+            <td><div class="mat-um">${(()=>{const c=safeConvert(m);return c.um;})()}</div></td>
             <td><span class="mat-pkg" id="vs_${uid}_pkg">${m.pkg}</span></td>
             <td><div class="mat-formula">${m.formula || ""}</div></td>
-            ${priceTdHtml(m.name, (()=>{const c=matConvert(m.name,m.qty,m.um);return c.qty;})())}
+            ${priceTdHtml(m.name, (()=>{const c=safeConvert(m);return c.qty;})())}
           </tr>`;
           }
           const link =
             m.link && !m.ext
               ? `<br><a class="mat-link" href="${m.link}" target="_blank">→ mathaus.ro</a>`
               : "";
-          const _cv = matConvert(m.name, m.qty, m.um);
+          const _cv = safeConvert(m);
           return `<tr>
           ${sapTdHtml(m.name)}
           <td><div class="mat-name">${m.name}</div>${
@@ -6383,6 +6376,10 @@
       }" oninput="adminMarkUnsaved()">${(merge.timpi || []).join(
           "\n"
         )}</textarea></div>
+    <div class="edit-field"><label class="label">🎬 Ghid Video (URL YouTube)</label>
+      <input type="url" class="input" id="ae-video" value="${escHtml(merge.video || '')}" placeholder="https://www.youtube.com/watch?v=..." oninput="adminMarkUnsaved()" style="font-family:var(--mono);font-size:12px"/>
+      <div style="font-size:10px;color:var(--txt3);margin-top:4px">Lipește link-ul YouTube. Apare ca buton în pagina etapei.</div>
+    </div>
     <div style="display:flex;gap:10px;margin-top:16px;flex-wrap:wrap">
       <button class="btn btn-primary" onclick="adminSaveStage('${adminActiveStage}')">💾 Salvează</button>
       <button class="btn btn-ghost" onclick="adminResetStage('${adminActiveStage}')">↩ Resetează etapa</button>
@@ -6965,6 +6962,12 @@
           converted: false,
           convInfo: ''
         };
+      }
+
+      // Safe convert: skip matConvert if quantities already calculated by calcFn/totalFn/custom calcs
+      function safeConvert(m) {
+        if (m._fromCalcFn) return { qty: m.qty, um: m.um, pkg: m.pkg || '', converted: false, convInfo: '' };
+        return matConvert(m.name, m.qty, m.um);
       }
 
       // Apply DB overrides to calc results: update product details from DB
@@ -7736,7 +7739,7 @@
         }
         if (p > 0) {
           const val = p * qtyDisplay;
-          return `<td class="mat-pret">${fmtN(p)} lei</td><td class="mat-pret">${fmtN(val)} lei</td>`;
+          return `<td class="mat-pret">${fmtP(p)} lei</td><td class="mat-pret">${fmtN(val)} lei</td>`;
         }
         return '<td class="mat-pret-empty">—</td><td class="mat-pret-empty">—</td>';
       }
@@ -7819,6 +7822,7 @@
           timpi: $("ae-timpi")
             .value.split("\n")
             .filter((l) => l.trim()),
+          video: $("ae-video")?.value || '',
         };
         if (idx >= 0) stagesData[idx] = updated;
         else stagesData.push(updated);
@@ -11560,8 +11564,8 @@ PROGRAM MAGAZINE:
             return `<tr style="background:var(--amber-l)">
             ${sapTdHtml(sm.name)}
             <td><div class="mat-name">${escHtml(sm.name)}</div>${sm.ext?'<div style="font-size:10px;color:var(--amber)">⚠ produs extern</div>':''}${sm.link?'<a class="mat-link" href="'+escHtml(sm.link)+'" target="_blank">→ mathaus.ro</a>':''}</td>
-            <td><div class="mat-qty-big">${conv.displayQty}</div></td>
-            <td><div class="mat-um">${escHtml(conv.displayUM)}</div></td>
+            <td><div class="mat-qty-big">${fmtN(conv.qty)}</div></td>
+            <td><div class="mat-um">${escHtml(conv.um)}</div></td>
             <td><span class="mat-pkg">${escHtml(sm.uv||sm.pkg||'—')}</span></td>
             <td><div class="mat-formula">${escHtml(sm.formula||'')}</div></td>
             ${priceTdHtml(sm.name, qty)}
@@ -11826,6 +11830,7 @@ PROGRAM MAGAZINE:
             : []),
         ];
 
+        rows.forEach(m => m._fromCalcFn = true);
         applyMatDB('termosistem', rows);
         res.innerHTML = `<div class="calc-result">
     <div class="calc-result-header">
@@ -11840,7 +11845,7 @@ PROGRAM MAGAZINE:
       <thead><tr><th style="width:8%">SAP</th><th>Produs</th><th>Cant.</th><th>U.M.</th><th>Ambalaj</th><th>Formulă</th>${priceThHtml()}</tr></thead>
       <tbody>${rows
         .map(
-          (r) => { const _cv = matConvert(r.name, r.qty, r.um); return `<tr>
+          (r) => { const _cv = safeConvert(r); return `<tr>
         ${sapTdHtml(r.name)}
         <td><div class="mat-name">${r.name}</div><a class="mat-link" href="${
             r.link
@@ -11945,6 +11950,7 @@ PROGRAM MAGAZINE:
           };
         });
 
+        rows.forEach(m => m._fromCalcFn = true);
         applyMatDB('gipscarton', rows);
         res.innerHTML = `<div class="calc-result">
     <div class="calc-result-header">
@@ -11957,7 +11963,7 @@ PROGRAM MAGAZINE:
       <thead><tr><th style="width:8%">SAP</th><th>Produs</th><th>Cant.</th><th>U.M.</th><th>Ambalaj</th><th>Consum/m²</th>${priceThHtml()}</tr></thead>
       <tbody>${rows
         .map(
-          (r) => { const _cv = matConvert(r.name, r.qty, r.um); return `<tr>
+          (r) => { const _cv = safeConvert(r); return `<tr>
         ${sapTdHtml(r.name)}
         <td><div class="mat-name">${r.name}</div><a class="mat-link" href="${
             r.link
@@ -12050,19 +12056,20 @@ PROGRAM MAGAZINE:
           {name: 'Profil trecere (prag)', qty: nr, um:'buc', formula:'1 per cameră', pkg:'buc 0.9m', link:'https://mathaus.ro/search?pb=true&text=profil+trecere+parchet'},
         ];
 
+        mats.forEach(m => m._fromCalcFn = true);
         applyMatDB('parchet', mats);
         const res = $('ecalc-result-parchet');
         if (!res) return;
         const rows = mats.map(m => {
-          const conv = matConvert(m.name, m.qty, m.um);
+          const conv = safeConvert(m);
           return `<tr>
             ${sapTdHtml(m.name)}
             <td><div class="mat-name">${escHtml(m.name)}</div>${m.link?'<a class="mat-link" href="'+escHtml(m.link)+'" target="_blank">→ mathaus.ro</a>':''}</td>
-            <td><div class="mat-qty-big">${conv.displayQty}</div></td>
-            <td><div class="mat-um">${escHtml(conv.displayUM)}</div></td>
+            <td><div class="mat-qty-big">${fmtN(conv.qty)}</div></td>
+            <td><div class="mat-um">${escHtml(conv.um)}</div></td>
             <td><span class="mat-pkg">${escHtml(m.pkg)}</span></td>
             <td><div class="mat-formula">${escHtml(m.formula)}</div></td>
-            ${priceTdHtml(m.name, m.qty)}
+            ${priceTdHtml(m.name, conv.qty)}
           </tr>`;
         }).join('');
 
@@ -12135,19 +12142,20 @@ PROGRAM MAGAZINE:
           {name:'Silicon sanitar Ceresit CS25', qty: nr*2, um:'tuburi', formula:'2 tuburi/baie', pkg:'tub 280ml', link:'https://mathaus.ro/p/silicon-sanitar-ceresit-cs-25-interior-exterior-alb-280-ml/000000000010700559'},
         ];
 
+        mats.forEach(m => m._fromCalcFn = true);
         applyMatDB('hidro-int', mats);
         const res = $('ecalc-result-hidro-int');
         if (!res) return;
         const rows = mats.map(m => {
-          const conv = matConvert(m.name, m.qty, m.um);
+          const conv = safeConvert(m);
           return `<tr>
             ${sapTdHtml(m.name)}
             <td><div class="mat-name">${escHtml(m.name)}</div>${m.link?'<a class="mat-link" href="'+escHtml(m.link)+'" target="_blank">→ mathaus.ro</a>':''}</td>
-            <td><div class="mat-qty-big">${conv.displayQty}</div></td>
-            <td><div class="mat-um">${escHtml(conv.displayUM)}</div></td>
+            <td><div class="mat-qty-big">${fmtN(conv.qty)}</div></td>
+            <td><div class="mat-um">${escHtml(conv.um)}</div></td>
             <td><span class="mat-pkg">${escHtml(m.pkg)}</span></td>
             <td><div class="mat-formula">${escHtml(m.formula)}</div></td>
-            ${priceTdHtml(m.name, m.qty)}
+            ${priceTdHtml(m.name, conv.qty)}
           </tr>`;
         }).join('');
 
