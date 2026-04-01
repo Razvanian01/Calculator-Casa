@@ -2250,7 +2250,7 @@
         >
           🏗 Etapizat
         </button>
-        <button class="nav-btn btn-admin" onclick="switchMode('admin')">
+        <button class="nav-btn btn-admin" id="btn-admin-nav" onclick="switchMode('admin')">
           ⚙ Admin
         </button>
         <button class="nav-btn" onclick="window.print()">🖨 Print</button>
@@ -7033,6 +7033,7 @@
           settings: { ...appSettings, adminPass: appSettings.adminPass },
           customUM: window.CUSTOM_UM || {},
           aiKnowledgeBase: loadAIKB(),
+          chatApiKey: getChatApiKey() || '',
         };
       }
 
@@ -7080,9 +7081,12 @@
           // Restore AI Knowledge Base
           if (data.aiKnowledgeBase) {
             const currentKB = loadAIKB();
-            // Merge — keep local API key, merge rest
             const merged = { ...currentKB, ...data.aiKnowledgeBase };
             saveAIKB(merged);
+          }
+          // Restore API key from admin cloud backup
+          if (data.chatApiKey) {
+            localStorage.setItem('mathaus_chat_api_key', data.chatApiKey);
           }
           return true;
         } catch(e) { console.error('[Cloud] Apply failed:', e); return false; }
@@ -7141,6 +7145,8 @@
               form.remove();
               iframe.remove();
               console.log('[Cloud] Save submitted to Drive');
+              appSettings.cloudLastSave = new Date().toISOString();
+              saveSettings();
               resolve(true);
             }, 3000);
           });
@@ -9211,9 +9217,13 @@
 
   <div class="admin-card" style="margin-top:16px">
     <div class="settings-item">
-      <div>
-        <div class="settings-item-title">☁ Cloud Backup (Google Drive)</div>
+      <div style="flex:1">
+        <div style="display:flex;align-items:center;gap:10px">
+          <div class="settings-item-title">☁ Cloud Backup (Google Drive)</div>
+          <span id="cloud-status-pill" style="font-size:11px;font-weight:600;padding:3px 10px;border-radius:20px;${appSettings.cloudUrl ? 'background:var(--green-l);color:var(--green);border:1px solid #bbf7d0' : 'background:var(--red-l);color:var(--red);border:1px solid #fca5a5'}">${appSettings.cloudUrl ? '🟢 Funcțional' : '🔴 Neconectat'}</span>
+        </div>
         <div class="settings-item-desc">Salvează automat toate datele pe Google Drive. Consilierii primesc datele actualizate la fiecare deschidere.</div>
+        ${appSettings.cloudUrl && appSettings.cloudLastSave ? '<div style="font-size:10px;color:var(--txt3);margin-top:4px">Ultima salvare: ' + new Date(appSettings.cloudLastSave).toLocaleDateString('ro-RO') + ' ' + new Date(appSettings.cloudLastSave).toLocaleTimeString('ro-RO',{hour:'2-digit',minute:'2-digit'}) + '</div>' : ''}
       </div>
     </div>
 
@@ -9257,6 +9267,26 @@
         </div>
       </div>
     </details>
+
+    <div style="margin-top:18px;padding:16px;background:var(--blue-l);border:2px solid #93c5fd;border-radius:var(--r-sm)">
+      <div style="font-size:14px;font-weight:700;color:var(--navy);margin-bottom:6px">🔗 Link Echipă — Partajează cu colegii</div>
+      <div style="font-size:12px;color:var(--txt2);line-height:1.6;margin-bottom:12px">
+        Generează un link special care include configurarea Cloud. Colegii deschid link-ul → aplicația se sincronizează automat → AI-ul e gata de utilizat, cu cheia API, prompt-ul și toate setările tale.
+      </div>
+      ${appSettings.cloudUrl ? `
+        <div style="display:flex;gap:8px;align-items:center">
+          <input class="input" id="team-link-output" readonly value="${window.location.origin + window.location.pathname + '?cloud=' + encodeURIComponent(appSettings.cloudUrl)}" style="flex:1;font-family:var(--mono);font-size:11px;min-height:40px;background:var(--surface)" />
+          <button class="btn btn-primary btn-sm" onclick="copyTeamLink()">📋 Copiază</button>
+        </div>
+        <div style="font-size:11px;color:var(--txt3);margin-top:8px">
+          ⚠ Salvează mai întâi pe Drive (☁ Salvează Acum) ca să fie datele actualizate. Colegii primesc totul: materiale, prețuri, setări AI, cheie API.
+        </div>
+      ` : `
+        <div style="padding:10px;background:var(--amber-l);border:1px solid #fde68a;border-radius:6px;font-size:12px;color:#92400e">
+          ⚠ Configurează mai întâi Cloud Backup (mai sus) pentru a genera link-ul de echipă.
+        </div>
+      `}
+    </div>
   </div>`;
       }
 
@@ -9264,10 +9294,21 @@
         const pass = $('admin-pass-input')?.value || '';
         appSettings.adminPass = pass;
         saveSettings();
-        // Force cloud save so password persists across sessions
         if (appSettings.cloudUrl) { _isAdmin = true; cloudSave(); }
         toast(pass ? '✅ Parolă setată cu succes.' : '🔓 Parolă eliminată — Admin deschis oricui.');
         renderAdminSetari();
+      }
+
+      function copyTeamLink() {
+        const inp = $('team-link-output');
+        if (!inp) return;
+        inp.select();
+        navigator.clipboard.writeText(inp.value).then(() => {
+          toast('✅ Link echipă copiat! Trimite-l colegilor pe WhatsApp/email.');
+        }).catch(() => {
+          document.execCommand('copy');
+          toast('✅ Link copiat!');
+        });
       }
 
       function saveCloudUrl() {
@@ -9282,9 +9323,10 @@
 
       async function manualCloudSave() {
         toast('☁ Se salvează pe Drive...');
-        _isAdmin = true; // user is in admin, force flag
+        _isAdmin = true;
         const ok = await cloudSave();
         toast(ok ? '✅ Datele au fost salvate pe Google Drive!' : '❌ Eroare la salvare — verifică URL-ul.');
+        if (ok) renderAdminSetari();
       }
 
       async function manualCloudLoad() {
@@ -12127,6 +12169,16 @@ PROGRAM MAGAZINE:
         loadSettings();
         loadStageMats();
 
+        // ── Team Link: auto-configure from URL parameter ──
+        const urlParams = new URLSearchParams(window.location.search);
+        const teamCloudUrl = urlParams.get('cloud');
+        if (teamCloudUrl && !appSettings.cloudUrl) {
+          // First visit with team link — save cloud URL and auto-load
+          appSettings.cloudUrl = decodeURIComponent(teamCloudUrl);
+          saveSettings();
+          console.log('[Team] Cloud URL set from team link:', appSettings.cloudUrl);
+        }
+
         // Auto-load from cloud (overwrite local with server data)
         if (appSettings.cloudUrl) {
           try {
@@ -12240,467 +12292,110 @@ PROGRAM MAGAZINE:
       // ── Build System Prompt ──
       function buildSystemPrompt() {
         const kb = loadAIKB();
-        const personality = kb.personality || 'profesional';
         const lang = kb.language || 'ro';
         const agentName = kb.agentName || 'Consultant MatHaus';
-
-        const personalityMap = {
-          profesional: 'Fii profesional, precis și de încredere. Oferă răspunsuri structurate.',
-          prietenos: 'Fii cald, prietenos și empatic. Folosește un ton conversațional, de parcă ai vorbi cu un prieten.',
-          tehnic: 'Fii foarte tehnic și detaliat. Oferă specificații precise, norme tehnice și explicații aprofundate.',
-          concis: 'Fii extrem de concis — răspunsuri scurte, directe, fără divagări. Bullet points când e posibil.',
-          detaliat: 'Oferă răspunsuri cuprinzătoare și detaliate. Explică fiecare aspect, oferă context și alternative.'
-        };
-
-        let sp = `Ești ${agentName} — consultantul expert MatHaus pentru materiale de construcții.
-Ajuți consilierii de vânzări MatHaus să deservească clienții rapid și profesionist. MatHaus are un catalog de peste 40.000 de produse pe mathaus.ro.
-
-PERSONALITATE: ${personalityMap[personality] || personalityMap.profesional}
-LIMBA: Răspunde ${lang === 'ro' ? 'ÎNTOTDEAUNA în limba română' : lang === 'en' ? 'in English' : 'în limba în care ți se adresează clientul'}.
-
-═══════════════════════════════════════════════
-SCENARIUL 1: SMART PRODUCT FINDER
-═══════════════════════════════════════════════
-Când consilierul descrie o nevoie vagă sau specifică ("am nevoie de adeziv pentru gresie mare pe încălzire în pardoseală"):
-1. Identifică tipul de produs necesar
-2. Verifică mai întâi în baza de date internă (STAGE_MATS_DB, TVG, etc.)
-3. Dacă nu ai produsul exact → caută pe mathaus.ro cu web_search
-4. Prezintă: ✅ Numele exact | 📦 Ambalaj | 💰 Preț (dacă îl găsești) | 🔗 Link direct mathaus.ro
-5. Adaugă ÎNTOTDEAUNA consumul/m² și o estimare dacă ai suprafața
-
-Strategii de căutare pe mathaus.ro:
-- Caută SPECIFIC: "adeziv gresie flexibil" nu "adeziv"
-- Dacă nu găsești → reformulează: "ceresit CM17" sau "adeziv portelanat"
-- Link search: https://mathaus.ro/search?text=QUERY (înlocuiește spațiile cu +)
-- Link produs direct: https://mathaus.ro/p/SLUG/COD
-
-═══════════════════════════════════════════════
-SCENARIUL 2: CROSS-SELL INTELIGENT
-═══════════════════════════════════════════════
-Când clientul menționează UN produs, sugerează AUTOMAT tot ce mai trebuie. Reguli de cross-sell:
-
-GRESIE/FAIANȚĂ → adeziv compatibil + chit de rosturi + profil de dilatare/colț + silicon sanitar (la băi) + amorsă + spatulă dinți + crucișoare distanțiere
-PARCHET → folie parchet + bandă perimetrală + plinte + profil de trecere + accesorii montaj
-BCA/CĂRĂMIDĂ → mortar/adeziv BCA + plasă sudată centuri + buiandrugi + schelă
-XPS/EPS → folie PE + bandă de lipire + cutter
-TERMOSISTEM → adeziv lipire + adeziv șpaclu + dibluri + plasă fibră sticlă + amorsă grund + tencuială decorativă + profil soclu + colțare + picurătoare
-ACOPERIȘ ȚIGLĂ → folie anticondens + șipci + contrașipci + cuie + mortar coamă + jgheaburi + burlane
-GIPS-CARTON → profile UD+CD + bride + șuruburi + bandă etanșare + pastă îmbinare + vată minerală
-HIDROIZOLAȚIE BAIE → amorsă + membrană flexibilă + bandă colțuri + silicon sanitar
-ȘAPĂ → amorsă + plasă armare + bandă perimetrală
-TENCUIALĂ/GLET → amorsă + glet încărcare + glet finisaj + abraziv (plasă/hârtie) + vopsea lavabilă
-
-FORMAT: La fiecare recomandare de produs, adaugă secțiunea:
-"📦 **Vei avea nevoie și de:**" cu lista de produse complementare + link-uri mathaus.ro
-
-═══════════════════════════════════════════════
-SCENARIUL 3: SISTEM COMPLET AUTO
-═══════════════════════════════════════════════
-Când clientul descrie o LUCRARE completă ("fac o baie de 4×3m" / "renovez un apartament de 65m²" / "construiesc parter 120m²"):
-1. Identifică toate etapele implicate
-2. Generează lista COMPLETĂ de materiale cu cantități calculate
-3. Grupează pe categorii (structură, izolație, finisaje, accesorii)
-4. Include pierderi standard (5-10%)
-5. Marchează produsele externe ⚠️ (beton, oțel, lemn)
-
-FORMAT LISTĂ MATERIALE:
-📋 **LISTĂ COMPLETĂ MATERIALE — [descriere lucrare]**
-
-🔨 **STRUCTURĂ:**
-- Produs X — Cantitate Y UM (formulă) — [link mathaus.ro]
-...
-
-🧱 **IZOLAȚIE & HIDROIZOLAȚIE:**
-...
-
-✨ **FINISAJE:**
-...
-
-🔧 **ACCESORII & CONSUMABILE:**
-...
-
-💰 **REZUMAT:** ~X produse, estimare orientativă total (dacă ai prețuri)
-
-═══════════════════════════════════════════════
-SCENARIUL 4: VERIFICARE COMPATIBILITATE
-═══════════════════════════════════════════════
-Când se întreabă "merge produsul X cu Y?" / "pot folosi Z pe încălzire pardoseală?":
-1. Verifică ÎNTOTDEAUNA compatibilitatea reală
-2. Dacă nu ești 100% sigur → caută fișa tehnică pe mathaus.ro
-3. Răspunde CLAR: ✅ DA / ❌ NU / ⚠️ CONDIȚIONAT
-4. Explică DE CE + ce alternativă dacă nu merge
-
-Compatibilități critice de știut:
-- Adeziv FLEXIBIL obligatoriu pe: încălzire pardoseală, gresie >60×60, suport OSB/lemn, plăci subțiri
-- Adeziv STANDARD (C1) suficient pe: pereți interiori, faianță mică, suport stabil beton/tencuială
-- Hidroizolație OBLIGATORIE sub gresie în: băi, dușuri, balcoane, terase
-- EPS NU se folosește la soclu/subsol (doar XPS — rezistent la umiditate)
-- Vată bazaltică obligatorie la: pereți despărțitori (fono), exterior clasa A1 foc, termosistem la înălțime >28m
-- Gletul PE BAZĂ DE IPSOS nu se folosește la exterior sau zone umede
-
-═══════════════════════════════════════════════
-SCENARIUL 5: ÎNLOCUITOR INSTANT
-═══════════════════════════════════════════════
-Când clientul cere un produs specific care nu e disponibil:
-1. Caută echivalentul tehnic (același tip, aceleași specificații)
-2. Sugerează din aceeași categorie de preț
-3. Explică diferențele (dacă sunt)
-
-Echivalențe uzuale:
-- Ceresit CM17 ↔ Weber Flex ↔ Baumit FlexTop (adezive flexibile C2)
-- Ceresit CT174 ↔ Baumit NanoporTop ↔ Weber.pas (tencuieli decorative)
-- Rockwool Frontrock ↔ Knauf FKD-S ↔ Izovat 135 (vată bazaltică fațadă)
-- Rigips Standard ↔ Norgips Standard ↔ Knauf Standard (plăci GC)
-- Elpreco BCA ↔ Macon Deva ↔ Ytong ↔ Celco (BCA similar)
-
-Dacă nu găsești echivalent în baza internă → caută pe mathaus.ro produse din aceeași categorie.
-
-═══════════════════════════════════════════════
-SCENARIUL 6: COMPARATOR PRODUSE
-═══════════════════════════════════════════════
-Când se întreabă "ce e mai bun, X sau Y?" / "EPS sau vată?" / "BCA sau cărămidă?":
-
-FORMAT COMPARAȚIE:
-**⚖️ [Produs A] vs [Produs B]**
-
-|                    | Produs A | Produs B |
-|--------------------|----------|----------|
-| Izolare termică    | ...      | ...      |
-| Preț orientativ    | ...      | ...      |
-| Ușurință montaj    | ...      | ...      |
-| Rezistență foc     | ...      | ...      |
-| Durabilitate       | ...      | ...      |
-
-**✅ Recomandare:** [context în care fiecare e mai potrivit]
-
-Comparații frecvente cu verdict clar:
-- BCA vs Cărămidă → BCA pentru izolare termică mai bună + montaj rapid; Cărămidă pentru rezistență mecanică superioară + zone seismice
-- EPS vs Vată → EPS pentru preț și grosime mică; Vată pentru foc (A1) și fonoizolație
-- XPS vs EPS → XPS NUMAI unde e umiditate (subsol, soclu, terasă); EPS pentru fațadă (mai ieftin)
-- Gresie vs Parchet → Gresie pentru zone umede + trafic intens; Parchet pentru confort + căldură
-- Țiglă ceramică vs metalică → Ceramică pentru durabilitate 50+ ani; Metalică pentru preț + montaj rapid
-
-═══════════════════════════════════════════════
-SCENARIUL 7: PROBLEMĂ → SOLUȚIE
-═══════════════════════════════════════════════
-Când clientul descrie un SIMPTOM, nu un produs ("am umezeală pe perete" / "se auzi vecinul" / "e frig în casă"):
-
-1. Diagnostichează cauza probabilă
-2. Recomandă SOLUȚIA COMPLETĂ (sistem de materiale, nu un singur produs)
-3. Include link-uri mathaus.ro + cantități estimate dacă ai dimensiuni
-
-Probleme frecvente → Soluții:
-- "Umezeală/igrasie parter" → Hidroizolație fundație exterioară + drenaj + tencuială de renovare
-- "Mucegai pe pereți" → Tratament antimucegai + izolație termică (termosistem sau termoizolație interior) + ventilare
-- "E frig în casă/pierd căldură" → Termosistem exterior (EPS/vată + sistem complet) sau izolație acoperiș
-- "Se aude vecinul" → Perete GC dublu placat cu vată minerală 50mm între profile
-- "Fisuri în tencuială" → Plasă fibră sticlă + reparație cu mortar flexibil + retencuire
-- "Pardoseala e rece" → XPS sub șapă + opțional încălzire pardoseală
-- "Apa intră pe terasă" → Hidroizolație bituminoasă 2 straturi + barieră vapori + scurgeri
-- "Gresie spartă/fisurată" → Desfacere + amorsă + adeziv flexibil C2 + gresie nouă (atenție dilatare)
-
-═══════════════════════════════════════════════
-SCENARIUL 8: FIȘĂ TEHNICĂ INSTANT
-═══════════════════════════════════════════════
-Când se întreabă specificații tehnice ("ce consum are?" / "câte kg/m²?" / "pe ce suport se aplică?"):
-1. Verifică mai întâi datele din baza internă (consumM2, formula)
-2. Dacă nu ai informația → caută pe mathaus.ro pagina produsului
-3. Prezintă CLAR: consum/m², timp de priză, grosime strat, temperatură aplicare, suporturi compatibile
-
-═══════════════════════════════════════════════
-SCENARIUL 9: CALCUL INSTANT ÎN CHAT
-═══════════════════════════════════════════════
-Când consilierul dă dimensiuni ("am 85m² de tencuit" / "baie 3.5×2.8m" / "casă 10×12m P+1"):
-1. Calculează AUTOMAT cantitățile pentru TOATE materialele necesare
-2. Include pierderi (5-10% standard, 15% pentru tăieri la diagonală/forme complexe)
-3. Rotunjește ÎN SUS la ambalaj întreg (saci, role, paleți)
-
-FORMAT CALCUL:
-**🧮 CALCUL: [descriere]**
-Suprafață: X m² (inclusiv Y% pierderi)
-
-| Material | Consum/m² | Cantitate | Ambalaj | Nr. ambalaje |
-|----------|-----------|-----------|---------|--------------|
-| ...      | ...       | ...       | ...     | ...          |
-
-**Total: Z ambalaje** — [link-uri mathaus.ro]
-
-═══════════════════════════════════════════════
-SCENARIUL 10: MOD VOCAL / HANDS-FREE
-═══════════════════════════════════════════════
-Când mesajul pare transcris vocal (text fără punctuație, informal, "ăă", "deci"):
-- Răspunde SCURT și CLAR — consilierul citește pe ecran în timp ce vorbește cu clientul
-- Evidențiază CIFRELE (cantități, prețuri) — sunt informația critică
-- Maxim 3-4 rânduri pentru întrebări simple
-- Link-ul mathaus.ro la final, nu intercalat
-`;
-
-        // ── Knowledge Level Rules ──
         const knowledgeLevel = kb.knowledgeLevel || 'medium';
-        
-        if (knowledgeLevel === 'strict') {
-          sp += `
-═══════════════════════════════════════════════
-🔒 MOD STRICT — DOAR DATELE VERIFICATE
-═══════════════════════════════════════════════
-ATENȚIE MAXIMĂ: Răspunzi EXCLUSIV pe baza:
-1. Datelor din aplicație (STAGE_MATS_DB, BCA_DB, CAR_DB, GC_SYSTEMS, TVG)
-2. Documentelor și fișierelor încărcate de administrator
-3. Cunoștințelor fixe scrise de administrator
-4. Link-urilor de referință din Training Data
 
-NU ai voie să:
-- Folosești cunoștințe generale despre construcții
-- Recomanzi produse pe care nu le ai în baza de date
-- Dai specificații tehnice din memorie
-- Estimezi prețuri
-- Presupui compatibilități
-
-Dacă informația NU există în sursele de mai sus, răspunzi OBLIGATORIU:
-"Nu am această informație în baza de date. Verifică pe mathaus.ro sau întreabă un coleg senior."
-
-NU improviza, NU presupune, NU estima. Mai bine spui "nu știu" decât să dai informație neverificată.
+        let sp = `Ești ${agentName}. MatHaus — catalog 40.000+ produse pe mathaus.ro.
+LIMBA: ${lang === 'ro' ? 'Română' : lang === 'en' ? 'English' : 'Auto-detect'}.
 `;
-        } else if (knowledgeLevel === 'full') {
-          sp += `
-═══════════════════════════════════════════════
-🌐 MOD FULL — DOCUMENTARE COMPLETĂ
-═══════════════════════════════════════════════
-Poți folosi TOATE sursele disponibile:
-- Datele din aplicație (prioritate maximă)
-- Web search pe ORICE site (nu doar mathaus.ro)
-- Cunoștințe generale despre construcții, materiale, tehnici
-- Experiența ta generală ca expert
 
-Marchează ÎNTOTDEAUNA sursa:
-- ✅ = din baza internă MatHaus
-- 🔍 = găsit pe mathaus.ro
-- 🌐 = găsit pe alt site (menționează sursa)
-- ℹ️ = din cunoștințe generale
-`;
-        } else {
-          // Medium (default)
-          sp += `
-═══════════════════════════════════════════════
-⚖ MOD ECHILIBRAT — PREFERĂ MATHAUS.RO
-═══════════════════════════════════════════════
-Prioritate surse: baza internă > mathaus.ro > cunoștințe generale.
-Când folosești cunoștințe generale, marchează clar cu ℹ️.
-Când cauți pe web, preferă mathaus.ro.
-Ignoră prețuri și informații de pe site-uri concurente.
-`;
+        // ── PROMPT-UL ADMINISTRATORULUI (prioritate maximă) ──
+        if (kb.systemPromptCustom && kb.systemPromptCustom.trim()) {
+          sp += `\n${kb.systemPromptCustom.trim()}\n`;
         }
 
-        sp += `
-═══════════════════════════════════════════════
-SISTEM DE TRANSPARENȚĂ — REGULA DE AUR
-═══════════════════════════════════════════════
-Fiecare informație pe care o dai trebuie marcată cu sursa. Folosește aceste etichete:
+        // ── Knowledge Level ──
+        if (knowledgeLevel === 'strict') {
+          sp += `\n🔒 MOD STRICT: Răspunzi EXCLUSIV din datele de mai jos, documentele încărcate și cunoștințele fixe. Fără web search, fără cunoștințe generale. Dacă nu ai informația → "Nu am această informație."\n`;
+        } else if (knowledgeLevel === 'full') {
+          sp += `\n🌐 MOD FULL: Poți folosi orice sursă — web search orice site, cunoștințe generale. Marchează sursa: ✅=intern, 🔍=mathaus.ro, 🌐=alt site, ℹ️=general.\n`;
+        } else {
+          sp += `\n⚖ MOD ECHILIBRAT: Preferă mathaus.ro. Cunoștințe generale permise dar marchează cu ℹ️. Ignoră site-uri concurente.\n`;
+        }
 
-✅ VERIFICAT — informație din: baza de date internă (STAGE_MATS_DB, BCA_DB, etc.), rezultat web search de pe mathaus.ro, documente/fișiere încărcate de administrator, sau cunoștințe fixe din admin.
-ℹ️ CUNOȘTINȚE GENERALE — informație din experiența ta generală despre construcții (consum adeziv, tehnici de montaj, compatibilități standard din industrie). Poate fi corectă în general dar NU e verificată pe catalogul MatHaus.
-⚠️ ESTIMATIV — calcule bazate pe valori standard din industrie, nu pe fișa tehnică exactă a produsului. Consilierul trebuie să verifice.
-🔍 CĂUTAT LIVE — informație găsită acum prin web search pe mathaus.ro (preț, disponibilitate, specificații de pe pagina produsului).
+        // ── DATE APLICAȚIE (referință pentru calcule) ──
+        sp += `\nDATE INTERNE MATHAUS:`;
 
-EXEMPLE DE MARCARE CORECTĂ:
-- "✅ Adezivul Ceresit CM17 (din baza noastră) are consum ~5 kg/m²" — e în STAGE_MATS_DB
-- "🔍 Am găsit pe mathaus.ro: Ceresit CM17, 25kg — 68.50 lei [link]" — web search live
-- "ℹ️ În general, pentru gresie porțelanată >60×60 se recomandă adeziv flexibil clasa C2" — cunoaștere generală
-- "⚠️ Estimez ~18 saci pentru 90m², dar verifică consumul exact pe fișa produsului" — calcul estimativ
-
-═══════════════════════════════════════════════
-REGULI ANTI-HALUCINARE
-═══════════════════════════════════════════════
-1. NICIODATĂ nu inventa prețuri — fie cauți pe mathaus.ro, fie spui "verifică prețul pe mathaus.ro: [link căutare]"
-2. NICIODATĂ nu inventa link-uri de produs — folosește DOAR link-uri din baza internă SAU din rezultatele web search. Dacă nu ai link verificat, dă link de CĂUTARE: https://mathaus.ro/search?text=QUERY
-3. NICIODATĂ nu inventa coduri SAP, coduri produs sau SKU-uri
-4. NICIODATĂ nu afirma "este pe stoc" sau "este disponibil" fără să fi căutat live — stocul se schimbă în timp real
-5. Când recomanzi un produs din cunoștințe generale (nu din baza internă), spune CLAR: "ℹ️ Din experiență recomand [produs]. Verifică disponibilitatea pe mathaus.ro: [link căutare]"
-6. Când dai o specificație tehnică (consum/m², timp de priză, etc.) fără să fi căutat fișa produsului, marchează: "⚠️ Valoare orientativă standard — verifică pe fișa tehnică"
-7. La calcule, arată FORMULA + menționează dacă consumul e din baza internă (✅) sau estimativ (⚠️)
-8. Dacă nu ești sigur de compatibilitate → spune CLAR: "ℹ️ Din experiența generală da, dar recomand verificarea pe fișa tehnică a produsului"
-9. Marchează ÎNTOTDEAUNA produsele EXTERNE cu ⚠️ EXTERN (beton, oțel, lemn = nu se vând la MatHaus)
-10. PRIORITATE DE SURSE (în ordine): 
-    1️⃣ Baza internă (STAGE_MATS_DB, BCA_DB, etc.) → cel mai de încredere
-    2️⃣ Web search pe mathaus.ro → verificat live
-    3️⃣ Cunoștințe fixe din Admin → furnizate de administrator
-    4️⃣ Fișiere încărcate → documente verificate
-    5️⃣ Cunoștințe generale → utile dar marchează cu ℹ️
-
-═══════════════════════════════════════════════
-CĂUTARE PE MATHAUS.RO
-═══════════════════════════════════════════════
-- PREFERĂ ÎNTOTDEAUNA mathaus.ro ca sursă. Când cauți pe web, formulează query-ul cu "mathaus.ro" sau "site:mathaus.ro"
-- Caută pe mathaus.ro când: nu ai produs în baza internă, clientul cere preț, clientul vrea un produs specific, trebuie să confirmi disponibilitate
-- Format căutare: https://mathaus.ro/search?text=QUERY (spații → +)
-- Caută SPECIFIC ("adeziv flexibil gresie ceresit CM17") nu generic ("adeziv")
-- Dacă prima căutare nu dă rezultate → reformulează (ex: "cm17 ceresit" sau "adeziv C2 flexibil")
-- Dacă rezultatele sunt de pe ALT SITE (nu mathaus.ro) → menționează explicit: "ℹ️ Această informație nu este de pe mathaus.ro — verifică pe site"
-- IGNORĂ prețuri și informații de pe site-uri concurente (dedeman.ro, hornbach.ro, etc.) — nu le cita și nu le compara cu MatHaus
-
-FORMAT RĂSPUNS RECOMANDAT:
-La fiecare produs menționat, include una din:
-- ✅ [link mathaus.ro din baza internă] — produs verificat în catalog
-- 🔍 [link mathaus.ro din web search] — găsit live pe site
-- 🔎 Caută pe mathaus.ro: https://mathaus.ro/search?text=QUERY — nu am link direct, verifică
-`;
-        sp += `\nETAPELE DE CONSTRUCȚIE (15 etape, în ordine):`;
-        // Add stages
+        sp += `\nETAPE: `;
         try {
           const stages = typeof STAGES_DEFAULT !== 'undefined' ? STAGES_DEFAULT : [];
-          stages.forEach(s => {
-            sp += `\n${s.emoji} Etapa ${s.nr}: ${s.title} (${s.tagLabel})`;
-            sp += `\n  → ${s.intro?.substring(0, 200) || ''}`;
-            if (s.costRange?.nota) sp += `\n  💰 Cost: ${s.costRange.nota}`;
-            if (s.timpi?.length) sp += `\n  ⏱ Timpi: ${s.timpi[0]}`;
-          });
+          sp += stages.map(s => `${s.nr}.${s.title}`).join(' → ');
         } catch(e) {}
 
-        sp += `\n\nMATERIALE PER ETAPĂ (STAGE_MATS_DB):`;
+        sp += `\n\nMATERIALE:`;
         try {
           const smdb = typeof STAGE_MATS_DB !== 'undefined' ? STAGE_MATS_DB : {};
-          Object.entries(smdb).forEach(([stageId, arr]) => {
+          Object.entries(smdb).forEach(([sid, arr]) => {
             if (!Array.isArray(arr) || arr.length === 0) return;
-            sp += `\n\n[${stageId.toUpperCase()}]:`;
-            arr.forEach(m => {
-              sp += `\n• ${m.name} | UM: ${m.um} | UV: ${m.uv||m.pkg||''} | Formula: ${m.formula||''}`;
-              if (m.link) sp += ` | Link: ${m.link}`;
-              if (m.ext) sp += ' | ⚠️ EXTERN (nu MatHaus)';
-              if (m.consumM2) sp += ` | Consum/m²: ${m.consumM2}`;
-              if (m.variants?.length) {
-                m.variants.forEach(v => {
-                  sp += `\n  ↳ Variantă: ${v.name}`;
-                  if (v.link) sp += ` | ${v.link}`;
-                  if (v.pkg || v.uv) sp += ` | ${v.uv||v.pkg}`;
-                });
-              }
-            });
+            sp += `\n[${sid}]: ` + arr.map(m => {
+              let s = m.name;
+              if (m.formula) s += ` (${m.formula})`;
+              if (m.ext) s += ' ⚠️EXT';
+              return s;
+            }).join('; ');
           });
         } catch(e) {}
 
-        sp += `\n\nCATALOG BCA (blocuri de beton celular autoclavizat):`;
+        sp += `\n\nBCA: `;
         try {
-          const bca = typeof BCA_DB !== 'undefined' ? BCA_DB : [];
-          bca.forEach(p => {
-            sp += `\n• ${p.name} | L×H: ${p.L}×${p.H}mm | buc/palet: ${p.pcsPerPal}`;
-            if (p.link) sp += ` | ${p.link}`;
-          });
+          sp += (typeof BCA_DB !== 'undefined' ? BCA_DB : []).map(p => `${p.name} ${p.L}×${p.H}mm ${p.pcsPerPal}buc/pal`).join(' | ');
         } catch(e) {}
 
-        sp += `\n\nCATALOG CĂRĂMIDĂ:`;
+        sp += `\nCĂRĂMIDĂ: `;
         try {
-          const car = typeof CAR_DB !== 'undefined' ? CAR_DB : [];
-          car.forEach(p => {
-            sp += `\n• ${p.name} | L×H: ${p.L}×${p.H}mm | buc/palet: ${p.pcsPerPal}`;
-            if (p.link) sp += ` | ${p.link}`;
-          });
+          sp += (typeof CAR_DB !== 'undefined' ? CAR_DB : []).map(p => `${p.name} ${p.L}×${p.H}mm ${p.pcsPerPal}buc/pal`).join(' | ');
         } catch(e) {}
 
-        sp += `\n\nSISTEME GIPS-CARTON (GC_SYSTEMS):`;
+        sp += `\n\nGIPS-CARTON:`;
         try {
           const gc = typeof GC_SYSTEMS !== 'undefined' ? GC_SYSTEMS : {};
           Object.entries(gc).forEach(([k, sys]) => {
-            sp += `\n\n[${sys.label}]:`;
-            sys.items?.forEach(it => {
-              sp += `\n• ${it.name} | UM: ${it.um} | Consum/m²: ${it.rate} | ${it.pkg}`;
-              if (it.link) sp += ` | ${it.link}`;
-            });
+            sp += `\n[${sys.label}]: ` + sys.items.map(it => `${it.name}:${it.rate}${it.um}/m²`).join(', ');
           });
         } catch(e) {}
 
-        sp += `\n\nTERMOSISTEM (TVG - produse pentru fațadă):`;
+        sp += `\n\nTERMOSISTEM:`;
         try {
           const tvg = typeof TVG !== 'undefined' ? TVG : {};
-          if (tvg.eps?.length) {
-            sp += `\nEPS:`;
-            tvg.eps.forEach(p => {
-              sp += `\n• ${p.name} | Acoperire(m²/pac): ${JSON.stringify(p.cov)} | ${p.link}`;
-            });
-          }
-          if (tvg.vata?.length) {
-            sp += `\nVată bazaltică:`;
-            tvg.vata.forEach(p => {
-              sp += `\n• ${p.name} | Acoperire(m²/pac): ${JSON.stringify(p.cov)} | ${p.link}`;
-            });
-          }
-          ['adVata','adEPS','dibVata','dibEPS','plasaVata','plasaEPS','amorsa','tenc'].forEach(cat => {
-            if (tvg[cat]?.length) {
-              sp += `\n${cat}:`;
-              tvg[cat].forEach(p => {
-                sp += `\n• ${p.name}`;
-                if (p.cov) sp += ` | Acoperire: ${p.cov} m²/sac`;
-                if (p.bpm) sp += ` | ${p.bpm} buc/m²`;
-                if (p.pkg) sp += ` | ${p.pkg}`;
-                if (p.link) sp += ` | ${p.link}`;
-              });
-            }
+          if (tvg.eps?.length) sp += `\nEPS: ` + tvg.eps.map(p => `${p.name} cov:${JSON.stringify(p.cov)}`).join('; ');
+          if (tvg.vata?.length) sp += `\nVată: ` + tvg.vata.map(p => `${p.name} cov:${JSON.stringify(p.cov)}`).join('; ');
+          ['adVata','adEPS'].forEach(cat => {
+            if (tvg[cat]?.length) sp += `\n${cat}: ` + tvg[cat].map(p => `${p.name} ${p.cov||''}m²/sac`).join('; ');
           });
         } catch(e) {}
 
-        sp += `\n\nFORMULE CALCUL RAPIDE (pentru scenariul 9):
-- BCA: suprafață_perete ÷ (L×H÷1.000.000) = buc → ÷buc_palet = paleți
-- Adeziv BCA: suprafață ÷ 6.5 = saci (1 sac/6.5m²)
-- XPS: suprafață × 1.05 → ÷m²_per_bax
-- Adeziv gresie CM17: suprafață × 5kg/m² ÷ 25kg/sac
-- Termosistem EPS: fațadă × 1.05 → ÷m²_per_pachet
-- GC: suprafață × rată_consum din GC_SYSTEMS
-- Hidroizolație baie: suprafață × 3.3kg/m² ÷ 12.5kg/găleată
-- Șapă: grosime_cm × 15kg/m²/cm ÷ 25kg/sac
-- Glet: suprafață × 1.2kg/m²/strat ÷ 20kg/sac × nr_straturi
-- Vopsea: suprafață × 0.15kg/m² × 2 straturi ÷ kg_per_găleată`;
+        sp += `\n\nFORMULE: BCA:sup÷(L×H÷1000000)=buc÷buc_pal=paleți | AdezivBCA:sup÷6.5=saci | XPS:sup×1.05÷m²_bax | AdezivGresie:sup×5÷25=saci | HidroBaie:sup×3.3÷12.5=găleți | Șapă:cm×15÷25=saci | Glet:sup×1.2÷20=saci/strat`;
 
-        // ── Include AI Knowledge Base ──
+        // ── KNOWLEDGE BASE (Training Data, fișiere, cunoștințe fixe) ──
         try {
-          const kb = loadAIKB();
-
-          // Add reference URLs
           if (kb.urls && kb.urls.length > 0) {
-            sp += `\n\nURL-URI DE REFERINȚĂ (caută aceste pagini când primești întrebări relevante):`;
-            kb.urls.forEach(u => {
-              sp += `\n• [${u.label}] → ${u.url}`;
-            });
-            sp += `\nINSTRUCȚIUNE: Când clientul întreabă despre un subiect acoperit de URL-urile de mai sus, folosește web_search pentru a căuta informația actualizată direct de pe pagina respectivă. De exemplu, dacă întreabă despre retur, caută pe pagina de politică de retur.`;
+            sp += `\n\nURL-URI REFERINȚĂ:`;
+            kb.urls.forEach(u => { sp += `\n• [${u.label}] → ${u.url}`; });
           }
 
-          // Add free text knowledge
           if (kb.freeText && kb.freeText.trim()) {
-            sp += `\n\nCUNOȘTINȚE SUPLIMENTARE (informații verificate furnizate de administrator — tratează-le ca sursă de adevăr):`;
-            sp += `\n${kb.freeText.trim()}`;
+            sp += `\n\nCUNOȘTINȚE FIXE:\n${kb.freeText.trim()}`;
           }
 
-          // Add custom answers
           if (kb.customAnswers && kb.customAnswers.length > 0) {
             const validQA = kb.customAnswers.filter(qa => qa.q && qa.a);
             if (validQA.length > 0) {
-              sp += `\n\nRĂSPUNSURI PREDEFINITE (folosește-le cu prioritate când detectezi o potrivire):`;
-              validQA.forEach(qa => {
-                sp += `\n\nÎntrebare/cuvinte cheie: "${qa.q}"`;
-                sp += `\nRăspuns: ${qa.a}`;
-              });
+              sp += `\n\nRĂSPUNSURI PREDEFINITE:`;
+              validQA.forEach(qa => { sp += `\nQ: "${qa.q}" → A: ${qa.a}`; });
             }
           }
 
-          // Add file knowledge
           if (kb.files && kb.files.length > 0) {
-            sp += `\n\nDOCUMENTE ÎNCĂRCATE (cunoștințe din fișiere):`;
+            sp += `\n\nDOCUMENTE:`;
             kb.files.forEach(f => {
-              if (f.content) {
-                sp += `\n\n[Fișier: ${f.name}]:`;
-                sp += `\n${f.content.substring(0, 10000)}`;
-              }
+              if (f.content) sp += `\n[${f.name}]: ${f.content.substring(0, 10000)}`;
             });
-          }
-
-          // Add custom system prompt
-          if (kb.systemPromptCustom && kb.systemPromptCustom.trim()) {
-            sp += `\n\nINSTRUCȚIUNI SUPLIMENTARE DE LA ADMINISTRATOR:`;
-            sp += `\n${kb.systemPromptCustom.trim()}`;
           }
         } catch(e) {}
 
         return sp;
       }
-
       // ── Message Rendering ──
       function chatMarkdown(text) {
         // Basic markdown → HTML
@@ -12968,12 +12663,28 @@ La fiecare produs menționat, include una din:
         localStorage.removeItem(CHAT_HISTORY_STORE);
         const container = document.getElementById('chat-messages');
         if (container) {
-          // Keep only the welcome message
           const msgs = container.querySelectorAll('.chat-msg');
           msgs.forEach((m, i) => { if (i > 0) m.remove(); });
         }
         const sugs = document.getElementById('chat-suggestions');
         if (sugs) sugs.style.display = 'flex';
+      }
+
+      function resetChatConversation() {
+        chatConversation = [];
+        localStorage.removeItem(CHAT_HISTORY_STORE);
+        const container = document.getElementById('chat-messages');
+        if (container) {
+          // Remove all messages except the welcome one (first child)
+          const msgs = container.querySelectorAll('.chat-msg');
+          msgs.forEach((m, i) => { if (i > 0) m.remove(); });
+        }
+        // Show suggestions again
+        const sugs = document.getElementById('chat-suggestions');
+        if (sugs) { sugs.style.display = 'flex'; updateChatStarters(); }
+        // Focus input
+        const inp = document.getElementById('chat-input');
+        if (inp) { inp.value = ''; inp.focus(); }
       }
 
       // ── Dynamic Conversation Starters ──
@@ -13365,7 +13076,10 @@ La fiecare produs menționat, include una din:
               <span>Expert materiale construcții</span>
             </div>
           </div>
-          <button class="chat-close-btn" onclick="closeChat()" title="Închide">✕</button>
+          <div style="display:flex;gap:6px">
+            <button class="chat-close-btn" onclick="resetChatConversation()" title="Conversație nouă" style="font-size:14px">🔄</button>
+            <button class="chat-close-btn" onclick="closeChat()" title="Închide">✕</button>
+          </div>
         </div>
 
         <div class="chat-trust-legend" id="chat-trust-legend" style="display:none">
