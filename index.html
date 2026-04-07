@@ -15780,10 +15780,16 @@ LIMBA: ${lang === 'ro' ? 'Română' : lang === 'en' ? 'English' : 'Auto-detect'}
         if (!kb.serpApiKey) { toast('⚠ Adaugă cheia SerpAPI mai întâi'); return; }
         toast('🔍 Testez conexiunea SerpAPI...');
         try {
-          const resp = await fetch(
-            'https://serpapi.com/search.json?engine=google_shopping&q=BCA+Elpreco+200mm&gl=ro&hl=ro&num=3&api_key=' + encodeURIComponent(kb.serpApiKey)
-          );
-          const data = await resp.json();
+          const testUrl = 'https://serpapi.com/search.json?engine=google_shopping&q=BCA+Elpreco+200mm&gl=ro&hl=ro&num=3&api_key=' + encodeURIComponent(kb.serpApiKey);
+          let data;
+          try {
+            const resp = await fetch(testUrl, { cache: 'no-cache' });
+            data = await resp.json();
+          } catch(corsErr) {
+            const proxyResp = await fetch('https://api.allorigins.win/get?url=' + encodeURIComponent(testUrl));
+            const proxyData = await proxyResp.json();
+            data = JSON.parse(proxyData.contents || '{}');
+          }
           if (data.error) throw new Error(data.error);
           const results = data.shopping_results || [];
           toast('✅ SerpAPI funcționează! ' + results.length + ' rezultate găsite');
@@ -15799,14 +15805,28 @@ LIMBA: ${lang === 'ro' ? 'Română' : lang === 'en' ? 'English' : 'Auto-detect'}
         const searchTerm = sapCode ? materialName + ' ' + sapCode : materialName;
         const query = encodeURIComponent(searchTerm + ' pret');
         const url = `https://serpapi.com/search.json?engine=google_shopping&q=${query}&gl=ro&hl=ro&num=20&api_key=${encodeURIComponent(serpKey)}`;
-        let resp, data;
+        let data;
         try {
-          resp = await fetch(url);
-          if (!resp.ok) throw new Error('SerpAPI HTTP ' + resp.status);
-          data = await resp.json();
+          // Incercam direct mai intai
+          let fetchOk = false;
+          try {
+            const resp = await fetch(url, { cache: 'no-cache' });
+            if (resp.ok) { data = await resp.json(); fetchOk = true; }
+          } catch(e) { /* CORS blocat */ }
+
+          // Fallback CORS proxy
+          if (!fetchOk) {
+            const proxyUrl = 'https://api.allorigins.win/get?url=' + encodeURIComponent(url);
+            const proxyResp = await fetch(proxyUrl, { cache: 'no-cache' });
+            if (!proxyResp.ok) throw new Error('Proxy HTTP ' + proxyResp.status);
+            const proxyData = await proxyResp.json();
+            data = JSON.parse(proxyData.contents || '{}');
+          }
+
+          if (!data) throw new Error('Niciun raspuns de la SerpAPI');
           if (data.error) throw new Error(data.error);
         } catch(fetchErr) {
-          throw new Error('SerpAPI fetch: ' + fetchErr.message);
+          throw new Error('SerpAPI: ' + fetchErr.message);
         }
 
         const results = data.shopping_results || [];
