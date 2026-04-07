@@ -2684,28 +2684,87 @@
       }
 
       .oferte-layout {
-        max-width: 1100px;
+        display: grid;
+        grid-template-rows: auto 1fr;
+        grid-template-columns: 300px 1fr;
+        grid-template-areas: "header header" "list detail";
+        max-width: 1280px;
         margin: 0 auto;
-        padding: 24px 28px;
+        padding: 20px 20px 0;
+        gap: 0 16px;
+        height: calc(100vh - 52px);
+        overflow: hidden;
       }
 
       .oferte-header {
+        grid-area: header;
         display: flex; align-items: center; justify-content: space-between;
-        margin-bottom: 20px; flex-wrap: wrap; gap: 12px;
+        margin-bottom: 14px; flex-wrap: wrap; gap: 10px;
       }
       .oferte-title { font-size: 20px; font-weight: 800; color: var(--navy); }
       .oferte-sub { font-size: 12px; color: var(--txt3); margin-top: 2px; }
 
+      #oferte-list {
+        grid-area: list;
+        overflow-y: auto;
+        border-right: 1px solid var(--border2);
+        padding-right: 12px;
+        padding-bottom: 20px;
+      }
+
+      #oferta-detail-container {
+        grid-area: detail;
+        overflow-y: auto;
+        padding-bottom: 20px;
+      }
+
+      #oferte-empty {
+        grid-area: detail;
+      }
+
+      /* ── MOBILE: un singur panou la un moment dat ── */
+      @media (max-width: 700px) {
+        .oferte-layout {
+          grid-template-columns: 1fr;
+          grid-template-areas: "header" "list" "detail";
+          height: auto;
+          padding: 12px 12px 0;
+          gap: 0;
+          overflow: visible;
+        }
+        #oferte-list {
+          border-right: none;
+          border-bottom: 1px solid var(--border2);
+          padding-right: 0;
+          padding-bottom: 12px;
+          margin-bottom: 12px;
+          max-height: 280px;
+          overflow-y: auto;
+        }
+        #oferta-detail-container { padding-bottom: 80px; }
+      }
+
+      /* ── TABLET ── */
+      @media (min-width: 701px) and (max-width: 1024px) {
+        .oferte-layout {
+          grid-template-columns: 260px 1fr;
+          padding: 16px 16px 0;
+        }
+      }
+
       /* Lista oferte */
-      .oferta-card {
+            .oferta-card {
         background: var(--surface);
         border: 1px solid var(--border2);
-        border-radius: var(--r);
-        padding: 16px 18px;
-        margin-bottom: 10px;
-        display: flex; align-items: center; gap: 14px;
-        cursor: pointer; transition: box-shadow .15s, border-color .15s;
+        border-radius: var(--r-sm);
+        padding: 10px 12px;
+        margin-bottom: 8px;
+        display: flex; align-items: center; gap: 10px;
+        cursor: pointer; transition: box-shadow .12s, border-color .12s;
       }
+      .oferta-card:hover { border-color: var(--blue); box-shadow: 0 2px 8px rgba(30,58,95,.08); }
+      .oferta-card.active { border-color: var(--blue); background: var(--blue-l); box-shadow: 0 2px 12px rgba(30,58,95,.12); }
+
       .oferta-card:hover { box-shadow: var(--shadow); border-color: var(--border); }
       .oferta-card.active { border-color: var(--orange); box-shadow: 0 0 0 2px var(--orange-m); }
       .oferta-status {
@@ -2736,11 +2795,17 @@
         margin-top: 16px;
       }
       .oferta-detail-header {
-        background: linear-gradient(135deg, var(--navy), var(--navy2));
-        color: #fff; padding: 16px 20px;
-        display: flex; align-items: center; justify-content: space-between;
+        background: var(--navy); color: #fff;
+        border-radius: var(--r) var(--r) 0 0;
+        padding: 14px 16px;
+        display: flex; align-items: flex-start; justify-content: space-between;
         flex-wrap: wrap; gap: 10px;
       }
+      @media (max-width: 600px) {
+        .oferta-detail-header { flex-direction: column; }
+        .oferta-detail-actions { width: 100%; justify-content: flex-start; }
+      }
+
       .oferta-detail-title { font-size: 16px; font-weight: 800; }
       .oferta-detail-actions { display: flex; gap: 8px; flex-wrap: wrap; }
 
@@ -2786,12 +2851,28 @@
       }
 
       /* Modal creare oferta */
-      #oferta-new-overlay {
-        position: fixed; inset: 0; z-index: 9000;
-        background: rgba(28,43,74,.55); backdrop-filter: blur(4px);
+      #oferta-new-overlay, #notita-new-overlay, #notita-edit-overlay {
+        position: fixed; inset: 0;
+        background: rgba(0,0,0,.5);
+        z-index: 1100;
         display: flex; align-items: center; justify-content: center;
         padding: 16px;
+        overflow-y: auto;
       }
+      #oferta-new-modal {
+        background: var(--surface);
+        border-radius: var(--r);
+        width: 100%; max-width: 520px;
+        box-shadow: 0 20px 60px rgba(0,0,0,.25);
+        display: flex; flex-direction: column;
+        max-height: 90vh;
+        overflow: hidden;
+      }
+      @media (max-width: 540px) {
+        #oferta-new-modal { max-height: 98vh; border-radius: var(--r-sm); }
+        #oferta-new-overlay, #notita-new-overlay, #notita-edit-overlay { padding: 6px; align-items: flex-end; }
+      }
+
       #oferta-new-modal {
         background: var(--surface); border-radius: var(--r-lg);
         box-shadow: var(--shadow-lg);
@@ -2942,25 +3023,128 @@
     <!-- ═══════════════ OFERTE AI ═══════════════ -->
     <div id="screen-oferte" class="screen" style="display:none">
 
+      <!-- Modal Notita Rapida -->
+      <div id="notita-new-overlay" style="display:none">
+        <div id="oferta-new-modal">
+          <div class="onm-header">
+            <div>
+              <div style="font-size:15px;font-weight:800">📝 Notiță Rapidă</div>
+              <div style="font-size:11px;opacity:.65;margin-top:2px">Salvezi acum, calculezi sau ceri AI mai târziu</div>
+            </div>
+            <button class="tcm-close" onclick="notitaCloseModal()">×</button>
+          </div>
+          <div class="onm-body" style="overflow-y:auto;flex:1">
+            <div class="edit-field" style="margin-bottom:10px">
+              <label class="label">Nume Client</label>
+              <input type="text" class="input" id="notita-client" placeholder="ex: Ion Popescu"/>
+            </div>
+            <div class="edit-field" style="margin-bottom:10px">
+              <label class="label">Adresă de Livrare</label>
+              <input type="text" class="input" id="notita-adresa" placeholder="ex: Str. Mărului 12, Cluj-Napoca"/>
+            </div>
+            <div class="edit-field" style="margin-bottom:10px">
+              <label class="label">Notițe materiale / observații</label>
+              <textarea class="input" id="notita-text" rows="5"
+                placeholder="ex: 150mp BCA 30cm, 20 saci adeziv, 5 paleți gresie 60x60..."
+                style="resize:vertical;font-size:13px;line-height:1.6"></textarea>
+            </div>
+            <div class="edit-field" style="margin-bottom:0">
+              <label class="label">Etichetă / Status</label>
+              <select class="input" id="notita-eticheta" style="font-size:12px">
+                <option value="nou">🆕 Nouă</option>
+                <option value="in-lucru">⚙ În Lucru</option>
+                <option value="trimis">📤 Trimis</option>
+                <option value="finalizat">✅ Finalizat</option>
+              </select>
+            </div>
+          </div>
+          <div class="onm-footer" style="display:flex;gap:8px;flex-wrap:wrap">
+            <button class="btn btn-ghost" onclick="notitaCloseModal()">Anulează</button>
+            <button class="btn" style="background:var(--surface2);color:var(--navy);border:1.5px solid var(--border2)" onclick="notitaSave()">💾 Salvează notiță</button>
+            <button class="btn btn-primary" onclick="notitaSaveAndAI()" style="margin-left:auto">🤖 Salvează + Trimite AI</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Modal Confirm Custom (confirm() blocat in unele browsere/extensii) -->
+      <div id="confirm-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9999;align-items:center;justify-content:center;padding:16px">
+        <div style="background:var(--surface);border-radius:var(--r);padding:24px;width:100%;max-width:360px;box-shadow:0 20px 60px rgba(0,0,0,.3);text-align:center">
+          <div style="font-size:28px;margin-bottom:12px" id="confirm-icon">🗑</div>
+          <div style="font-size:15px;font-weight:800;color:var(--navy);margin-bottom:8px" id="confirm-title">Confirmare</div>
+          <div style="font-size:13px;color:var(--txt2);margin-bottom:20px" id="confirm-msg">Ești sigur?</div>
+          <div style="display:flex;gap:10px;justify-content:center">
+            <button class="btn btn-ghost" onclick="confirmResolve(false)" style="min-width:100px">Anulează</button>
+            <button class="btn" id="confirm-ok-btn" onclick="confirmResolve(true)" style="min-width:100px;background:var(--red);color:#fff;border-color:var(--red)">Șterge</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Modal Editare Notita -->
+      <div id="notita-edit-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:1200;align-items:center;justify-content:center;padding:16px">
+        <div style="background:var(--surface);border-radius:var(--r);width:100%;max-width:520px;box-shadow:0 20px 60px rgba(0,0,0,.25);display:flex;flex-direction:column;max-height:90vh">
+          <div style="padding:16px 18px 14px;border-bottom:1px solid var(--border2);display:flex;align-items:center;justify-content:space-between;background:var(--navy);border-radius:var(--r) var(--r) 0 0">
+            <div>
+              <div style="font-size:15px;font-weight:800;color:#fff">✏ Editează Notiță</div>
+              <div style="font-size:11px;color:rgba(255,255,255,.6);margin-top:2px" id="notita-edit-subtitle">Modifică și salvează</div>
+            </div>
+            <button onclick="notitaEditClose()" style="background:rgba(255,255,255,.15);border:none;color:#fff;width:28px;height:28px;border-radius:50%;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center">×</button>
+          </div>
+          <div style="padding:16px 18px;overflow-y:auto;flex:1">
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
+              <div>
+                <label class="label">Nume Client</label>
+                <input type="text" class="input" id="ne-client" placeholder="ex: Ion Popescu"/>
+              </div>
+              <div>
+                <label class="label">Adresă de Livrare</label>
+                <input type="text" class="input" id="ne-adresa" placeholder="ex: Str. Mărului 12"/>
+              </div>
+            </div>
+            <div style="margin-bottom:12px">
+              <label class="label">Materiale & observații</label>
+              <textarea class="input" id="ne-text" rows="6"
+                style="resize:vertical;font-size:13px;line-height:1.6"
+                placeholder="ex: 150mp BCA 30cm, 20 saci adeziv..."></textarea>
+            </div>
+            <div>
+              <label class="label">Status</label>
+              <select class="input" id="ne-eticheta" style="font-size:12px">
+                <option value="salvat">📝 Neprocesată</option>
+                <option value="in-lucru">⚙ În Lucru</option>
+                <option value="trimis">📤 Trimis</option>
+                <option value="finalizat">✅ Finalizat</option>
+              </select>
+            </div>
+          </div>
+          <div style="padding:12px 18px;border-top:1px solid var(--border2);display:flex;gap:8px">
+            <button class="btn btn-ghost" onclick="notitaEditClose()">Anulează</button>
+            <button class="btn btn-primary" style="flex:1" onclick="notitaEditSave()">💾 Salvează modificările</button>
+          </div>
+        </div>
+      </div>
+
       <!-- Modal Oferta Noua -->
       <div id="oferta-new-overlay" style="display:none">
         <div id="oferta-new-modal">
           <div class="onm-header">
             <div>
-              <div style="font-size:15px;font-weight:800">🗂 Ofertă Nouă AI</div>
-              <div style="font-size:11px;opacity:.65;margin-top:2px">Descrie materialele — AI le identifică automat</div>
+              <div style="font-size:15px;font-weight:800">📋 Notiță Nouă</div>
+              <div style="font-size:11px;opacity:.65;margin-top:2px">Salvezi rapid sau trimiți la AI — audio disponibil în ambele cazuri</div>
             </div>
             <button class="tcm-close" onclick="ofertaCloseModal()">×</button>
           </div>
-          <div class="onm-body">
-            <!-- Client -->
-            <div class="edit-field" style="margin-bottom:10px">
-              <label class="label">Nume Client</label>
-              <input type="text" class="input" id="oferta-client" placeholder="ex: Ion Popescu"/>
-            </div>
-            <div class="edit-field" style="margin-bottom:14px">
-              <label class="label">Adresă de Livrare</label>
-              <input type="text" class="input" id="oferta-adresa" placeholder="ex: Str. Mărului 12, Cluj-Napoca, jud. Cluj"/>
+
+          <div class="onm-body" style="overflow-y:auto;flex:1">
+            <!-- Client + Adresa -->
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
+              <div>
+                <label class="label">Nume Client</label>
+                <input type="text" class="input" id="oferta-client" placeholder="ex: Ion Popescu"/>
+              </div>
+              <div>
+                <label class="label">Adresă de Livrare</label>
+                <input type="text" class="input" id="oferta-adresa" placeholder="ex: Str. Mărului 12, Cluj"/>
+              </div>
             </div>
 
             <!-- OpenAI key warning -->
@@ -2970,31 +3154,46 @@
                 <input type="password" class="input" id="openai-key-input" placeholder="sk-..." style="flex:1;font-size:12px"/>
                 <button class="btn btn-sm" style="background:var(--amber);color:#fff;white-space:nowrap" onclick="ofertaSaveOpenAIKey()">Salvează</button>
               </div>
-              <div style="font-size:10px;color:var(--txt3);margin-top:6px">Se salvează local în browser. Necesar doar pentru voce — textul manual funcționează fără cheie OpenAI.</div>
+              <div style="font-size:10px;color:var(--txt3);margin-top:6px">Se salvează local. Necesar doar pentru voce — textul manual funcționează fără cheie OpenAI.</div>
             </div>
 
             <!-- VOCE -->
             <div class="voice-section" id="oferta-voice-section">
               <button class="voice-btn" id="oferta-voice-btn" onclick="ofertaToggleRecording()">🎤</button>
-              <div class="voice-status" id="oferta-voice-status">Apasă pentru a dicta materialele</div>
-              <div class="voice-transcript" id="oferta-transcript"></div>
+              <div class="voice-status" id="oferta-voice-status">Apasă pentru înregistrare vocală</div>
             </div>
 
-            <div style="text-align:center;font-size:11px;color:var(--txt3);margin:10px 0">— sau scrie direct —</div>
-
-            <!-- TEXT MANUAL -->
-            <div class="edit-field">
-              <label class="label">Descriere materiale (text liber sau listă)</label>
+            <!-- TEXT -->
+            <div style="margin-bottom:0">
+              <label class="label">Materiale & observații</label>
               <textarea class="input" id="oferta-text" rows="5"
-                placeholder="ex: Am nevoie de BCA Elpreco 650×250×200 pentru 80mp perete exterior, adeziv BCA, centura beton 20cm, plus hidroizolatie pentru 2 bai de cate 8mp..."></textarea>
+                placeholder="ex: 150mp BCA 30cm, 20 saci adeziv Termofix, 5 paleți gresie 60x60, livrare urgentă..."
+                style="resize:vertical;font-size:13px;line-height:1.6"></textarea>
             </div>
-            <div style="font-size:10px;color:var(--txt3);margin-top:4px">Poți scrie liber sau ca listă. AI-ul înțelege ambele formate.</div>
           </div>
-          <div class="onm-footer">
-            <button class="btn btn-primary" style="flex:1;padding:12px" onclick="ofertaProcess()">
-              🤖 Identifică Materialele
-            </button>
-            <button class="btn btn-ghost btn-sm" onclick="ofertaCloseModal()">Anulează</button>
+
+          <!-- FOOTER CU CELE 2 ACTIUNI -->
+          <div class="onm-footer" style="flex-direction:column;gap:8px;padding:14px 18px">
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+              <!-- Salveaza Notita -->
+              <button onclick="notitaSalveazaRapid()"
+                style="display:flex;flex-direction:column;align-items:center;gap:4px;padding:12px 10px;background:var(--surface2);border:2px solid var(--border2);border-radius:var(--r);cursor:pointer;transition:all .15s"
+                onmouseover="this.style.borderColor='var(--navy)'" onmouseout="this.style.borderColor='var(--border2)'">
+                <span style="font-size:20px">💾</span>
+                <span style="font-size:12px;font-weight:800;color:var(--navy)">Salvează Notiță</span>
+                <span style="font-size:10px;color:var(--txt3);text-align:center">→ Notițe Salvate<br>Neprocesate</span>
+              </button>
+
+              <!-- Identifica cu AI -->
+              <button onclick="ofertaProcess()"
+                style="display:flex;flex-direction:column;align-items:center;gap:4px;padding:12px 10px;background:var(--navy);border:2px solid var(--navy);border-radius:var(--r);cursor:pointer;transition:all .15s"
+                onmouseover="this.style.opacity='.9'" onmouseout="this.style.opacity='1'">
+                <span style="font-size:20px">🤖</span>
+                <span style="font-size:12px;font-weight:800;color:#fff">Identifică cu AI</span>
+                <span style="font-size:10px;color:rgba(255,255,255,.7);text-align:center">→ Notițe în Lucru<br>AI procesează</span>
+              </button>
+            </div>
+            <button class="btn btn-ghost btn-sm" onclick="ofertaCloseModal()" style="width:100%;text-align:center">Anulează</button>
           </div>
         </div>
       </div>
@@ -3003,12 +3202,12 @@
       <div class="oferte-layout">
         <div class="oferte-header">
           <div>
-            <div class="oferte-title">🗂 Oferte în Lucru AI</div>
-            <div class="oferte-sub">Dictezi sau scrii materialele — AI le identifică, tu ajustezi prețurile și trimiți oferta</div>
+            <div class="oferte-title">📋 Notițe Agent</div>
+            <div class="oferte-sub">Salvezi rapid → procesezi manual sau cu AI → finalizezi</div>
           </div>
-          <div style="display:flex;gap:8px">
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
             <button class="btn btn-ghost btn-sm" onclick="showLanding()">← Înapoi</button>
-            <button class="btn btn-primary" onclick="ofertaOpenModal()">+ Ofertă Nouă</button>
+            <button class="btn btn-primary" onclick="ofertaOpenModal()">+ Notiță Nouă</button>
           </div>
         </div>
 
@@ -7310,7 +7509,7 @@
       }
 
       function dbRemoveGar(type, i) {
-        if (!confirm("Ștergi garanția de palet pentru acest produs?")) return;
+        if (!safeConfirm("Ștergi garanția de palet pentru acest produs?")) return;
         const db = type === "bca" ? BCA_DB : CAR_DB;
         if (!db[i]) return;
         db[i].garantiePalet = null;
@@ -7320,7 +7519,7 @@
       }
 
       function adminDeleteDBRow(type, i) {
-        if (!confirm("Ștergi acest produs?")) return;
+        if (!safeConfirm("Ștergi acest produs?")) return;
         const db = type === "bca" ? BCA_DB : CAR_DB;
         db.splice(i, 1);
         adminSaveProducts();
@@ -7484,7 +7683,7 @@
       }
 
       function adminDeleteTVGRow(sub, i) {
-        if (!confirm("Ștergi?")) return;
+        if (!safeConfirm("Ștergi?")) return;
         TVG[sub].splice(i, 1);
         adminSaveProducts();
         renderAdminStageMats();
@@ -7603,7 +7802,7 @@
       function adminGCDeleteSistem(sub) {
         const sys = GC_SYSTEMS[sub];
         if (!sys) return;
-        if (!confirm(`Stergi sistemul "${sys.label}" cu ${sys.items.length} materiale? Actiunea este ireversibila.`)) return;
+        if (!safeConfirm(`Stergi sistemul "${sys.label}" cu ${sys.items.length} materiale? Actiunea este ireversibila.`)) return;
         delete GC_SYSTEMS[sub];
         window._adminGCSub = Object.keys(GC_SYSTEMS)[0] || null;
         adminSaveProducts();
@@ -7613,7 +7812,7 @@
 
 
       function adminDeleteGCRow(sub, i) {
-        if (!confirm("Ștergi materialul?")) return;
+        if (!safeConfirm("Ștergi materialul?")) return;
         GC_SYSTEMS[sub].items.splice(i, 1);
         adminSaveProducts();
         renderAdminStageMats();
@@ -8654,7 +8853,7 @@
       }
 
       function adminResetStage(id) {
-        if (!confirm("Resetezi etapa la textele implicite?")) return;
+        if (!safeConfirm("Resetezi etapa la textele implicite?")) return;
         const def = STAGES_DEFAULT.find((s) => s.id === id);
         const idx = stagesData.findIndex((s) => s.id === id);
         if (def && idx >= 0)
@@ -8931,7 +9130,7 @@
       }
 
       function adminResetPreturi() {
-        if (!confirm("Ștergi TOATE prețurile introduse?")) return;
+        if (!safeConfirm("Ștergi TOATE prețurile introduse?")) return;
         PRICE_TABLE = {};
         savePrices();
         renderAdminPreturi();
@@ -9773,7 +9972,7 @@
       }
 
       function smDeleteRow(sid, i) {
-        if (!confirm("Ștergi materialul?")) return;
+        if (!safeConfirm("Ștergi materialul?")) return;
         STAGE_MATS_DB[sid].splice(i,1);
         saveStageMats();
         renderAdminStageMats();
@@ -9808,7 +10007,7 @@
       }
 
       function smDelVariant(sid, mi, vi) {
-        if (!confirm("Ștergi această variantă?")) return;
+        if (!safeConfirm("Ștergi această variantă?")) return;
         const m = STAGE_MATS_DB[sid]?.[mi];
         if (!m || !m.variants) return;
         m.variants.splice(vi,1);
@@ -9818,7 +10017,7 @@
       }
 
       function smResetStage(sid) {
-        if (!confirm("Resetezi materialele acestei etape la valorile implicite?")) return;
+        if (!safeConfirm("Resetezi materialele acestei etape la valorile implicite?")) return;
         try {
           const saved = localStorage.getItem(SMATS_KEY);
           if (saved) { const d = JSON.parse(saved); delete d[sid]; localStorage.setItem(SMATS_KEY, JSON.stringify(d)); }
@@ -10144,7 +10343,7 @@
       }
 
       async function manualCloudLoad() {
-        if (!confirm('Atenție: datele locale vor fi suprascrise cu cele de pe Drive. Continui?')) return;
+        if (!safeConfirm('Atenție: datele locale vor fi suprascrise cu cele de pe Drive. Continui?')) return;
         toast('⬇ Se încarcă de pe Drive...');
         const ok = await cloudLoad();
         if (ok) {
@@ -10199,7 +10398,7 @@
         const url = $('gs-url-input')?.value?.trim();
         if (!url) { toast('⚠ Introdu un URL valid.'); return; }
         if (!url.includes('docs.google.com') && !url.includes('csv')) {
-          if (!confirm('URL-ul nu pare a fi un Google Sheet publicat ca CSV. Continuă oricum?')) return;
+          if (!safeConfirm('URL-ul nu pare a fi un Google Sheet publicat ca CSV. Continuă oricum?')) return;
         }
         appSettings.googleSheetUrl = url;
         appSettings.googleSheetEnabled = true;
@@ -10630,7 +10829,7 @@
       function loadDefaultPrompt() {
         const ta = $('ai-system-custom');
         if (!ta) return;
-        if (ta.value.trim() && !confirm('Aceasta va înlocui prompt-ul curent. Continui?')) return;
+        if (ta.value.trim() && !safeConfirm('Aceasta va înlocui prompt-ul curent. Continui?')) return;
         ta.value = `REGULI DE COMUNICARE:\n\n1. Răspunde SCURT și DIRECT — doar ce te-am întrebat, nimic în plus.\n2. Dacă există mai multe opțiuni (furnizori, grosimi, modele) → ÎNTREABĂ-MĂ pe care îl vreau, nu alege tu.\n3. După ce aleg → dă-mi DOAR: produsul, cantitatea, ambalajul, paleții/sacii. Atât.\n4. NU explica ce e materialul, cum se montează, sau alte informații pe care nu le-am cerut.\n5. Când îți cer un material suplimentar (mortar, plasă, adeziv) → răspunde DOAR despre acel material.\n6. NU face cross-sell automat. Nu-mi sugera alte produse decât dacă te rog eu.\n7. Vorbește ca un coleg care știe meserie — scurt, la obiect, fără introduceri.\n\nFLUX CONVERSAȚIE:\n\nPas 1: Primesc cererea (ex: "100mp BCA 25cm")\nPas 2: Dacă sunt opțiuni → întreb scurt: "Avem: Elpreco, Macon Deva, Ytong. Care?"\nPas 3: Clientul alege → răspund O SINGURĂ LINIE cu cantitatea\nPas 4: STOP. Aștept următoarea întrebare.\n\nDacă mă întreabă "Cât mortar?" → răspund DOAR mortarul.\nDacă mă întreabă "Mai ce îmi trebuie?" → ATUNCI listez materialele complementare.\n\nFORMAT RĂSPUNS:\n- Maxim 1-3 rânduri per răspuns simplu\n- Cifrele mari: cantitate, paleți/saci = BOLD\n- Link mathaus.ro la final, pe un rând separat\n- Fără emoji excesiv — maxim 1-2 per mesaj\n- Fără tabele lungi decât dacă le cer explicit\n\nCE NU FAC NICIODATĂ:\n- Nu dau prețuri inventate — dacă nu știu, zic "verifică pe mathaus.ro"\n- Nu inventez link-uri — dau link de căutare dacă nu am link exact\n- Nu recomand produse de pe alte magazine\n- Nu explic lucruri pe care consilierul le știe deja`;
         ta.dispatchEvent(new Event('input'));
       }
@@ -11169,8 +11368,9 @@ PROGRAM MAGAZINE:
         }
       }
 
-      function catalogDelete() {
-        if (!confirm('Ștergi tot catalogul? Acțiunea nu poate fi anulată.')) return;
+      async function catalogDelete() {
+        const _okCat = await showConfirm('Toate produsele vor fi șterse permanent.', 'Ștergi catalogul?', '📦', 'Da, șterge tot', 'var(--red)');
+        if (!_okCat) return;
         localStorage.removeItem(CATALOG_KEY);
         renderAdminAIKB();
         toast('✅ Catalog șters');
@@ -11691,8 +11891,8 @@ PROGRAM MAGAZINE:
     <div style="border-top:1px solid var(--border2);padding-top:16px;margin-bottom:16px">
       <label class="label" style="color:var(--red)">⚠ Zona periculoasă</label>
       <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
-        <button class="btn btn-ghost" style="font-size:12px;padding:8px 16px;border-color:var(--red);color:var(--red)" onclick="if(confirm('Ștergi tot istoricul de chat?')){clearChatHistory();alert('Istoric șters!')}">🗑 Șterge istoric chat</button>
-        <button class="btn btn-ghost" style="font-size:12px;padding:8px 16px;border-color:var(--red);color:var(--red)" onclick="if(confirm('Resetezi TOATĂ configurația AI (persona, training, setări)?')){localStorage.removeItem(AI_KB_STORE);localStorage.removeItem(AI_USAGE_STORE);renderAdminAIKB();alert('Resetat!')}">🔄 Resetează complet AI</button>
+        <button class="btn btn-ghost" style="font-size:12px;padding:8px 16px;border-color:var(--red);color:var(--red)" onclick="if(safeConfirm('Ștergi tot istoricul de chat?')){clearChatHistory();toast('✅ Istoric șters!')}">🗑 Șterge istoric chat</button>
+        <button class="btn btn-ghost" style="font-size:12px;padding:8px 16px;border-color:var(--red);color:var(--red)" onclick="if(safeConfirm('Resetezi TOATĂ configurația AI (persona, training, setări)?')){localStorage.removeItem(AI_KB_STORE);localStorage.removeItem(AI_USAGE_STORE);renderAdminAIKB();alert('Resetat!')}">🔄 Resetează complet AI</button>
       </div>
     </div>
   </div>`;
@@ -12045,7 +12245,7 @@ function sendWeeklyReport() {
   <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px">
     <div style="font-size:11px;font-weight:700;color:var(--txt3);letter-spacing:1px;text-transform:uppercase;font-family:var(--mono)">💬 Feedback Conversații AI</div>
     <button class="btn btn-ghost btn-sm" style="color:var(--red);font-size:11px"
-      onclick="if(confirm('Ștergi tot istoricul de feedback?')){localStorage.removeItem('mathaus_chat_feedback');renderAdminAIKB();}">
+      onclick="if(safeConfirm('Ștergi tot istoricul de feedback?')){localStorage.removeItem('mathaus_chat_feedback');renderAdminAIKB();}">
       🗑 Resetează
     </button>
   </div>
@@ -15162,6 +15362,190 @@ LIMBA: ${lang === 'ro' ? 'Română' : lang === 'en' ? 'English' : 'Auto-detect'}
         toast('✅ Cheie OpenAI salvată!');
       }
 
+
+      // ══════════════════════════════════════
+      // NOTIȚE AGENT — Salvare + Calcul Manual
+      // ══════════════════════════════════════
+
+
+
+
+      function renderEtichetaButtons(id, et) {
+        const ETICHETA_LABELS = { 'nou':'🆕 Nouă', 'in-lucru':'⚙ În Lucru', 'trimis':'📤 Trimis', 'finalizat':'✅ Finalizat' };
+        const ETICHETA_COLORS = { 'nou':'#3b82f6', 'in-lucru':'#f59e0b', 'trimis':'#7c3aed', 'finalizat':'#16a34a' };
+        return ['nou','in-lucru','trimis','finalizat'].map(e => {
+          const isActive = e === et;
+          const color = ETICHETA_COLORS[e] || 'var(--txt3)';
+          return '<button onclick="notitaSetEticheta(\''+id+'\',\''+e+'\')" '
+            + 'style="font-size:11px;padding:4px 12px;border-radius:20px;cursor:pointer;'
+            + 'border:1.5px solid '+(isActive ? color : 'var(--border)')+';'
+            + 'background:'+(isActive ? color+'22' : 'transparent')+';'
+            + 'color:'+(isActive ? color : 'var(--txt3)')+';'
+            + 'font-weight:'+(isActive ? '700' : '400')+';">'
+            + ETICHETA_LABELS[e] + '</button>';
+        }).join('');
+      }
+
+      function notitaCopiaText(id) {
+        const list = loadOferte();
+        const o = list.find(x => x.id === id);
+        if (!o) return;
+        navigator.clipboard.writeText(o.text || '').then(() => toast('✅ Text copiat!'));
+      }
+
+      function notitaSalveazaRapid() {
+        const client = ($('oferta-client')?.value || '').trim() || 'Client';
+        const adresa = ($('oferta-adresa')?.value || '').trim();
+        const text = ($('oferta-text')?.value || '').trim();
+        if (!text) { toast('⚠ Scrie cel puțin câteva materiale'); return; }
+        const id = 'nt_' + Date.now();
+        const notita = {
+          id, client, adresa, text,
+          tip: 'notita',
+          eticheta: 'salvat',
+          data: new Date().toLocaleDateString('ro-RO'),
+          ts: Date.now(), status: 'notita',
+          materiale: [], neidentificate: []
+        };
+        const list = loadOferte();
+        list.unshift(notita);
+        saveOferte(list);
+        ofertaCloseModal();
+        _ofertaSelectedId = id;
+        ofertaRenderList();
+        ofertaShowDetail(id);
+        toast('✅ Notiță salvată în Neprocesate');
+      }
+
+      function notitaOpenModal() {
+        if ($('notita-client')) $('notita-client').value = '';
+        if ($('notita-adresa')) $('notita-adresa').value = '';
+        if ($('notita-text')) $('notita-text').value = '';
+        if ($('notita-eticheta')) $('notita-eticheta').value = 'nou';
+        const ov = $('notita-new-overlay');
+        if (ov) ov.style.display = 'flex';
+      }
+
+      function notitaCloseModal() {
+        const ov = $('notita-new-overlay');
+        if (ov) ov.style.display = 'none';
+      }
+
+      function notitaSave() {
+        const client = ($('notita-client')?.value || '').trim() || 'Client';
+        const adresa = ($('notita-adresa')?.value || '').trim();
+        const text = ($('notita-text')?.value || '').trim();
+        const eticheta = $('notita-eticheta')?.value || 'nou';
+
+        if (!text) { toast('⚠ Scrie cel puțin câteva materiale'); return; }
+
+        const id = 'nt_' + Date.now();
+        const notita = {
+          id, client, adresa, text, eticheta,
+          tip: 'notita',  // diferentiem de oferte AI
+          data: new Date().toLocaleDateString('ro-RO'),
+          ts: Date.now(),
+          status: 'notita',
+          materiale: [],
+          neidentificate: []
+        };
+
+        const list = loadOferte();
+        list.unshift(notita);
+        saveOferte(list);
+        notitaCloseModal();
+        _ofertaSelectedId = id;
+        ofertaRenderList();
+        ofertaShowDetail(id);
+        toast('✅ Notiță salvată!');
+      }
+
+      function notitaSaveAndAI() {
+        // Copiem datele in modalul AI si lansam procesarea
+        const client = $('notita-client')?.value || '';
+        const adresa = $('notita-adresa')?.value || '';
+        const text = $('notita-text')?.value || '';
+
+        notitaCloseModal();
+
+        // Populam modalul AI
+        setTimeout(() => {
+          ofertaOpenModal();
+          setTimeout(() => {
+            if ($('oferta-client')) $('oferta-client').value = client;
+            if ($('oferta-adresa')) $('oferta-adresa').value = adresa;
+            if ($('oferta-text')) $('oferta-text').value = text;
+          }, 100);
+        }, 200);
+      }
+
+      // Trimite o notita existenta la AI
+      function notitaTrimiteAI(id) {
+        const list = loadOferte();
+        const n = list.find(o => o.id === id);
+        if (!n) return;
+
+        // Populam modalul AI cu datele din notita
+        ofertaOpenModal();
+        setTimeout(() => {
+          if ($('oferta-client')) $('oferta-client').value = n.client || '';
+          if ($('oferta-adresa')) $('oferta-adresa').value = n.adresa || '';
+          if ($('oferta-text')) $('oferta-text').value = n.text || '';
+        }, 100);
+      }
+
+      // Editeaza o notita existenta
+      // ID curent in editare
+      let _notitaEditId = null;
+
+      function notitaEdit(id) {
+        const list = loadOferte();
+        const n = list.find(o => o.id === id);
+        if (!n) return;
+        _notitaEditId = id;
+        if ($('ne-client')) $('ne-client').value = n.client || '';
+        if ($('ne-adresa')) $('ne-adresa').value = n.adresa || '';
+        if ($('ne-text')) $('ne-text').value = n.text || '';
+        if ($('ne-eticheta')) $('ne-eticheta').value = n.eticheta || 'salvat';
+        const sub = $('notita-edit-subtitle');
+        if (sub) sub.textContent = 'Client: ' + (n.client || 'fara nume') + ' · ' + n.data;
+        const ov = $('notita-edit-overlay');
+        if (ov) ov.style.display = 'flex';
+      }
+
+      function notitaEditClose() {
+        const ov = $('notita-edit-overlay');
+        if (ov) ov.style.display = 'none';
+        _notitaEditId = null;
+      }
+
+      function notitaEditSave() {
+        if (!_notitaEditId) return;
+        const list = loadOferte();
+        const idx = list.findIndex(o => o.id === _notitaEditId);
+        if (idx < 0) return;
+        list[idx].client = ($('ne-client')?.value || '').trim();
+        list[idx].adresa = ($('ne-adresa')?.value || '').trim();
+        list[idx].text = ($('ne-text')?.value || '').trim();
+        list[idx].eticheta = $('ne-eticheta')?.value || 'salvat';
+        saveOferte(list);
+        notitaEditClose();
+        ofertaRenderList();
+        ofertaShowDetail(_notitaEditId || list[idx].id);
+        toast('✅ Notiță actualizată!');
+      }
+
+      // Schimba eticheta direct din lista
+      function notitaSetEticheta(id, val) {
+        const list = loadOferte();
+        const idx = list.findIndex(o => o.id === id);
+        if (idx < 0) return;
+        list[idx].eticheta = val;
+        saveOferte(list);
+        ofertaRenderList();
+        if (_ofertaSelectedId === id) ofertaShowDetail(id);
+      }
+
       function ofertaOpenModal() {
         const ov = $('oferta-new-overlay');
         if (ov) { ov.style.display = 'flex'; document.body.style.overflow = 'hidden'; }
@@ -15468,6 +15852,8 @@ LIMBA: ${lang === 'ro' ? 'Română' : lang === 'en' ? 'English' : 'Auto-detect'}
           id: ofertaId, client, adresa,
           data: new Date().toLocaleDateString('ro-RO'),
           status: 'processing', method,
+          tip: 'oferta',
+          eticheta: 'in-lucru',
           inputOriginal: text,
           materiale: [], depozite_locale: [], neidentificate: [],
           feedback: null, ts: Date.now()
@@ -15584,6 +15970,7 @@ LIMBA: ${lang === 'ro' ? 'Română' : lang === 'en' ? 'English' : 'Auto-detect'}
           const idx = list2.findIndex(o => o.id === ofertaId);
           if (idx >= 0) {
             list2[idx].status = 'done';
+            list2[idx].eticheta = 'finalizat';
             list2[idx].materiale = materiale;
             list2[idx].depozite_locale = depozite;
             list2[idx].neidentificate = parsed.neidentificate || [];
@@ -15662,6 +16049,7 @@ RETURNEAZĂ STRICT JSON:
           const idx = list2.findIndex(o => o.id === ofertaId);
           if (idx >= 0) {
             list2[idx].status = 'done';
+            list2[idx].eticheta = 'finalizat';
             list2[idx].materiale = materiale;
             list2[idx].depozite_locale = parsed.depozite_locale || [];
             list2[idx].neidentificate = parsed.neidentificate || [];
@@ -15744,16 +16132,38 @@ RETURNEAZĂ STRICT JSON:
         }
         if (empty) empty.style.display = 'none';
 
-        cont.innerHTML = list.map(o => `
-          <div class="oferta-card ${_ofertaSelectedId === o.id ? 'active' : ''}" onclick="ofertaShowDetail('${o.id}')">
-            <div class="oferta-status ${o.status}"></div>
-            <div class="oferta-info">
-              <div class="oferta-client">${escHtml(o.client)}</div>
-              <div class="oferta-meta">${o.data} · ${o.materiale.length} materiale identificate</div>
+        const neprocesate = list.filter(o => o.eticheta === 'salvat' || (!o.eticheta && o.tip === 'notita'));
+        const inLucru = list.filter(o => o.status === 'processing' || o.eticheta === 'in-lucru');
+        const finalizate = list.filter(o => o.eticheta === 'finalizat' || (o.status === 'done' && o.eticheta !== 'in-lucru'));
+
+        function cardHtml(o) {
+          const meta = `${o.data}${o.adresa ? ' · 📍 ' + o.adresa.substring(0,22) : ''}`;
+          const isAI = o.tip !== 'notita';
+          const icon = o.status === 'processing' ? '⏳' : isAI ? '🤖' : '📝';
+          return `<div class="oferta-card ${_ofertaSelectedId === o.id ? 'active' : ''}" onclick="ofertaShowDetail('${o.id}')">
+            <div style="flex:1;min-width:0">
+              <div style="display:flex;align-items:center;gap:5px;margin-bottom:2px">
+                <span style="font-size:13px">${icon}</span>
+                <div class="oferta-client" style="flex:1">${escHtml(o.client)}</div>
+              </div>
+              <div class="oferta-meta">${escHtml(meta)}</div>
             </div>
-            <span class="oferta-badge ${o.status}">${o.status === 'processing' ? '⏳ Procesare...' : o.status === 'done' ? '✅ Finalizat' : '📝 Draft'}</span>
-            <button class="btn btn-ghost btn-sm" style="font-size:11px;color:var(--red)" onclick="event.stopPropagation();ofertaDelete('${o.id}')">🗑</button>
-          </div>`).join('');
+            <button class="btn btn-ghost btn-sm" style="font-size:11px;color:var(--red);flex-shrink:0" onclick="event.stopPropagation();ofertaDelete('${o.id}')">🗑</button>
+          </div>`;
+        }
+
+        function sectionHtml(label, color, items) {
+          if (!items.length) return '';
+          return `<div style="margin-bottom:4px">
+            <div style="font-size:10px;font-weight:800;color:${color};letter-spacing:.06em;text-transform:uppercase;padding:8px 10px 4px;font-family:var(--mono)">${label} (${items.length})</div>
+            ${items.map(cardHtml).join('')}
+          </div>`;
+        }
+
+        cont.innerHTML =
+          sectionHtml('📝 Neprocesate', 'var(--txt3)', neprocesate) +
+          sectionHtml('⚙ În Lucru', 'var(--amber)', inLucru) +
+          sectionHtml('✅ Finalizate', 'var(--green)', finalizate);
 
         if (_ofertaSelectedId) ofertaShowDetail(_ofertaSelectedId);
       }
@@ -15764,6 +16174,50 @@ RETURNEAZĂ STRICT JSON:
         const oferta = list.find(o => o.id === id);
         const cont = $('oferta-detail-container');
         if (!cont || !oferta) return;
+
+        // Stare: NOTITA (nu oferta AI)
+        if (oferta.tip === 'notita') {
+          const ETICHETA_LABELS = { 'nou':'🆕 Nouă', 'in-lucru':'⚙ În Lucru', 'trimis':'📤 Trimis', 'finalizat':'✅ Finalizat' };
+          const ETICHETA_COLORS = { 'nou':' #3b82f6', 'in-lucru':'#f59e0b', 'trimis':'#7c3aed', 'finalizat':'#16a34a' };
+          const et = oferta.eticheta || 'nou';
+          cont.innerHTML = `<div class="oferta-detail">
+            <div class="oferta-detail-header">
+              <div>
+                <div style="font-size:11px;font-weight:700;opacity:.6;text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px">📝 NOTIȚĂ AGENT</div>
+                <div class="oferta-detail-title">${escHtml(oferta.client)}</div>
+                <div style="font-size:11px;opacity:.7;margin-top:2px">${oferta.data}${oferta.adresa ? ' · 📍 ' + escHtml(oferta.adresa) : ''}</div>
+              </div>
+              <div class="oferta-detail-actions">
+                <button class="btn btn-ghost btn-sm" style="color:#fff;border-color:rgba(255,255,255,.3)" onclick="notitaEdit('${id}')">✏ Editează</button>
+                <button class="btn btn-ghost btn-sm" style="color:#fff;border-color:rgba(255,255,255,.3)" onclick="notitaTrimiteAI('${id}')">🤖 Trimite la AI</button>
+                <button class="btn btn-ghost btn-sm" style="color:#ef4444;border-color:rgba(239,68,68,.5)" onclick="ofertaDelete('${id}')">🗑 Șterge</button>
+              </div>
+            </div>
+
+            <!-- Eticheta + schimbare rapida -->
+            <div style="padding:12px 16px;border-bottom:1px solid var(--border2);display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+              <span style="font-size:11px;font-weight:700;color:var(--txt3)">Status:</span>
+              ${renderEtichetaButtons(id, et)}
+            </div>
+
+            <!-- Textul notitei -->
+            <div style="padding:16px 18px">
+              <div style="font-size:11px;font-weight:700;color:var(--txt3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:10px">Materiale notate</div>
+              <div style="background:var(--surface2);border-radius:var(--r-sm);padding:14px 16px;font-size:13px;line-height:1.8;white-space:pre-wrap;font-family:inherit;color:var(--txt1)">${escHtml(oferta.text || '—')}</div>
+            </div>
+
+            <!-- Actiuni -->
+            <div style="padding:0 18px 16px;display:flex;gap:8px;flex-wrap:wrap">
+              <button class="btn btn-primary" onclick="notitaTrimiteAI('${id}')">
+                🤖 Procesează cu AI → Ofertă completă
+              </button>
+              <button class="btn btn-ghost" onclick="notitaEdit('${id}')">✏ Editează</button>
+              <button class="btn btn-ghost" onclick="notitaCopiaText('${id}')">📋 Copiază</button>
+              ${oferta.eticheta !== 'finalizat' ? `<button class="btn btn-ghost" style="color:var(--green);border-color:var(--green)" onclick="notitaSetEticheta('${id}','finalizat')">✅ Marchează Finalizat</button>` : ''}
+            </div>
+          </div>`;
+          return;
+        }
 
         // Stare: in procesare
         if (oferta.status === 'processing') {
@@ -16007,9 +16461,68 @@ RETURNEAZĂ STRICT JSON:
         ofertaShowDetail(ofertaId);
       }
 
-      function ofertaDelete(id) {
-        if (!confirm('Ștergi această ofertă?')) return;
-        const list = loadOferte().filter(o => o.id !== id);
+
+      // ── Confirm custom (confirm() blocat in unele contexte) ──
+      let _confirmResolve = null;
+
+      // Versiune sincrona pentru Admin (confirm native sau fallback true daca blocat)
+      function safeConfirm(msg) {
+        try {
+          // Testam daca confirm functioneaza
+          if (typeof window !== 'undefined' && window.confirm) {
+            // In unele extensii confirm() returneaza false fara dialog
+            // Folosim un trick: daca confirm e suprascrisa, dam true direct
+            return window.confirm(msg);
+          }
+        } catch(e) {}
+        return true; // fallback: permite actiunea
+      }
+
+
+
+      function showConfirm(msg, title, icon, okLabel, okColor) {
+        return new Promise(resolve => {
+          _confirmResolve = resolve;
+          const ov = $('confirm-overlay');
+          const msgEl = $('confirm-msg');
+          const titleEl = $('confirm-title');
+          const iconEl = $('confirm-icon');
+          const okBtn = $('confirm-ok-btn');
+          if (msgEl) msgEl.textContent = msg || 'Ești sigur?';
+          if (titleEl) titleEl.textContent = title || 'Confirmare';
+          if (iconEl) iconEl.textContent = icon || '❓';
+          if (okBtn) {
+            okBtn.textContent = okLabel || 'Confirma';
+            okBtn.style.background = okColor || 'var(--red)';
+            okBtn.style.borderColor = okColor || 'var(--red)';
+          }
+          if (ov) ov.style.display = 'flex';
+        });
+      }
+
+      function confirmResolve(val) {
+        const ov = $('confirm-overlay');
+        if (ov) ov.style.display = 'none';
+        if (_confirmResolve) {
+          _confirmResolve(val);
+          _confirmResolve = null;
+        }
+      }
+
+      async function ofertaDelete(id) {
+        const list0 = loadOferte();
+        const item = list0.find(o => o.id === id);
+        const isNotita = item?.tip === 'notita';
+        const msg = isNotita
+          ? 'Notiță: ' + (item?.client || '') + ' — ' + (item?.data || '')
+          : 'Ofertă: ' + (item?.client || '') + ' — ' + (item?.materiale?.length || 0) + ' materiale';
+        const ok = await showConfirm(msg,
+          isNotita ? 'Ștergi notiță?' : 'Ștergi ofertă?',
+          isNotita ? '📝' : '🗂',
+          'Da, șterge',
+          'var(--red)');
+        if (!ok) return;
+        const list = list0.filter(o => o.id !== id);
         saveOferte(list);
         if (_ofertaSelectedId === id) {
           _ofertaSelectedId = null;
@@ -16017,6 +16530,7 @@ RETURNEAZĂ STRICT JSON:
           if (cont) cont.innerHTML = '';
         }
         ofertaRenderList();
+        toast(isNotita ? '✅ Notiță ștearsă' : '✅ Ofertă ștearsă');
       }
 
       function ofertaDuplicate(id) {
