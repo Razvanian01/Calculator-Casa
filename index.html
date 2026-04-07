@@ -11197,9 +11197,26 @@ PROGRAM MAGAZINE:
         if (!silent) toast('🔄 Sincronizez catalogul din Google Drive...');
 
         try {
-          const resp = await fetch(csvUrl, { cache: 'no-cache' });
-          if (!resp.ok) throw new Error('HTTP ' + resp.status + ' — verifică că sheet-ul e public sau publicat ca CSV');
-          const text = await resp.text();
+          // Incercam fetch direct mai intai (functioneaza in unele contexte)
+          let text = '';
+          let fetchOk = false;
+          try {
+            const resp = await fetch(csvUrl, { cache: 'no-cache', mode: 'cors' });
+            if (resp.ok) { text = await resp.text(); fetchOk = true; }
+          } catch(corsErr) { /* CORS blocat - incercam proxy */ }
+
+          // Fallback: CORS proxy daca fetch direct a esuat
+          if (!fetchOk || !text.trim()) {
+            const proxyUrl = 'https://api.allorigins.win/get?url=' + encodeURIComponent(csvUrl);
+            const proxyResp = await fetch(proxyUrl, { cache: 'no-cache' });
+            if (!proxyResp.ok) throw new Error('HTTP ' + proxyResp.status + ' — verifică că sheet-ul e public');
+            const proxyData = await proxyResp.json();
+            if (proxyData.status && proxyData.status.http_code !== 200) {
+              throw new Error('Google Sheets HTTP ' + proxyData.status.http_code + ' — verifică că sheet-ul e publicat');
+            }
+            text = proxyData.contents || '';
+          }
+
           if (!text.trim()) throw new Error('Fișier gol sau inaccessibil');
 
           const { rows, error } = parseCSVText(text);
@@ -11306,28 +11323,66 @@ PROGRAM MAGAZINE:
 
       // Parseaza CSV din text
       function parseCSVText(text) {
-        const lines = text.trim().split('\n').filter(l => l.trim());
+        // Normalizam line endings
+        const lines = text.trim().replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n').filter(l => l.trim());
         if (lines.length < 2) return { rows: [], error: 'Fișier prea mic sau gol' };
 
-        // Detectam separatorul: , sau ; sau tab
+        // Detectam separatorul: tab, ; sau ,
         const firstLine = lines[0];
         const sep = firstLine.includes('\t') ? '\t' : firstLine.includes(';') ? ';' : ',';
 
-        const headers = firstLine.split(sep).map(h => h.trim().toLowerCase()
-          .replace(/denumire.*produs|name|produs|material/i, 'name')
-          .replace(/cod.*sap|sap.*cod|sap/i, 'sap')
-          .replace(/unitate.*masura|u\.m\.|um|unitate/i, 'um')
-          .replace(/pret.*lista|pret|price/i, 'price')
-        );
+        // Normalizam headerele — suportam exact formatul MatHaus SAP
+        function normalizeHeader(h) {
+          const s = h.trim().toLowerCase()
+            .replace(/["""'']/g, '')  // eliminam ghilimele
+            .trim();
+          // Denumire
+          if (/denumire|name|produs|material/i.test(s)) return 'name';
+          // Cod SAP
+          if (/cod\s*sap|sap\s*cod|^sap$|^cod$/i.test(s)) return 'sap';
+          // UM
+          if (/^um$|^u\.m\.$|unitate|masura/i.test(s)) return 'um';
+          // Pret
+          if (/pret|price|lista/i.test(s)) return 'price';
+          return s;
+        }
+
+        const headers = firstLine.split(sep).map(normalizeHeader);
+
+        // Parser CSV corect — gestioneaza campuri cu ghilimele si virgule
+        function parseCsvLine(line, separator) {
+          const result = [];
+          let current = '';
+          let inQuotes = false;
+          for (let i = 0; i < line.length; i++) {
+            const ch = line[i];
+            if ((ch === '"' || ch === '"' || ch === '"') ) {
+              inQuotes = !inQuotes;
+            } else if (ch === separator && !inQuotes) {
+              result.push(current.trim());
+              current = '';
+            } else {
+              current += ch;
+            }
+          }
+          result.push(current.trim());
+          return result;
+        }
 
         const rows = [];
         for (let i = 1; i < lines.length; i++) {
-          const cols = lines[i].split(sep);
+          const cols = parseCsvLine(lines[i], sep);
           if (cols.every(c => !c.trim())) continue;
           const row = {};
           headers.forEach((h, idx) => {
-            row[h] = (cols[idx] || '').trim().replace(/^["']|["']$/g, '');
+            row[h] = (cols[idx] || '').trim().replace(/^["""'']+|["""'']+$/g, '');
           });
+          // Convertim pretul: virgula → punct (format romanesc 307,85 → 307.85)
+          if (row.price) {
+            row.price = parseFloat(row.price.replace(/\s/g, '').replace(',', '.')) || 0;
+          }
+          // SAP: pastram ca string (poate incepe cu 0)
+          if (row.sap) row.sap = row.sap.replace(/\s/g, '');
           if (row.name || row.sap) rows.push(row);
         }
         return { rows, sep, headers };
@@ -11370,9 +11425,11 @@ PROGRAM MAGAZINE:
         // Normalizam rows sa avem mereu name, sap, um, price
         const normalized = rows.map(r => ({
           name: r.name || r.denumire || r.produs || '',
-          sap: r.sap || r['cod sap'] || r['sap cod'] || '',
+          sap: (r.sap || r['cod sap'] || r['sap cod'] || '').replace(/\s/g, ''),
           um: r.um || r['u.m.'] || r.unitate || '',
-          price: parseFloat(r.price || r.pret || r['pret lista'] || 0) || 0
+          // price deja convertit in parseCSVText; fallback pentru upload direct
+          price: typeof r.price === 'number' ? r.price
+                 : parseFloat((r.price || r.pret || r['pret lista'] || '0').toString().replace(',','.')) || 0
         })).filter(r => r.name);
 
         const ok = saveCatalog(normalized);
