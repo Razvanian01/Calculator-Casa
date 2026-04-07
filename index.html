@@ -11157,18 +11157,32 @@ PROGRAM MAGAZINE:
       // Converteste URL Google Sheet in URL CSV exportabil
       function buildSheetCsvUrl(rawUrl) {
         rawUrl = rawUrl.trim();
-        // Format 1: URL normal de editare
-        // https://docs.google.com/spreadsheets/d/ID/edit...
-        const m1 = rawUrl.match(/spreadsheets\/d\/([^\/\?]+)/);
-        if (m1) {
-          return 'https://docs.google.com/spreadsheets/d/' + m1[1] + '/export?format=csv&gid=0';
+
+        // Format 1: URL publicat /d/e/LONGID/pub?output=csv
+        // https://docs.google.com/spreadsheets/d/e/2PACX-.../pub?output=csv
+        if (rawUrl.includes('/d/e/') && rawUrl.includes('output=csv')) {
+          return rawUrl; // deja corect, folosim direct
         }
-        // Format 2: URL publicat
-        // https://docs.google.com/spreadsheets/d/ID/pub?output=csv
+
+        // Format 2: URL publicat /d/e/LONGID/pub fara output=csv
+        if (rawUrl.includes('/d/e/') && rawUrl.includes('/pub')) {
+          return rawUrl.includes('?')
+            ? rawUrl + '&output=csv'
+            : rawUrl + '?output=csv';
+        }
+
+        // Format 3: URL de editare /d/ID/edit
+        // https://docs.google.com/spreadsheets/d/ABC123/edit#gid=0
+        const mEdit = rawUrl.match(/spreadsheets\/d\/(?!e\/)([^\/\?#]+)/);
+        if (mEdit) {
+          return 'https://docs.google.com/spreadsheets/d/' + mEdit[1] + '/export?format=csv&gid=0';
+        }
+
+        // Format 4: URL publicat /d/ID/pub?output=csv (fara /e/)
         if (rawUrl.includes('/pub?') || rawUrl.includes('output=csv')) {
-          return rawUrl.replace('output=csv', 'output=csv');
+          return rawUrl;
         }
-        // Format 3: direct CSV sau alt URL
+
         return rawUrl;
       }
 
