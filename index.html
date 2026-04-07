@@ -15954,7 +15954,7 @@ LIMBA: ${lang === 'ro' ? 'Română' : lang === 'en' ? 'English' : 'Auto-detect'}
           toast('🤖 Pas 1/3: Identificare materiale...');
           const identResp = await fetch('https://api.anthropic.com/v1/messages', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' },
             body: JSON.stringify({
               model,
               max_tokens: 3000,
@@ -16022,7 +16022,7 @@ LIMBA: ${lang === 'ro' ? 'Română' : lang === 'en' ? 'English' : 'Auto-detect'}
           try {
             const depoResp = await fetch('https://api.anthropic.com/v1/messages', {
               method: 'POST',
-              headers: { 'Content-Type': 'application/json', 'anthropic-beta': 'web-search-2025-03-05' },
+              headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true', 'anthropic-beta': 'web-search-2025-03-05' },
               body: JSON.stringify({
                 model,
                 max_tokens: 1000,
@@ -16089,7 +16089,7 @@ RETURNEAZĂ STRICT JSON:
 
           const resp = await fetch('https://api.anthropic.com/v1/messages', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'anthropic-beta': 'web-search-2025-03-05' },
+            headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true', 'anthropic-beta': 'web-search-2025-03-05' },
             body: JSON.stringify({
               model, max_tokens: 8000,
               tools: [{ type: 'web_search_20250305', name: 'web_search' }],
