@@ -3162,6 +3162,7 @@
               <button class="voice-btn" id="oferta-voice-btn" onclick="ofertaToggleRecording()">🎤</button>
               <div class="voice-status" id="oferta-voice-status">Apasă pentru înregistrare vocală</div>
             </div>
+            <div id="oferta-transcript" style="display:none;font-size:11px;color:var(--txt3);background:var(--surface2);border-radius:var(--r-sm);padding:8px 10px;margin-bottom:8px;font-style:italic"></div>
 
             <!-- TEXT -->
             <div style="margin-bottom:0">
@@ -11963,7 +11964,7 @@ PROGRAM MAGAZINE:
       <label class="label" style="color:var(--red)">⚠ Zona periculoasă</label>
       <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
         <button class="btn btn-ghost" style="font-size:12px;padding:8px 16px;border-color:var(--red);color:var(--red)" onclick="if(safeConfirm('Ștergi tot istoricul de chat?')){clearChatHistory();toast('✅ Istoric șters!')}">🗑 Șterge istoric chat</button>
-        <button class="btn btn-ghost" style="font-size:12px;padding:8px 16px;border-color:var(--red);color:var(--red)" onclick="if(safeConfirm('Resetezi TOATĂ configurația AI (persona, training, setări)?')){localStorage.removeItem(AI_KB_STORE);localStorage.removeItem(AI_USAGE_STORE);renderAdminAIKB();alert('Resetat!')}">🔄 Resetează complet AI</button>
+        <button class="btn btn-ghost" style="font-size:12px;padding:8px 16px;border-color:var(--red);color:var(--red)" onclick="if(safeConfirm('Resetezi TOATĂ configurația AI (persona, training, setări)?')){localStorage.removeItem(AI_KB_STORE);localStorage.removeItem(AI_USAGE_STORE);renderAdminAIKB();toast('Resetat!')}">🔄 Resetează complet AI</button>
       </div>
     </div>
   </div>`;
@@ -15269,7 +15270,7 @@ LIMBA: ${lang === 'ro' ? 'Română' : lang === 'en' ? 'English' : 'Auto-detect'}
 
         const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
         if (!SpeechRecognition) {
-          alert('Browserul tău nu suportă recunoașterea vocală. Folosește Chrome.');
+          toast('Browserul tău nu suportă recunoașterea vocală. Folosește Chrome.');
           return;
         }
 
@@ -15325,7 +15326,7 @@ LIMBA: ${lang === 'ro' ? 'Română' : lang === 'en' ? 'English' : 'Auto-detect'}
           if (btn) { btn.style.background = 'var(--surface2)'; btn.style.color = 'var(--txt2)'; btn.style.borderColor = 'var(--border)'; btn.textContent = '🎤'; }
           if (input) input.placeholder = 'Scrie sau vorbește întrebarea ta...';
           if (event.error === 'not-allowed') {
-            alert('Accesul la microfon a fost refuzat. Permite accesul din setările browserului.');
+            toast('Accesul la microfon a fost refuzat. Permite accesul din setările browserului.');
           }
         };
 
@@ -16029,11 +16030,12 @@ LIMBA: ${lang === 'ro' ? 'Română' : lang === 'en' ? 'English' : 'Auto-detect'}
           const _serpBudgetLeft = serpLimit - _serpBudgetStart;
 
           const _materiiPentruClaude = []; // materiale ramase fara SerpAPI budget
+          const _serpLimitLocal = kb.serpApiLimit || 250; // citim din kb direct
 
           for (const m of (parsed.materiale || [])) {
             // Verificam daca mai avem budget SerpAPI pentru materialul curent
             const _currentUsage = loadSerpUsage().count;
-            const _useSerp = _currentUsage < serpLimit;
+            const _useSerp = _currentUsage < _serpLimitLocal;
             const _searchTerm = (m.sap && m.in_catalog !== false) ? m.sap : (m.mentionat_ca || m.nume);
 
             if (!_useSerp) {
