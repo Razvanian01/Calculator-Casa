@@ -8027,7 +8027,7 @@
       const PROD_KEY = "mathausProdV2";
       const PRICE_KEY = "mathausPretV2";
       const SETTINGS_KEY = "mathausSettingsV1";
-      let appSettings = { showPrices: false, cloudUrl: '', adminPass: '', cloudAutoSave: true, sheetsWebhookUrl: '', sheetsEmail: '', catalogSheetUrl: '', catalogLastSync: '' };
+      let appSettings = { showPrices: false, cloudUrl: '', adminPass: '', cloudAutoSave: true, sheetsWebhookUrl: '', sheetsEmail: '', catalogSheetUrl: '', catalogLastSync: '', syncIntervalHours: 24 };
       let _isAdmin = false; // session-only, not persisted
       let _cloudSaveTimer = null;
 
@@ -10136,7 +10136,7 @@
         <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px;width:100%">
           <div class="settings-item-info" style="flex:1">
             <div class="settings-item-title">📊 Sincronizare Google Sheets</div>
-            <div class="settings-item-desc">Conectează un Google Sheet publicat ca CSV. Prețurile se actualizează <strong>automat</strong> la fiecare deschidere a aplicației.</div>
+            <div class="settings-item-desc">Conectează un Google Sheet publicat ca CSV. Prețurile se actualizează <strong>automat</strong> la intervalul setat mai jos (implicit: o dată pe zi).</div>
             <div class="settings-item-note ${gsEnabled && gsUrl ? 'settings-note-active' : 'settings-note-inactive'}">
               ${gsEnabled && gsUrl
                 ? `✅ Sincronizare <strong>ACTIVĂ</strong>${gsLastSync ? ' — Ultima sincronizare: <strong>' + gsLastSync + '</strong> (' + gsLastCount + ' prețuri)' : ''}`
@@ -10161,6 +10161,23 @@
           <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
             <button class="btn btn-secondary btn-sm" onclick="testGoogleSheetSync()">🔄 Testează Sincronizarea</button>
             <button class="btn btn-ghost btn-sm" onclick="forceGoogleSheetSync()">⚡ Forțează Import Acum</button>
+          </div>
+
+          <div style="margin-bottom:12px;padding:10px 14px;background:var(--surface2);border-radius:var(--r-sm)">
+            <label class="label">⏱ Frecvență sincronizare automată</label>
+            <div style="display:flex;gap:10px;align-items:center">
+              <select class="input" id="setting-sync-interval" style="max-width:220px;font-size:12px" onchange="saveSyncInterval(this.value)">
+                <option value="1" ${(appSettings.syncIntervalHours||24)==1?'selected':''}>La fiecare oră</option>
+                <option value="6" ${(appSettings.syncIntervalHours||24)==6?'selected':''}>La fiecare 6 ore</option>
+                <option value="12" ${(appSettings.syncIntervalHours||24)==12?'selected':''}>La fiecare 12 ore</option>
+                <option value="24" ${(appSettings.syncIntervalHours||24)==24?'selected':''}>O dată pe zi (recomandat)</option>
+                <option value="48" ${(appSettings.syncIntervalHours||24)==48?'selected':''}>O dată la 2 zile</option>
+                <option value="168" ${(appSettings.syncIntervalHours||24)==168?'selected':''}>O dată pe săptămână</option>
+                <option value="0" ${(appSettings.syncIntervalHours||24)==0?'selected':''}>La fiecare deschidere (vechi)</option>
+              </select>
+              <span style="font-size:11px;color:var(--txt3)">Se aplică și pentru Catalog și pentru Prețuri</span>
+            </div>
+            <div style="font-size:10px;color:var(--txt3);margin-top:4px">Butonul „Forțează Import" ignoră intervalul și sincronizează imediat.</div>
           </div>
 
           <div id="gs-test-result"></div>
@@ -10401,6 +10418,13 @@
         toast('💾 URL Google Sheet salvat! Apasă 🔄 Testează Sincronizarea.');
       }
 
+      function saveSyncInterval(val) {
+        appSettings.syncIntervalHours = parseInt(val) || 24;
+        saveSettings();
+        const labels = {'0':'la fiecare deschidere','1':'o dată pe oră','6':'la 6 ore','12':'la 12 ore','24':'o dată pe zi','48':'la 2 zile','168':'o dată pe săptămână'};
+        toast('✅ Sincronizare automată: ' + (labels[val] || val + 'h'));
+      }
+
       // ── CSV Parser ──
       function parseCSVLine(line) {
         const result = [];
@@ -10540,6 +10564,7 @@
 
           // Save sync metadata
           appSettings.googleSheetLastSync = new Date().toLocaleString('ro-RO');
+          appSettings.googleSheetLastSyncMs = Date.now();
           appSettings.googleSheetLastCount = count;
           saveSettings();
 
@@ -10557,6 +10582,13 @@
       // ── Auto-sync on app load ──
       async function autoSyncGoogleSheet() {
         if (!appSettings.googleSheetEnabled || !appSettings.googleSheetUrl) return;
+        // Time gate: check if enough time passed since last sync
+        const interval = (appSettings.syncIntervalHours || 24) * 3600000; // default 24h
+        const lastSync = appSettings.googleSheetLastSyncMs || 0;
+        if (Date.now() - lastSync < interval) {
+          console.log(`[Sync] Prețuri: skip — ultima sincronizare acum ${Math.round((Date.now()-lastSync)/60000)} min (interval: ${appSettings.syncIntervalHours || 24}h)`);
+          return;
+        }
         try {
           const csv = await fetchGoogleSheet(appSettings.googleSheetUrl);
           const parsed = parseGoogleSheetCSV(csv);
@@ -10576,6 +10608,7 @@
           savePrices();
 
           appSettings.googleSheetLastSync = new Date().toLocaleString('ro-RO');
+          appSettings.googleSheetLastSyncMs = Date.now();
           appSettings.googleSheetLastCount = count;
           saveSettings();
 
@@ -10588,52 +10621,170 @@
 
       // ─────────────────────────── AI AGENT MANAGEMENT ───────────────────────────
 
-      const AI_KB_STORE = 'mathaus_ai_kb';
+      // ════════════════════════════════════════════════════════════
+      // KNOWLEDGE BASES — SEPARATE: Comune / Consultant / Ofertare
+      // ════════════════════════════════════════════════════════════
+      const AI_KB_STORE = 'mathaus_ai_kb'; // legacy — migrated on first load
+      const KB_COMMON_STORE = 'mathaus_kb_common';
+      const KB_CONSULTANT_STORE = 'mathaus_kb_consultant';
+      const KB_OFERTARE_STORE = 'mathaus_kb_ofertare';
       const AI_USAGE_STORE = 'mathaus_ai_usage';
       let aiKBTab = 'persona';
 
-      function loadAIKB() {
+      // ── DEFAULTS ──
+      const KB_COMMON_DEFAULTS = {
+        language: 'ro',
+        contextMathaus: 'MatHaus este un lanț de magazine de materiale de construcții din România, cu depozite în principalele orașe. Oferim livrare și consultanță tehnică. Site: mathaus.ro',
+        contextProdus: '',
+      };
+      const KB_CONSULTANT_DEFAULTS = {
+        agentName: 'Consultant MatHaus',
+        systemPromptCustom: '',
+        personality: 'profesional',
+        aiModel: 'claude-sonnet-4-20250514',
+        maxTokens: 1024,
+        knowledgeLevel: 'medium',
+        voiceEnabled: false,
+        urls: [],
+        freeText: '',
+        customAnswers: [],
+        files: [],
+        conversationStarters: [
+          'Ce adeziv pentru gresie 60×60 pe încălzire?',
+          'Fac o baie de 4×3m — ce materiale?',
+          'EPS sau vată la termosistem?',
+          'Am umezeală pe pereți, ce soluție?'
+        ],
+      };
+      const KB_OFERTARE_DEFAULTS = {
+        aiModelOferte: 'claude-sonnet-4-20250514',
+        ofertaSystemPrompt: '',
+        ofertaReguli: 'Prioritizează produsele cu link mathaus.ro. Dacă un material e menționat vag, alege varianta standard din catalog.',
+        ofertaCompetitori: 'Dedeman,Leroy Merlin,Bricostore,Hornbach',
+        ofertaSiteuri: 'dedeman.ro,leroymerlin.ro,bricostore.ro,hornbach.ro',
+        ofertaCompetitoriList: [
+          {name:'Dedeman', site:'dedeman.ro'},
+          {name:'Leroy Merlin', site:'leroymerlin.ro'},
+          {name:'Bricostore', site:'bricostore.ro'},
+          {name:'Hornbach', site:'hornbach.ro'}
+        ],
+        serpApiKey: '',
+        serpApiLimit: 250,
+      };
+
+      // ── LOAD / SAVE per KB ──
+      function loadCommonKB() {
+        try { const s = localStorage.getItem(KB_COMMON_STORE); return s ? { ...KB_COMMON_DEFAULTS, ...JSON.parse(s) } : { ...KB_COMMON_DEFAULTS }; }
+        catch(e) { return { ...KB_COMMON_DEFAULTS }; }
+      }
+      function saveCommonKB(data) {
+        try { localStorage.setItem(KB_COMMON_STORE, JSON.stringify(data)); } catch(e){}
+      }
+      function loadConsultantKB() {
+        try { const s = localStorage.getItem(KB_CONSULTANT_STORE); return s ? { ...KB_CONSULTANT_DEFAULTS, ...JSON.parse(s) } : { ...KB_CONSULTANT_DEFAULTS }; }
+        catch(e) { return { ...KB_CONSULTANT_DEFAULTS }; }
+      }
+      function saveConsultantKB(data) {
+        try { localStorage.setItem(KB_CONSULTANT_STORE, JSON.stringify(data)); } catch(e){}
+      }
+      function loadOfertareKB() {
+        try { const s = localStorage.getItem(KB_OFERTARE_STORE); return s ? { ...KB_OFERTARE_DEFAULTS, ...JSON.parse(s) } : { ...KB_OFERTARE_DEFAULTS }; }
+        catch(e) { return { ...KB_OFERTARE_DEFAULTS }; }
+      }
+      function saveOfertareKB(data) {
+        try { localStorage.setItem(KB_OFERTARE_STORE, JSON.stringify(data)); } catch(e){}
+      }
+
+      // ── BACKWARD COMPAT: migrate old single KB → 3 separate ──
+      function migrateOldKB() {
+        if (localStorage.getItem(KB_CONSULTANT_STORE)) return; // already migrated
+        const oldRaw = localStorage.getItem(AI_KB_STORE);
+        if (!oldRaw) return;
         try {
-          const s = localStorage.getItem(AI_KB_STORE);
-          const defaults = {
-            urls: [],
-            freeText: '',
-            agentName: 'Consultant MatHaus',
-            systemPromptCustom: '',
-            personality: 'profesional',
-            language: 'ro',
-            aiModelOferte: 'claude-sonnet-4-20250514',
-            ofertaSystemPrompt: '',
-            ofertaReguli: 'Prioritizează produsele cu link mathaus.ro. Dacă un material e menționat vag, alege varianta standard din catalog.',
-            ofertaCompetitori: 'Dedeman,Leroy Merlin,Bricostore,Hornbach',
-            ofertaSiteuri: 'dedeman.ro,leroymerlin.ro,bricostore.ro,hornbach.ro',
-            ofertaCompetitoriList: [
-              {name:'Dedeman', site:'dedeman.ro'},
-              {name:'Leroy Merlin', site:'leroymerlin.ro'},
-              {name:'Bricostore', site:'bricostore.ro'},
-              {name:'Hornbach', site:'hornbach.ro'}
-            ],
-            ofertaContextMathaus: 'MatHaus este un lanț de magazine de materiale de construcții din România, cu depozite în principalele orașe. Oferim livrare și consultanță tehnică. Site: mathaus.ro',
-            ofertaContextProdus: '',
-            serpApiKey: '',
-            serpApiLimit: 250,
-            conversationStarters: [
-              'Ce adeziv pentru gresie 60×60 pe încălzire?',
-              'Fac o baie de 4×3m — ce materiale?',
-              'EPS sau vată la termosistem?',
-              'Am umezeală pe pereți, ce soluție?'
-            ],
-            customAnswers: [],
-            files: []
-          };
-          if (s) {
-            const parsed = JSON.parse(s);
-            return { ...defaults, ...parsed };
-          }
-          return defaults;
-        } catch(e) { return { urls: [], freeText: '', agentName: 'Consultant MatHaus', systemPromptCustom: '', personality: 'profesional', language: 'ro', conversationStarters: [], customAnswers: [], files: [] }; }
+          const old = JSON.parse(oldRaw);
+          // Split into 3
+          saveCommonKB({
+            language: old.language || 'ro',
+            contextMathaus: old.ofertaContextMathaus || KB_COMMON_DEFAULTS.contextMathaus,
+            contextProdus: old.ofertaContextProdus || '',
+          });
+          saveConsultantKB({
+            agentName: old.agentName || 'Consultant MatHaus',
+            systemPromptCustom: old.systemPromptCustom || '',
+            personality: old.personality || 'profesional',
+            aiModel: old.aiModel || 'claude-sonnet-4-20250514',
+            maxTokens: old.maxTokens || 1024,
+            knowledgeLevel: old.knowledgeLevel || 'medium',
+            voiceEnabled: old.voiceEnabled || false,
+            urls: old.urls || [],
+            freeText: old.freeText || '',
+            customAnswers: old.customAnswers || [],
+            files: old.files || [],
+            conversationStarters: old.conversationStarters || KB_CONSULTANT_DEFAULTS.conversationStarters,
+          });
+          saveOfertareKB({
+            aiModelOferte: old.aiModelOferte || 'claude-sonnet-4-20250514',
+            ofertaSystemPrompt: old.ofertaSystemPrompt || '',
+            ofertaReguli: old.ofertaReguli || KB_OFERTARE_DEFAULTS.ofertaReguli,
+            ofertaCompetitori: old.ofertaCompetitori || KB_OFERTARE_DEFAULTS.ofertaCompetitori,
+            ofertaSiteuri: old.ofertaSiteuri || KB_OFERTARE_DEFAULTS.ofertaSiteuri,
+            ofertaCompetitoriList: old.ofertaCompetitoriList || KB_OFERTARE_DEFAULTS.ofertaCompetitoriList,
+            serpApiKey: old.serpApiKey || '',
+            serpApiLimit: old.serpApiLimit || 250,
+          });
+          console.log('[KB Migration] Old single KB migrated to 3 separate KBs');
+        } catch(e) { console.warn('[KB Migration] Failed:', e); }
+      }
+
+      // ── COMPATIBILITY LAYER: loadAIKB/saveAIKB merge all 3 ──
+      // This keeps ALL existing admin UI working without changes
+      function loadAIKB() {
+        migrateOldKB();
+        const common = loadCommonKB();
+        const consultant = loadConsultantKB();
+        const ofertare = loadOfertareKB();
+        return {
+          ...common,
+          ...consultant,
+          ...ofertare,
+          // Map common fields to old names for backward compat
+          ofertaContextMathaus: common.contextMathaus,
+          ofertaContextProdus: common.contextProdus,
+          language: common.language,
+        };
       }
       function saveAIKB(data) {
+        // Split incoming data back into 3 stores
+        saveCommonKB({
+          language: data.language || 'ro',
+          contextMathaus: data.ofertaContextMathaus || data.contextMathaus || KB_COMMON_DEFAULTS.contextMathaus,
+          contextProdus: data.ofertaContextProdus || data.contextProdus || '',
+        });
+        saveConsultantKB({
+          agentName: data.agentName,
+          systemPromptCustom: data.systemPromptCustom,
+          personality: data.personality,
+          aiModel: data.aiModel,
+          maxTokens: data.maxTokens,
+          knowledgeLevel: data.knowledgeLevel,
+          voiceEnabled: data.voiceEnabled,
+          urls: data.urls,
+          freeText: data.freeText,
+          customAnswers: data.customAnswers,
+          files: data.files,
+          conversationStarters: data.conversationStarters,
+        });
+        saveOfertareKB({
+          aiModelOferte: data.aiModelOferte,
+          ofertaSystemPrompt: data.ofertaSystemPrompt,
+          ofertaReguli: data.ofertaReguli,
+          ofertaCompetitori: data.ofertaCompetitori,
+          ofertaSiteuri: data.ofertaSiteuri,
+          ofertaCompetitoriList: data.ofertaCompetitoriList,
+          serpApiKey: data.serpApiKey,
+          serpApiLimit: data.serpApiLimit,
+        });
+        // Also save legacy key for any code that reads it directly
         try { localStorage.setItem(AI_KB_STORE, JSON.stringify(data)); } catch(e){}
       }
       function loadAIUsage() {
@@ -10739,7 +10890,7 @@
       </div>
     </div>
   </div>
-  <div class="admin-card">ont-size:10px;font-weight:700;color:var(--txt3);letter-spacing:1px;text-transform:uppercase;margin-bottom:12px">Agent Settings</div>
+  <div class="admin-card"><div style="font-size:10px;font-weight:700;color:var(--txt3);letter-spacing:1px;text-transform:uppercase;margin-bottom:12px">Agent Settings</div>
     <h3 style="margin:0 0 16px;font-size:15px">🎭 Persona</h3>
 
     <div style="margin-bottom:20px">
@@ -10783,6 +10934,56 @@
     </div>
 
     <div style="border-top:1px solid var(--border2);padding-top:20px;margin-bottom:16px">
+      <div style="font-size:11px;font-weight:700;color:var(--txt3);letter-spacing:1px;text-transform:uppercase;margin-bottom:14px;font-family:var(--mono)">⚙ Setări AI Consultant</div>
+      
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:16px">
+        <div>
+          <label class="label">🤖 Model AI</label>
+          <select class="input" id="ai-settings-model-consultant" style="font-size:12px;min-height:40px" onchange="saveAIModel(this.value, 'consultant')">
+            <option value="claude-sonnet-4-20250514" ${(kb.aiModel||'claude-sonnet-4-20250514')==='claude-sonnet-4-20250514'?'selected':''}>Sonnet 4 — Recomandat</option>
+            <option value="claude-opus-4-6" ${kb.aiModel==='claude-opus-4-6'?'selected':''}>Opus 4.6 — Cel mai avansat</option>
+            <option value="claude-haiku-4-5-20251001" ${kb.aiModel==='claude-haiku-4-5-20251001'?'selected':''}>Haiku 4.5 — Rapid</option>
+          </select>
+        </div>
+        <div>
+          <label class="label">📏 Lungime răspuns (tokens)</label>
+          <div style="display:flex;align-items:center;gap:8px">
+            <input type="range" id="ai-settings-maxtokens-c" min="256" max="4096" step="256" value="${kb.maxTokens || 1024}" 
+              oninput="$('ai-mt-val-c').textContent=this.value" onchange="saveAIMaxTokens(this.value)" style="flex:1"/>
+            <span id="ai-mt-val-c" style="font-size:12px;font-weight:700;color:var(--navy);min-width:40px">${kb.maxTokens || 1024}</span>
+          </div>
+          <div style="font-size:10px;color:var(--txt3);margin-top:2px">256=scurt · 1024=standard · 4096=detaliat</div>
+        </div>
+      </div>
+
+      <div style="margin-bottom:16px">
+        <label class="label">🔐 Nivel cunoștințe</label>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">
+          <label onclick="setAIKnowledgeLevel('full')" style="display:flex;gap:8px;padding:10px;border:2px solid ${kb.knowledgeLevel==='full'?'var(--green)':'var(--border2)'};border-radius:var(--r-sm);cursor:pointer;background:${kb.knowledgeLevel==='full'?'var(--green-l)':'var(--surface)'}">
+            <input type="radio" name="ai-kl" value="full" ${kb.knowledgeLevel==='full'?'checked':''} style="display:none"/>
+            <div><div style="font-size:12px;font-weight:700;color:var(--navy)">🌐 Full</div><div style="font-size:10px;color:var(--txt2);margin-top:2px">Web + general</div></div>
+          </label>
+          <label onclick="setAIKnowledgeLevel('medium')" style="display:flex;gap:8px;padding:10px;border:2px solid ${(!kb.knowledgeLevel||kb.knowledgeLevel==='medium')?'var(--blue)':'var(--border2)'};border-radius:var(--r-sm);cursor:pointer;background:${(!kb.knowledgeLevel||kb.knowledgeLevel==='medium')?'var(--blue-l)':'var(--surface)'}">
+            <input type="radio" name="ai-kl" value="medium" ${(!kb.knowledgeLevel||kb.knowledgeLevel==='medium')?'checked':''} style="display:none"/>
+            <div><div style="font-size:12px;font-weight:700;color:var(--navy)">⚖ Echilibrat</div><div style="font-size:10px;color:var(--txt2);margin-top:2px">Recomandat</div></div>
+          </label>
+          <label onclick="setAIKnowledgeLevel('strict')" style="display:flex;gap:8px;padding:10px;border:2px solid ${kb.knowledgeLevel==='strict'?'var(--orange)':'var(--border2)'};border-radius:var(--r-sm);cursor:pointer;background:${kb.knowledgeLevel==='strict'?'var(--orange-l)':'var(--surface)'}">
+            <input type="radio" name="ai-kl" value="strict" ${kb.knowledgeLevel==='strict'?'checked':''} style="display:none"/>
+            <div><div style="font-size:12px;font-weight:700;color:var(--navy)">🔒 Strict</div><div style="font-size:10px;color:var(--txt2);margin-top:2px">Doar date interne</div></div>
+          </label>
+        </div>
+      </div>
+
+      <div>
+        <label style="display:flex;align-items:center;gap:10px;cursor:pointer">
+          <input type="checkbox" id="ai-settings-voice-c" ${kb.voiceEnabled ? 'checked' : ''} onchange="toggleAIVoice(this.checked)"/>
+          <span style="font-size:13px;font-weight:600;color:var(--navy)">🎤 Activare voice input (microfon)</span>
+        </label>
+        <div style="font-size:10px;color:var(--txt3);margin-top:2px;padding-left:26px">Permite agenților să vorbească în loc să tasteze.</div>
+      </div>
+    </div>
+
+    <div style="border-top:1px solid var(--border2);padding-top:20px;margin-bottom:16px">
       <label class="label" style="margin-bottom:12px">Conversation Starters</label>
       <p style="font-size:11px;color:var(--txt3);margin:-6px 0 12px">Sugestii rapide afișate la deschiderea chat-ului.</p>
       ${starterRows}
@@ -10811,13 +11012,17 @@
       }
 
       function saveAIPersona() {
-        const kb = loadAIKB();
-        kb.agentName = $('ai-agent-name')?.value?.trim() || 'Consultant MatHaus';
-        kb.systemPromptCustom = $('ai-system-custom')?.value || '';
-        kb.language = $('ai-language')?.value || 'ro';
-        saveAIKB(kb);
+        const cKb = loadConsultantKB();
+        cKb.agentName = $('ai-agent-name')?.value?.trim() || 'Consultant MatHaus';
+        cKb.systemPromptCustom = $('ai-system-custom')?.value || '';
+        saveConsultantKB(cKb);
+        const common = loadCommonKB();
+        common.language = $('ai-language')?.value || 'ro';
+        saveCommonKB(common);
+        // Sync legacy
+        saveAIKB(loadAIKB());
         const headerH3 = document.querySelector('.chat-header-info h3');
-        if (headerH3) headerH3.textContent = kb.agentName;
+        if (headerH3) headerH3.textContent = cKb.agentName;
         aiSaveFlash(event.target);
       }
       function loadDefaultPrompt() {
@@ -11222,7 +11427,9 @@ PROGRAM MAGAZINE:
           // Salvam timestamp sync
           const now = new Date().toLocaleString('ro-RO');
           appSettings.catalogLastSync = now;
+          appSettings.catalogLastSyncMs = Date.now();
           localStorage.setItem('mh_catalog_sync', now);
+          saveSettings();
 
           if (!silent) {
             toast('✅ ' + rows.length + ' produse sincronizate din Google Drive');
@@ -11236,7 +11443,15 @@ PROGRAM MAGAZINE:
       // Auto-sync la deschiderea Admin (daca e configurat URL)
       function catalogAutoSync() {
         const { sheetUrl } = loadCatalogSettings();
-        if (sheetUrl) syncCatalogFromDrive(true);
+        if (!sheetUrl) return;
+        // Time gate: check if enough time passed since last sync
+        const interval = (appSettings.syncIntervalHours || 24) * 3600000;
+        const lastSync = appSettings.catalogLastSyncMs || 0;
+        if (Date.now() - lastSync < interval) {
+          console.log(`[Sync] Catalog: skip — ultima sincronizare acum ${Math.round((Date.now()-lastSync)/60000)} min (interval: ${appSettings.syncIntervalHours || 24}h)`);
+          return;
+        }
+        syncCatalogFromDrive(true);
       }
 
       // ── Catalog Storage: memory cache + compact format + chunked storage ──
@@ -11767,13 +11982,26 @@ PROGRAM MAGAZINE:
 
   <!-- MODEL -->
   <div class="admin-card" style="margin-bottom:12px">
-    <div style="font-size:11px;font-weight:700;color:var(--txt3);letter-spacing:1px;text-transform:uppercase;margin-bottom:12px;font-family:var(--mono)">🤖 Model AI — Ofertare</div>
-    <select class="input" id="ai-settings-model-oferte" style="max-width:400px;font-size:12px;min-height:40px" onchange="saveAIModel(this.value,'oferte')">
-      <option value="claude-sonnet-4-20250514" ${model==='claude-sonnet-4-20250514'?'selected':''}>Claude Sonnet 4 — Recomandat pentru identificare și cercetare</option>
-      <option value="claude-opus-4-6" ${model==='claude-opus-4-6'?'selected':''}>Claude Opus 4.6 — Identificare maximă precizie</option>
-      <option value="claude-haiku-4-5-20251001" ${model==='claude-haiku-4-5-20251001'?'selected':''}>Claude Haiku 4.5 — Mai rapid, mai ieftin</option>
-    </select>
-    <p style="font-size:11px;color:var(--txt3);margin-top:6px">Model activ: <strong>${modelNames[model] || model}</strong>. Sonnet 4 recomandat pentru calitatea căutărilor web.</p>
+    <div style="font-size:11px;font-weight:700;color:var(--txt3);letter-spacing:1px;text-transform:uppercase;margin-bottom:12px;font-family:var(--mono)">⚙ Setări AI — Ofertare</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px">
+      <div>
+        <label class="label">🤖 Model AI Ofertare</label>
+        <select class="input" id="ai-settings-model-oferte" style="font-size:12px;min-height:40px" onchange="saveAIModel(this.value,'oferte')">
+          <option value="claude-sonnet-4-20250514" ${model==='claude-sonnet-4-20250514'?'selected':''}>Sonnet 4 — Recomandat</option>
+          <option value="claude-opus-4-6" ${model==='claude-opus-4-6'?'selected':''}>Opus 4.6 — Maximă precizie</option>
+          <option value="claude-haiku-4-5-20251001" ${model==='claude-haiku-4-5-20251001'?'selected':''}>Haiku 4.5 — Rapid, ieftin</option>
+        </select>
+        <div style="font-size:10px;color:var(--txt3);margin-top:4px">Sonnet 4 recomandat — cel mai bun echilibru între precizie și viteză pentru căutări web.</div>
+      </div>
+      <div style="background:var(--surface2);border-radius:var(--r-sm);padding:12px">
+        <div style="font-size:11px;font-weight:700;color:var(--navy);margin-bottom:6px">📊 Baza de date Ofertare</div>
+        <div style="font-size:11px;color:var(--txt2);line-height:1.6">
+          <strong>Surse date proprii:</strong> Reguli identificare, competitori, SerpAPI, context MatHaus<br>
+          <strong>Date comune:</strong> Catalog produse, limba<br>
+          <strong>Izolat de:</strong> Consultant (prompt, training, răspunsuri predefinite)
+        </div>
+      </div>
+    </div>
   </div>
 
   <!-- SERP API -->
@@ -12089,54 +12317,60 @@ PROGRAM MAGAZINE:
         }
       }
       function toggleAIVoice(enabled) {
-        const kb = loadAIKB();
-        kb.voiceEnabled = enabled;
-        saveAIKB(kb);
+        const cKb = loadConsultantKB();
+        cKb.voiceEnabled = enabled;
+        saveConsultantKB(cKb);
         updateChatVoiceButton();
       }
       function setAIKnowledgeLevel(level) {
-        const kb = loadAIKB();
-        kb.knowledgeLevel = level;
-        saveAIKB(kb);
+        const cKb = loadConsultantKB();
+        cKb.knowledgeLevel = level;
+        saveConsultantKB(cKb);
         renderAdminAIKB();
       }
       function saveAIMaxTokens(val) {
-        const kb = loadAIKB();
-        kb.maxTokens = parseInt(val) || 1024;
-        saveAIKB(kb);
-        toast('✅ Lungime răspuns: ' + kb.maxTokens + ' tokens');
+        const cKb = loadConsultantKB();
+        cKb.maxTokens = parseInt(val) || 1024;
+        saveConsultantKB(cKb);
+        toast('✅ Lungime răspuns: ' + cKb.maxTokens + ' tokens');
       }
       function saveOfertaSettings() {
-        const kb = loadAIKB();
-        kb.ofertaReguli = document.getElementById('oferta-reguli-input')?.value || '';
-        kb.ofertaSystemPrompt = document.getElementById('oferta-system-prompt-input')?.value || '';
-        kb.ofertaCompetitori = document.getElementById('oferta-competitori-input')?.value || '';
-        kb.ofertaSiteuri = document.getElementById('oferta-siteuri-input')?.value || '';
-        kb.ofertaContextMathaus = document.getElementById('oferta-context-mathaus-input')?.value || '';
-        kb.ofertaContextProdus = document.getElementById('oferta-context-produs-input')?.value || '';
+        // Save ofertare-specific settings
+        const ofKb = loadOfertareKB();
+        ofKb.ofertaReguli = document.getElementById('oferta-reguli-input')?.value || '';
+        ofKb.ofertaSystemPrompt = document.getElementById('oferta-system-prompt-input')?.value || '';
+        ofKb.ofertaCompetitori = document.getElementById('oferta-competitori-input')?.value || '';
+        ofKb.ofertaSiteuri = document.getElementById('oferta-siteuri-input')?.value || '';
         const sKey = document.getElementById('oferta-serp-key-input')?.value;
-        if (sKey !== undefined) kb.serpApiKey = sKey.trim();
+        if (sKey !== undefined) ofKb.serpApiKey = sKey.trim();
         const sLim = parseInt(document.getElementById('oferta-serp-limit-input')?.value);
-        if (!isNaN(sLim) && sLim > 0) kb.serpApiLimit = sLim;
-        // Competitorii se salveaza prin ofertaUpdateCompetitor - nu mai salvam din saveOfertaSettings
-        saveAIKB(kb);
+        if (!isNaN(sLim) && sLim > 0) ofKb.serpApiLimit = sLim;
+        saveOfertareKB(ofKb);
+        // Save common settings (shared between both agents)
+        const common = loadCommonKB();
+        common.contextMathaus = document.getElementById('oferta-context-mathaus-input')?.value || common.contextMathaus;
+        common.contextProdus = document.getElementById('oferta-context-produs-input')?.value || '';
+        saveCommonKB(common);
+        // Also update legacy store for backward compat
+        saveAIKB(loadAIKB());
         toast('✅ Setări agent ofertare salvate');
       }
 
       function saveAIModel(val, target) {
-        const kb = loadAIKB();
         const names = {
           'claude-sonnet-4-20250514': 'Sonnet 4',
           'claude-opus-4-6': 'Opus 4.6',
           'claude-haiku-4-5-20251001': 'Haiku 4.5'
         };
         if (target === 'oferte') {
-          kb.aiModelOferte = val;
-          saveAIKB(kb);
+          const ofKb = loadOfertareKB();
+          ofKb.aiModelOferte = val;
+          saveOfertareKB(ofKb);
           toast('✅ Model Ofertare: ' + (names[val] || val));
         } else {
-          kb.aiModel = val;
-          saveAIKB(kb);
+          const cKb = loadConsultantKB();
+          cKb.aiModel = val;
+          saveConsultantKB(cKb);
           toast('✅ Model Consultant: ' + (names[val] || val));
         }
       }
@@ -14580,13 +14814,13 @@ function sendWeeklyReport() {
         // Show/hide voice button
         updateChatVoiceButton();
         // Update agent name from settings
-        const kb = loadAIKB();
+        const _cKb = loadConsultantKB();
         const headerH3 = document.querySelector('.chat-header-info h3');
-        if (headerH3 && kb.agentName) headerH3.textContent = kb.agentName;
+        if (headerH3 && _cKb.agentName) headerH3.textContent = _cKb.agentName;
         // Update level badge
         const levelBadge = document.getElementById('chat-level-badge');
         if (levelBadge) {
-          const lvl = kb.knowledgeLevel || 'medium';
+          const lvl = _cKb.knowledgeLevel || 'medium';
           const labels = { full: '🌐 Full', medium: '⚖ Medium', strict: '🔒 Strict' };
           const colors = { full: 'var(--green)', medium: 'var(--blue)', strict: 'var(--orange)' };
           levelBadge.textContent = labels[lvl] || labels.medium;
@@ -14610,10 +14844,13 @@ function sendWeeklyReport() {
 
       // ── Build System Prompt ──
       function buildSystemPrompt(userMessage) {
-        const kb = loadAIKB();
-        const lang = kb.language || 'ro';
-        const agentName = kb.agentName || 'Consultant MatHaus';
-        const knowledgeLevel = kb.knowledgeLevel || 'medium';
+        // CONSULTANT uses ONLY its own KB + Common — never Ofertare data
+        const common = loadCommonKB();
+        const consultant = loadConsultantKB();
+        const kb = { ...common, ...consultant }; // merged for convenience
+        const lang = common.language || 'ro';
+        const agentName = consultant.agentName || 'Consultant MatHaus';
+        const knowledgeLevel = consultant.knowledgeLevel || 'medium';
 
         let sp = `Ești ${agentName}. MatHaus — catalog 40.000+ produse pe mathaus.ro.
 LIMBA: ${lang === 'ro' ? 'Română' : lang === 'en' ? 'English' : 'Auto-detect'}.
@@ -14961,7 +15198,7 @@ LIMBA: ${lang === 'ro' ? 'Română' : lang === 'en' ? 'English' : 'Auto-detect'}
         const bubble = document.querySelector('#' + msgId + ' .chat-bubble');
 
         try {
-          const kb = loadAIKB();
+          const kb = loadConsultantKB();
           const knowledgeLevel = kb.knowledgeLevel || 'medium';
           const body = {
             model: kb.aiModel || "claude-sonnet-4-20250514",
@@ -15072,7 +15309,7 @@ LIMBA: ${lang === 'ro' ? 'Română' : lang === 'en' ? 'English' : 'Auto-detect'}
       // ── Claude API Call ──
       async function callClaudeAPI(apiKey, messages) {
         const trimmedMessages = messages.slice(-20);
-        const kb = loadAIKB();
+        const kb = loadConsultantKB();
         const knowledgeLevel = kb.knowledgeLevel || 'medium';
 
         const _lastUserMsg = (trimmedMessages.filter(m => m.role === 'user').pop()?.content) || '';
@@ -16262,24 +16499,21 @@ LIMBA: ${lang === 'ro' ? 'Română' : lang === 'en' ? 'English' : 'Auto-detect'}
 
       // ── Competitor management ──
       function loadCompetitoriList() {
-        const kb = loadAIKB();
-        // Migrare din format vechi (string csv) la format nou (array de obiecte)
-        if (kb.ofertaCompetitoriList && kb.ofertaCompetitoriList.length > 0) {
-          return kb.ofertaCompetitoriList;
+        const ofKb = loadOfertareKB();
+        if (ofKb.ofertaCompetitoriList && ofKb.ofertaCompetitoriList.length > 0) {
+          return ofKb.ofertaCompetitoriList;
         }
-        // Fallback: construim din campurile vechi
-        const names = (kb.ofertaCompetitori || 'Dedeman,Leroy Merlin,Bricostore,Hornbach').split(',').map(s => s.trim());
-        const sites = (kb.ofertaSiteuri || 'dedeman.ro,leroymerlin.ro,bricostore.ro,hornbach.ro').split(',').map(s => s.trim());
+        const names = (ofKb.ofertaCompetitori || 'Dedeman,Leroy Merlin,Bricostore,Hornbach').split(',').map(s => s.trim());
+        const sites = (ofKb.ofertaSiteuri || 'dedeman.ro,leroymerlin.ro,bricostore.ro,hornbach.ro').split(',').map(s => s.trim());
         return names.map((name, i) => ({ name, site: sites[i] || '' }));
       }
 
       function saveCompetitoriList(list) {
-        const kb = loadAIKB();
-        kb.ofertaCompetitoriList = list;
-        // Sincronizam si campurile vechi pentru compatibilitate cu ofertaProcess
-        kb.ofertaCompetitori = list.map(c => c.name).join(',');
-        kb.ofertaSiteuri = list.map(c => c.site).join(',');
-        saveAIKB(kb);
+        const ofKb = loadOfertareKB();
+        ofKb.ofertaCompetitoriList = list;
+        ofKb.ofertaCompetitori = list.map(c => c.name).join(',');
+        ofKb.ofertaSiteuri = list.map(c => c.site).join(',');
+        saveOfertareKB(ofKb);
       }
 
       function ofertaAddCompetitor() {
@@ -16340,12 +16574,15 @@ LIMBA: ${lang === 'ro' ? 'Română' : lang === 'en' ? 'English' : 'Auto-detect'}
         const apiKey = localStorage.getItem(CHAT_API_KEY_STORE);
         if (!apiKey) { toast('⚠ Cheie API Anthropic lipsă'); return; }
 
-        const kb = loadAIKB();
-        const model = kb.aiModelOferte || 'claude-sonnet-4-20250514';
-        const reguli = (kb.ofertaReguli || '').trim();
-        const extraPrompt = (kb.ofertaSystemPrompt || '').trim();
-        const contextMathaus = (kb.ofertaContextMathaus || 'MatHaus Romania — materiale constructii').trim();
-        const contextProdus = (kb.ofertaContextProdus || '').trim();
+        // OFERTARE uses ONLY its own KB + Common — never Consultant data
+        const _common = loadCommonKB();
+        const _ofKb = loadOfertareKB();
+        const kb = { ..._common, ..._ofKb, ofertaContextMathaus: _common.contextMathaus, ofertaContextProdus: _common.contextProdus };
+        const model = _ofKb.aiModelOferte || 'claude-sonnet-4-20250514';
+        const reguli = (_ofKb.ofertaReguli || '').trim();
+        const extraPrompt = (_ofKb.ofertaSystemPrompt || '').trim();
+        const contextMathaus = (_common.contextMathaus || 'MatHaus Romania — materiale constructii').trim();
+        const contextProdus = (_common.contextProdus || '').trim();
         const _compList = loadCompetitoriList();
         const compList = _compList.map(c => c.name).filter(Boolean);
         const siteList = _compList.map(c => c.site).filter(Boolean);
@@ -16433,7 +16670,7 @@ LIMBA: ${lang === 'ro' ? 'Română' : lang === 'en' ? 'English' : 'Auto-detect'}
 
           // Verificam limita disponibila
           const _serpBudgetStart = loadSerpUsage().count;
-          const _serpBudgetLeft = serpLimit - _serpBudgetStart;
+          const _serpBudgetLeft = (kb.serpApiLimit || 250) - _serpBudgetStart;
 
           const _materiiPentruClaude = []; // materiale ramase fara SerpAPI budget
           const _serpLimitLocal = kb.serpApiLimit || 250; // citim din kb direct
