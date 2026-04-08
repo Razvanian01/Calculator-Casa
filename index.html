@@ -3181,6 +3181,13 @@
 
           <!-- FOOTER CU CELE 2 ACTIUNI -->
           <div class="onm-footer" style="flex-direction:column;gap:8px;padding:14px 18px">
+            <div style="display:flex;align-items:center;gap:10px;padding:6px 0">
+              <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:12px;color:var(--txt2)">
+                <input type="checkbox" id="oferta-force-refresh"/>
+                <span>🔄 Forțează recăutare prețuri (ignoră cache)</span>
+              </label>
+              <span id="oferta-cache-info" style="margin-left:auto;font-size:10px;color:var(--txt3)"></span>
+            </div>
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
               <!-- Salveaza Notita -->
               <button onclick="notitaSalveazaRapid()"
@@ -10425,6 +10432,14 @@
         toast('✅ Sincronizare automată: ' + (labels[val] || val + 'h'));
       }
 
+      function savePriceCacheMaxDays(val) {
+        const ofKb = loadOfertareKB();
+        ofKb.priceCacheMaxDays = parseInt(val) || 7;
+        saveOfertareKB(ofKb);
+        const labels = {'1':'1 zi','3':'3 zile','7':'7 zile','14':'14 zile','30':'30 zile'};
+        toast('✅ Cache prețuri valabil: ' + (labels[val] || val + ' zile'));
+      }
+
       // ── CSV Parser ──
       function parseCSVLine(line) {
         const result = [];
@@ -10641,7 +10656,7 @@
         agentName: 'Consultant MatHaus',
         systemPromptCustom: '',
         personality: 'profesional',
-        aiModel: 'claude-sonnet-4-20250514',
+        aiModel: 'claude-sonnet-4-5-20250929',
         maxTokens: 1024,
         knowledgeLevel: 'medium',
         voiceEnabled: false,
@@ -10657,9 +10672,21 @@
         ],
       };
       const KB_OFERTARE_DEFAULTS = {
-        aiModelOferte: 'claude-sonnet-4-20250514',
+        aiModelOferte: 'claude-sonnet-4-5-20250929',
         ofertaSystemPrompt: '',
-        ofertaReguli: 'Prioritizează produsele cu link mathaus.ro. Dacă un material e menționat vag, alege varianta standard din catalog.',
+        ofertaReguli: `REGULI IDENTIFICARE MATERIALE:
+1. POTRIVIRE CATALOG: Caută ÎNTÂI în catalogul local după cod SAP sau cuvinte cheie din denumire. Dacă găsești → folosește SAP-ul exact și construiește link: https://mathaus.ro/p/[SAP]
+2. MATERIAL NEGĂSIT ÎN CATALOG: Pune sap="" și in_catalog=false. Agentul va căuta manual pe mathaus.ro.
+3. CANTITĂȚI: Extrage cantitatea EXACTĂ din notiță. Dacă lipsește cantitatea → pune 1 și marchează cu observație.
+4. UNITATE DE MĂSURĂ: Folosește UM din catalog dacă e disponibilă. Altfel: m², ml, buc, sac, kg, rolă, palet.
+5. MATERIALE VAGI: "adeziv" fără specificații → cere clarificare prin câmpul neidentificate. "adeziv BCA" → potrivește cel mai popular adeziv BCA din catalog.
+6. BRANDURI: Dacă agentul menționează un brand (Ceresit, Knauf, Ytong) → caută EXACT acel brand. Nu substitui cu alt brand decât dacă nu există.
+7. GROSIMI/DIMENSIUNI: "BCA 30" = BCA cu grosimea 30cm. "EPS 10" = polistiren 10cm. Potrivește dimensiunea exactă.
+8. DUPLICARE: Dacă același material apare de 2 ori în notiță cu cantități diferite → ADUNĂ cantitățile.
+9. MATERIALE EXTERNE: Beton, fier-beton, cherestea, manoperă → NU sunt pe mathaus.ro, marchează-le separat.
+10. PREȚURI MATHAUS: Caută ÎNTÂI după cod SAP (link direct). Fără SAP → "site:mathaus.ro [produs]". NICIODATĂ Google generic.
+11. PREȚURI COMPETITORI: Caută după specificații (brand, grosime, kg) nu după cod. Echivalent cel mai apropiat.
+12. LINK-URI: Fiecare material trebuie să aibă link valid mathaus.ro. Link-ul SAP e prioritar: https://mathaus.ro/p/[SAP]`,
         ofertaCompetitori: 'Dedeman,Leroy Merlin,Bricostore,Hornbach',
         ofertaSiteuri: 'dedeman.ro,leroymerlin.ro,bricostore.ro,hornbach.ro',
         ofertaCompetitoriList: [
@@ -10670,6 +10697,7 @@
         ],
         serpApiKey: '',
         serpApiLimit: 250,
+        priceCacheMaxDays: 7,
       };
 
       // ── LOAD / SAVE per KB ──
@@ -10712,7 +10740,7 @@
             agentName: old.agentName || 'Consultant MatHaus',
             systemPromptCustom: old.systemPromptCustom || '',
             personality: old.personality || 'profesional',
-            aiModel: old.aiModel || 'claude-sonnet-4-20250514',
+            aiModel: old.aiModel || 'claude-sonnet-4-5-20250929',
             maxTokens: old.maxTokens || 1024,
             knowledgeLevel: old.knowledgeLevel || 'medium',
             voiceEnabled: old.voiceEnabled || false,
@@ -10723,9 +10751,9 @@
             conversationStarters: old.conversationStarters || KB_CONSULTANT_DEFAULTS.conversationStarters,
           });
           saveOfertareKB({
-            aiModelOferte: old.aiModelOferte || 'claude-sonnet-4-20250514',
+            aiModelOferte: old.aiModelOferte || 'claude-sonnet-4-5-20250929',
             ofertaSystemPrompt: old.ofertaSystemPrompt || '',
-            ofertaReguli: old.ofertaReguli || KB_OFERTARE_DEFAULTS.ofertaReguli,
+            ofertaReguli: (() => { const _oldDef = 'Prioritizează produsele cu link mathaus.ro. Dacă un material e menționat vag, alege varianta standard din catalog.'; return (old.ofertaReguli === _oldDef || !old.ofertaReguli) ? KB_OFERTARE_DEFAULTS.ofertaReguli : old.ofertaReguli; })(),
             ofertaCompetitori: old.ofertaCompetitori || KB_OFERTARE_DEFAULTS.ofertaCompetitori,
             ofertaSiteuri: old.ofertaSiteuri || KB_OFERTARE_DEFAULTS.ofertaSiteuri,
             ofertaCompetitoriList: old.ofertaCompetitoriList || KB_OFERTARE_DEFAULTS.ofertaCompetitoriList,
@@ -10940,7 +10968,8 @@
         <div>
           <label class="label">🤖 Model AI</label>
           <select class="input" id="ai-settings-model-consultant" style="font-size:12px;min-height:40px" onchange="saveAIModel(this.value, 'consultant')">
-            <option value="claude-sonnet-4-20250514" ${(kb.aiModel||'claude-sonnet-4-20250514')==='claude-sonnet-4-20250514'?'selected':''}>Sonnet 4 — Recomandat</option>
+            <option value="claude-sonnet-4-6" ${kb.aiModel==='claude-sonnet-4-6'?'selected':''}>Sonnet 4.6 — Cel mai nou</option>
+            <option value="claude-sonnet-4-5-20250929" ${(kb.aiModel||'claude-sonnet-4-5-20250929')==='claude-sonnet-4-5-20250929'?'selected':''}>Sonnet 4.5 — Recomandat</option>
             <option value="claude-opus-4-6" ${kb.aiModel==='claude-opus-4-6'?'selected':''}>Opus 4.6 — Cel mai avansat</option>
             <option value="claude-haiku-4-5-20251001" ${kb.aiModel==='claude-haiku-4-5-20251001'?'selected':''}>Haiku 4.5 — Rapid</option>
           </select>
@@ -11951,9 +11980,10 @@ PROGRAM MAGAZINE:
 
 
       function renderAIOfertare(kb) {
-        const model = kb.aiModelOferte || 'claude-sonnet-4-20250514';
+        const model = kb.aiModelOferte || 'claude-sonnet-4-5-20250929';
         const modelNames = {
-          'claude-sonnet-4-20250514': 'Sonnet 4 — Recomandat',
+          'claude-sonnet-4-6': 'Sonnet 4.6 — Cel mai nou',
+          'claude-sonnet-4-5-20250929': 'Sonnet 4.5 — Recomandat',
           'claude-opus-4-6': 'Opus 4.6 — Maxima precizie',
           'claude-haiku-4-5-20251001': 'Haiku 4.5 — Rapid, ieftin'
         };
@@ -11987,7 +12017,8 @@ PROGRAM MAGAZINE:
       <div>
         <label class="label">🤖 Model AI Ofertare</label>
         <select class="input" id="ai-settings-model-oferte" style="font-size:12px;min-height:40px" onchange="saveAIModel(this.value,'oferte')">
-          <option value="claude-sonnet-4-20250514" ${model==='claude-sonnet-4-20250514'?'selected':''}>Sonnet 4 — Recomandat</option>
+          <option value="claude-sonnet-4-6" ${model==='claude-sonnet-4-6'?'selected':''}>Sonnet 4.6 — Cel mai nou</option>
+          <option value="claude-sonnet-4-5-20250929" ${model==='claude-sonnet-4-5-20250929'?'selected':''}>Sonnet 4.5 — Recomandat</option>
           <option value="claude-opus-4-6" ${model==='claude-opus-4-6'?'selected':''}>Opus 4.6 — Maximă precizie</option>
           <option value="claude-haiku-4-5-20251001" ${model==='claude-haiku-4-5-20251001'?'selected':''}>Haiku 4.5 — Rapid, ieftin</option>
         </select>
@@ -12001,6 +12032,31 @@ PROGRAM MAGAZINE:
           <strong>Izolat de:</strong> Consultant (prompt, training, răspunsuri predefinite)
         </div>
       </div>
+    </div>
+  </div>
+
+  <!-- PRICE CACHE -->
+  <div class="admin-card" style="margin-bottom:12px;border-left:4px solid var(--green)">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:8px">
+      <div style="font-size:11px;font-weight:700;color:var(--txt3);letter-spacing:1px;text-transform:uppercase;font-family:var(--mono)">📦 Cache Prețuri Competitori</div>
+      ${(() => { const s = getPriceCacheStats(); return s.total > 0 ? '<span style="font-size:11px;background:#dcfce7;color:#15803d;padding:2px 8px;border-radius:4px;font-weight:700">' + s.total + ' prețuri · din ' + s.oldest + '</span>' : '<span style="font-size:11px;color:var(--txt3)">Gol</span>'; })()}
+    </div>
+    <div style="background:var(--surface2);border-radius:var(--r-sm);padding:10px 14px;font-size:11px;color:var(--txt2);margin-bottom:12px;line-height:1.6">
+      <strong style="color:var(--navy)">Cum funcționează:</strong> Prețurile găsite de SerpAPI sau Claude se salvează automat. La următoarea ofertă, dacă un material are deja prețuri recente → se folosesc din cache, fără a mai consuma tokens sau căutări. Fiecare preț afișează data când a fost găsit.
+    </div>
+    <div style="display:grid;grid-template-columns:1fr auto;gap:12px;align-items:end">
+      <div>
+        <label class="label">Valabilitate cache (zile)</label>
+        <select class="input" style="max-width:200px;font-size:12px" onchange="savePriceCacheMaxDays(this.value)">
+          <option value="1" ${(kb.priceCacheMaxDays||7)==1?'selected':''}>1 zi (recăutare zilnică)</option>
+          <option value="3" ${(kb.priceCacheMaxDays||7)==3?'selected':''}>3 zile</option>
+          <option value="7" ${(kb.priceCacheMaxDays||7)==7?'selected':''}>7 zile (recomandat)</option>
+          <option value="14" ${(kb.priceCacheMaxDays||7)==14?'selected':''}>14 zile</option>
+          <option value="30" ${(kb.priceCacheMaxDays||7)==30?'selected':''}>30 zile</option>
+        </select>
+        <div style="font-size:10px;color:var(--txt3);margin-top:3px">Prețurile mai vechi de acest interval sunt recăutate automat. Checkbox-ul „Forțează recăutare" din modal ignoră cache-ul complet.</div>
+      </div>
+      <button class="btn btn-ghost btn-sm" style="color:var(--red);font-size:11px;white-space:nowrap" onclick="clearPriceCache();renderAdminAIKB()">🗑 Golește cache</button>
     </div>
   </div>
 
@@ -12163,7 +12219,8 @@ PROGRAM MAGAZINE:
     <div style="margin-bottom:20px">
       <label class="label">🤖 Model AI — Consultant (Chat)</label>
       <select class="input" id="ai-settings-model" style="max-width:380px;font-size:12px;min-height:40px" onchange="saveAIModel(this.value, 'consultant')">
-        <option value="claude-sonnet-4-20250514" ${(kb.aiModel||'claude-sonnet-4-20250514')==='claude-sonnet-4-20250514'?'selected':''}>Claude Sonnet 4 — Recomandat pentru chat</option>
+        <option value="claude-sonnet-4-6" ${kb.aiModel==='claude-sonnet-4-6'?'selected':''}>Claude Sonnet 4.6 — Cel mai nou</option>
+        <option value="claude-sonnet-4-5-20250929" ${(kb.aiModel||'claude-sonnet-4-5-20250929')==='claude-sonnet-4-5-20250929'?'selected':''}>Claude Sonnet 4.5 — Recomandat pentru chat</option>
         <option value="claude-opus-4-6" ${kb.aiModel==='claude-opus-4-6'?'selected':''}>Claude Opus 4.6 — Cel mai avansat (mai lent)</option>
         <option value="claude-haiku-4-5-20251001" ${kb.aiModel==='claude-haiku-4-5-20251001'?'selected':''}>Claude Haiku 4.5 — Rapid, volum mare</option>
       </select>
@@ -12358,7 +12415,8 @@ PROGRAM MAGAZINE:
 
       function saveAIModel(val, target) {
         const names = {
-          'claude-sonnet-4-20250514': 'Sonnet 4',
+          'claude-sonnet-4-6': 'Sonnet 4.6',
+          'claude-sonnet-4-5-20250929': 'Sonnet 4.5',
           'claude-opus-4-6': 'Opus 4.6',
           'claude-haiku-4-5-20251001': 'Haiku 4.5'
         };
@@ -12581,14 +12639,15 @@ function sendWeeklyReport() {
 
         const c = usage.consultant || { sessions: 0, messages: 0 };
         const o = usage.oferte || { sessions: 0, messages: 0 };
-        const modelConsultant = kb.aiModel || 'claude-sonnet-4-20250514';
-        const modelOferte = kb.aiModelOferte || 'claude-sonnet-4-20250514';
+        const modelConsultant = kb.aiModel || 'claude-sonnet-4-5-20250929';
+        const modelOferte = kb.aiModelOferte || 'claude-sonnet-4-5-20250929';
         const modelNames = {
-          'claude-sonnet-4-20250514': 'Sonnet 4',
+          'claude-sonnet-4-6': 'Sonnet 4.6',
+          'claude-sonnet-4-5-20250929': 'Sonnet 4.5',
           'claude-opus-4-6': 'Opus 4.6',
           'claude-haiku-4-5-20251001': 'Haiku 4.5'
         };
-        const costPerMsg = { 'claude-sonnet-4-20250514': 0.003, 'claude-opus-4-6': 0.015, 'claude-haiku-4-5-20251001': 0.0003 };
+        const costPerMsg = { 'claude-sonnet-4-6': 0.003, 'claude-sonnet-4-5-20250929': 0.003, 'claude-opus-4-6': 0.015, 'claude-haiku-4-5-20251001': 0.0003 };
         const costC = (c.messages * (costPerMsg[modelConsultant] || 0.003)).toFixed(2);
         const costO = (o.messages * (costPerMsg[modelOferte] || 0.003)).toFixed(2);
         const costTotal = (parseFloat(costC) + parseFloat(costO)).toFixed(2);
@@ -15201,7 +15260,7 @@ LIMBA: ${lang === 'ro' ? 'Română' : lang === 'en' ? 'English' : 'Auto-detect'}
           const kb = loadConsultantKB();
           const knowledgeLevel = kb.knowledgeLevel || 'medium';
           const body = {
-            model: kb.aiModel || "claude-sonnet-4-20250514",
+            model: kb.aiModel || "claude-sonnet-4-5-20250929",
             max_tokens: kb.maxTokens || 1024,
             system: buildSystemPrompt(text),
             stream: true,
@@ -15314,7 +15373,7 @@ LIMBA: ${lang === 'ro' ? 'Română' : lang === 'en' ? 'English' : 'Auto-detect'}
 
         const _lastUserMsg = (trimmedMessages.filter(m => m.role === 'user').pop()?.content) || '';
         const body = {
-          model: kb.aiModel || "claude-sonnet-4-20250514",
+          model: kb.aiModel || "claude-sonnet-4-5-20250929",
           max_tokens: kb.maxTokens || 1024,
           system: buildSystemPrompt(_lastUserMsg),
           messages: trimmedMessages
@@ -15828,6 +15887,8 @@ LIMBA: ${lang === 'ro' ? 'Română' : lang === 'en' ? 'English' : 'Auto-detect'}
       function savePriceCache(cache) {
         try { localStorage.setItem(PRICE_CACHE_KEY, JSON.stringify(cache)); } catch(e) {}
       }
+
+      // Store FULL price data from an oferta (with links, disponibil, etc.)
       function cachePricesFromOferta(materiale) {
         if (!materiale || !materiale.length) return;
         const cache = loadPriceCache();
@@ -15837,29 +15898,82 @@ LIMBA: ${lang === 'ro' ? 'Română' : lang === 'en' ? 'English' : 'Auto-detect'}
           const key = (m.sap || m.nume).toLowerCase().trim();
           const entry = { 
             nume: m.nume, sap: m.sap || '', um: m.um || '',
-            mathaus: m.mathaus?.pret || null,
             timestamp: now,
-            sursa: m.sursa || 'unknown'
+            sursa: m.sursa || 'unknown',
+            // Full price objects with pret + link + disponibil
+            mathaus: m.mathaus || null,
+            dedeman: m.dedeman || null,
+            leroy: m.leroy || null,
+            bricostore: m.bricostore || null,
+            hornbach: m.hornbach || null,
           };
-          // Store competitor prices
-          ['dedeman','leroy','bricostore','hornbach'].forEach(comp => {
-            if (m[comp]?.pret) entry[comp] = m[comp].pret;
-          });
-          // #9 Price history: keep last 5 price points
+          // Price history: keep last 5 points
           if (!cache[key]) cache[key] = { current: entry, history: [] };
           else {
             if (cache[key].current) cache[key].history.push(cache[key].current);
-            cache[key].history = cache[key].history.slice(-4); // keep last 4 + current = 5
+            cache[key].history = cache[key].history.slice(-4);
             cache[key].current = entry;
           }
         });
         savePriceCache(cache);
       }
+
+      // Lookup cached price for a specific material — returns full matItem or null
+      function getCachedPrice(name, sap, maxAgeDays) {
+        maxAgeDays = maxAgeDays || 7; // default 7 days
+        const cache = loadPriceCache();
+        const key = (sap || name).toLowerCase().trim();
+        const entry = cache[key];
+        if (!entry?.current) return null;
+        const c = entry.current;
+        // Check age
+        if (!c.timestamp) return null;
+        const ageMs = Date.now() - new Date(c.timestamp).getTime();
+        const ageDays = ageMs / 86400000;
+        if (ageDays > maxAgeDays) return null; // too old
+        // Must have at least mathaus price
+        if (!c.mathaus?.pret) return null;
+        // Return full material item compatible with oferta format
+        return {
+          sap: c.sap || '',
+          inCatalog: !!c.sap,
+          nume: c.nume,
+          um: c.um || '',
+          mathaus: c.mathaus || { pret: null, link: '', disponibil: false },
+          dedeman: c.dedeman || { pret: null, link: null, disponibil: false },
+          leroy: c.leroy || { pret: null, link: null, disponibil: false },
+          bricostore: c.bricostore || { pret: null, link: null, disponibil: false },
+          hornbach: c.hornbach || { pret: null, link: null, disponibil: false },
+          pretOferta: c.mathaus?.pret || 0,
+          sursa: 'cache',
+          _cacheDate: c.timestamp.substring(0, 10),
+          _cacheAgeDays: Math.round(ageDays * 10) / 10,
+        };
+      }
+
+      // Clear all cached prices
+      function clearPriceCache() {
+        localStorage.removeItem(PRICE_CACHE_KEY);
+        toast('✅ Cache prețuri șters — următoarea ofertă va căuta toate prețurile din nou');
+      }
+
+      // Get cache stats
+      function getPriceCacheStats() {
+        const cache = loadPriceCache();
+        const keys = Object.keys(cache);
+        const total = keys.length;
+        const withMathaus = keys.filter(k => cache[k].current?.mathaus?.pret).length;
+        const oldest = keys.reduce((min, k) => {
+          const t = cache[k].current?.timestamp;
+          return t && t < min ? t : min;
+        }, new Date().toISOString());
+        return { total, withMathaus, oldest: oldest.substring(0, 10) };
+      }
+
       function getPriceCacheForPrompt(keywords) {
         const cache = loadPriceCache();
         const entries = Object.values(cache);
         if (!entries.length) return '';
-        // If keywords provided, filter relevant
         let relevant = entries;
         if (keywords) {
           const tokens = keywords.toLowerCase().split(/\s+/).filter(t => t.length > 2);
@@ -15870,19 +15984,18 @@ LIMBA: ${lang === 'ro' ? 'Română' : lang === 'en' ? 'English' : 'Auto-detect'}
             });
           }
         }
-        if (!relevant.length) relevant = entries.slice(0, 20); // fallback top 20
+        if (!relevant.length) relevant = entries.slice(0, 20);
         relevant = relevant.slice(0, 30);
         let csv = 'Produs|MatHaus|Dedeman|Leroy|Bricostore|Hornbach|Data';
         relevant.forEach(e => {
           const c = e.current;
           if (!c) return;
           const d = c.timestamp ? c.timestamp.substring(0, 10) : '?';
-          csv += `\n${c.nume}|${c.mathaus||'?'}|${c.dedeman||'-'}|${c.leroy||'-'}|${c.bricostore||'-'}|${c.hornbach||'-'}|${d}`;
-          // #9 Price trend
+          csv += `\n${c.nume}|${c.mathaus?.pret||'?'}|${c.dedeman?.pret||'-'}|${c.leroy?.pret||'-'}|${c.bricostore?.pret||'-'}|${c.hornbach?.pret||'-'}|${d}`;
           if (e.history?.length >= 2) {
             const prev = e.history[e.history.length - 1];
-            if (prev.mathaus && c.mathaus) {
-              const diff = ((c.mathaus - prev.mathaus) / prev.mathaus * 100).toFixed(0);
+            if (prev.mathaus?.pret && c.mathaus?.pret) {
+              const diff = ((c.mathaus.pret - prev.mathaus.pret) / prev.mathaus.pret * 100).toFixed(0);
               if (Math.abs(diff) >= 3) csv += ` (${diff > 0 ? '+' : ''}${diff}%)`;
             }
           }
@@ -16267,6 +16380,11 @@ LIMBA: ${lang === 'ro' ? 'Română' : lang === 'en' ? 'English' : 'Auto-detect'}
         if ($('oferta-client')) $('oferta-client').value = '';
         if ($('oferta-adresa')) $('oferta-adresa').value = '';
         if ($('oferta-voice-status')) $('oferta-voice-status').textContent = 'Apasă pentru a dicta materialele';
+        if ($('oferta-force-refresh')) $('oferta-force-refresh').checked = false;
+        // Show cache stats
+        const _cs = getPriceCacheStats();
+        const _cInfo = $('oferta-cache-info');
+        if (_cInfo) _cInfo.textContent = _cs.total > 0 ? `📦 ${_cs.total} prețuri în cache (din ${_cs.oldest})` : '';
         // #5 Render template list
         setTimeout(renderTemplateList, 50);
       }
@@ -16571,6 +16689,7 @@ LIMBA: ${lang === 'ro' ? 'Română' : lang === 'en' ? 'English' : 'Auto-detect'}
         const adresa = ($('oferta-adresa')?.value || '').trim();
 
         if (!text) { toast('⚠ Scrie sau dictează materialele mai întâi!'); return; }
+        const _forceRefresh = $('oferta-force-refresh')?.checked || false;
         const apiKey = localStorage.getItem(CHAT_API_KEY_STORE);
         if (!apiKey) { toast('⚠ Cheie API Anthropic lipsă'); return; }
 
@@ -16578,7 +16697,7 @@ LIMBA: ${lang === 'ro' ? 'Română' : lang === 'en' ? 'English' : 'Auto-detect'}
         const _common = loadCommonKB();
         const _ofKb = loadOfertareKB();
         const kb = { ..._common, ..._ofKb, ofertaContextMathaus: _common.contextMathaus, ofertaContextProdus: _common.contextProdus };
-        const model = _ofKb.aiModelOferte || 'claude-sonnet-4-20250514';
+        const model = _ofKb.aiModelOferte || 'claude-sonnet-4-5-20250929';
         const reguli = (_ofKb.ofertaReguli || '').trim();
         const extraPrompt = (_ofKb.ofertaSystemPrompt || '').trim();
         const contextMathaus = (_common.contextMathaus || 'MatHaus Romania — materiale constructii').trim();
@@ -16620,7 +16739,7 @@ LIMBA: ${lang === 'ro' ? 'Română' : lang === 'en' ? 'English' : 'Auto-detect'}
         trackAIUsage('session', 'oferte');
 
         if (useSerpApi) {
-          await ofertaProcessSerpApi(ofertaId, text, client, adresa, kb, compList, siteList, serpKey, apiKey, model);
+          await ofertaProcessSerpApi(ofertaId, text, client, adresa, kb, compList, siteList, serpKey, apiKey, model, _forceRefresh);
         } else {
           if (serpKey) toast('ℹ Limita SerpAPI atinsă — folosim Claude web_search');
           await ofertaProcessClaude(ofertaId, text, adresa, kb, compList, siteList, contextMathaus, contextProdus, reguli, extraPrompt, model, apiKey);
@@ -16628,7 +16747,7 @@ LIMBA: ${lang === 'ro' ? 'Română' : lang === 'en' ? 'English' : 'Auto-detect'}
       }
 
       // ── METODA 1: SerpAPI Google Shopping + Claude pentru identificare ──
-      async function ofertaProcessSerpApi(ofertaId, text, client, adresa, kb, compList, siteList, serpKey, apiKey, model) {
+      async function ofertaProcessSerpApi(ofertaId, text, client, adresa, kb, compList, siteList, serpKey, apiKey, model, forceRefresh) {
         try {
           // PASUL 1: Claude identifică materialele din text (fără web_search)
           toast('🤖 Pas 1/3: Identificare materiale...');
@@ -16638,7 +16757,7 @@ LIMBA: ${lang === 'ro' ? 'Română' : lang === 'en' ? 'English' : 'Auto-detect'}
             body: JSON.stringify({
               model,
               max_tokens: 3000,
-              system: (() => { const _cat = searchCatalog(extractKeywords(text), 40); const _csv = _cat.length ? '\nCATALOG MATHAUS (SAP = codul unic pe mathaus.ro, denumirile sunt INTERNE — NU identice cu site-ul):\n' + catalogToPromptCSV(_cat) : ''; return 'Identifica materialele din nota agentului. Potriveste FIECARE material cu catalogul local.\n\nPROTOCOL IDENTIFICARE:\n1. Cauta in catalogul de mai jos dupa CUVINTE CHEIE din nota (nu potrivire exacta — cauta cel mai apropiat)\n2. Daca gasesti potrivire: pune SAP exact din catalog + link = https://mathaus.ro/p/[SAP] + in_catalog=true\n3. Daca NU gasesti in catalog: pune sap="" si in_catalog=false — agentul va cauta manual pe mathaus.ro dupa nume\n4. Denumirile din catalog sunt INTERNE SAP — nu le afisa clientului, foloseste-le doar pentru potrivire' + _csv + '\nRETURN STRICT JSON: {"materiale":[{"nume":"denumire clara pentru client","cantitate":50,"um":"buc","mentionat_ca":"text original din nota","sap":"SAP exact din catalog sau gol","in_catalog":true,"link_mathaus":"https://mathaus.ro/p/SAP sau gol"}],"neidentificate":["materiale pe care nu le intelegi"]}'; })(),
+              system: (() => { const _cat = searchCatalog(extractKeywords(text), 40); const _csv = _cat.length ? '\nCATALOG MATHAUS (SAP = codul unic pe mathaus.ro, denumirile sunt INTERNE — NU identice cu site-ul):\n' + catalogToPromptCSV(_cat) : ''; const _reguli = (kb.ofertaReguli || '').trim(); return 'Identifica materialele din nota agentului. Potriveste FIECARE material cu catalogul local.\n\nPROTOCOL IDENTIFICARE:\n1. Cauta in catalogul de mai jos dupa CUVINTE CHEIE din nota (nu potrivire exacta — cauta cel mai apropiat)\n2. Daca gasesti potrivire: pune SAP exact din catalog + link = https://mathaus.ro/p/[SAP] + in_catalog=true\n3. Daca NU gasesti in catalog: pune sap="" si in_catalog=false — agentul va cauta manual pe mathaus.ro dupa nume\n4. Denumirile din catalog sunt INTERNE SAP — nu le afisa clientului, foloseste-le doar pentru potrivire' + (_reguli ? '\n\nREGULI ADMINISTRATOR:\n' + _reguli : '') + _csv + '\nRETURN STRICT JSON: {"materiale":[{"nume":"denumire clara pentru client","cantitate":50,"um":"buc","mentionat_ca":"text original din nota","sap":"SAP exact din catalog sau gol","in_catalog":true,"link_mathaus":"https://mathaus.ro/p/SAP sau gol"}],"neidentificate":["materiale pe care nu le intelegi"]}'; })(),
               messages: [{ role: 'user', content: 'Identifica materialele:\n\n' + text }]
             })
           });
@@ -16675,7 +16794,34 @@ LIMBA: ${lang === 'ro' ? 'Română' : lang === 'en' ? 'English' : 'Auto-detect'}
           const _materiiPentruClaude = []; // materiale ramase fara SerpAPI budget
           const _serpLimitLocal = kb.serpApiLimit || 250; // citim din kb direct
 
+          const _cacheMaxDays = kb.priceCacheMaxDays || 7;
+          let _cacheHits = 0;
+
           for (const m of (parsed.materiale || [])) {
+            // CHECK CACHE FIRST (unless forceRefresh)
+            if (!forceRefresh) {
+              const cached = getCachedPrice(m.nume, m.sap, _cacheMaxDays);
+              if (cached) {
+                materiale.push({
+                  ...cached,
+                  cantitate: m.cantitate || 1,
+                  um: m.um || cached.um || 'buc',
+                  mentionat_ca: m.mentionat_ca || '',
+                  validat: false,
+                  _status: 'done'
+                });
+                _cacheHits++;
+                ofertaUpdateProgress(ofertaId, 'preturi', [
+                  ...materiale,
+                  ...(parsed.materiale || []).slice(materiale.length).map(x => ({
+                    ...x, _status: 'searching', pretOferta: 0, validat: false,
+                    mathaus: null, dedeman: null, leroy: null, bricostore: null, hornbach: null
+                  }))
+                ]);
+                continue; // Skip search — used cache
+              }
+            }
+
             // Verificam daca mai avem budget SerpAPI pentru materialul curent
             const _currentUsage = loadSerpUsage().count;
             const _useSerp = _currentUsage < _serpLimitLocal;
@@ -16729,6 +16875,7 @@ LIMBA: ${lang === 'ro' ? 'Română' : lang === 'en' ? 'English' : 'Auto-detect'}
 
           // Actualizam contorul SerpAPI
           saveSerpUsage(loadSerpUsage().count + serpSearches);
+          if (_cacheHits > 0) toast(`📦 ${_cacheHits} materiale din cache · ${serpSearches} căutate live`);
 
           // FALLBACK: Claude preia materialele ramase fara SerpAPI budget
           if (_materiiPentruClaude.length > 0) {
@@ -16739,7 +16886,8 @@ LIMBA: ${lang === 'ro' ? 'Română' : lang === 'en' ? 'English' : 'Auto-detect'}
             ]);
             try {
               const _compStr = compList.map((c,i) => '  • ' + (siteList[i]||c.toLowerCase()+'.ro') + ' (' + c + ')').join('\n');
-              const _fallbackPrompt = `Caută prețurile pentru aceste materiale.\n\nPROTOCOL OBLIGATORIU:\n- Dacă materialul are cod SAP → accesează DIRECT https://mathaus.ro/p/[SAP] — NU căuta pe Google\n- Dacă NU are SAP → caută "site:mathaus.ro [nume produs]"\n- La competitori caută după specificații (grosime, brand, kg)\n\nMateriale:\n${_materiiPentruClaude.map(m => '- ' + m.nume + (m.sap?' → LINK DIRECT: https://mathaus.ro/p/'+m.sap:'') + ' (' + (m.cantitate||1) + ' ' + (m.um||'') + ')').join('\n')}\n\nCompetitori:\n${_compStr}\n\nRETURN JSON: {"materiale":[{"nume":"...","sap":"...","mathaus":{"pret":12.5,"link":"https://mathaus.ro/p/SAP"},"dedeman":{"pret":11.8,"link":"..."},"leroy":{"pret":null,"link":null},"bricostore":{"pret":null,"link":null},"hornbach":{"pret":null,"link":null}}]}`;
+              const _reguliFb = (kb.ofertaReguli || '').trim();
+              const _fallbackPrompt = `Caută prețurile pentru aceste materiale.\n\nPROTOCOL OBLIGATORIU:\n- Dacă materialul are cod SAP → accesează DIRECT https://mathaus.ro/p/[SAP] — NU căuta pe Google\n- Dacă NU are SAP → caută "site:mathaus.ro [nume produs]"\n- La competitori caută după specificații (grosime, brand, kg)${_reguliFb ? '\n\nREGULI ADMINISTRATOR:\n' + _reguliFb : ''}\n\nMateriale:\n${_materiiPentruClaude.map(m => '- ' + m.nume + (m.sap?' → LINK DIRECT: https://mathaus.ro/p/'+m.sap:'') + ' (' + (m.cantitate||1) + ' ' + (m.um||'') + ')').join('\n')}\n\nCompetitori:\n${_compStr}\n\nRETURN JSON: {"materiale":[{"nume":"...","sap":"...","mathaus":{"pret":12.5,"link":"https://mathaus.ro/p/SAP"},"dedeman":{"pret":11.8,"link":"..."},"leroy":{"pret":null,"link":null},"bricostore":{"pret":null,"link":null},"hornbach":{"pret":null,"link":null}}]}`;
 
               const _fbResp = await fetch('https://api.anthropic.com/v1/messages', {
                 method: 'POST',
@@ -17257,6 +17405,7 @@ RETURNEAZĂ STRICT JSON:
                   'claude-web': ['🤖 Claude Web Search', '#6b21a8', '#f3e8ff'],
                   'serpapi-error': ['⚠ SerpAPI eroare', '#92400e', '#fef3c7'],
                   'claude-fallback': ['⚠ Budget SerpAPI epuizat — Claude', '#92400e', '#fef3c7'],
+                  'cache': ['📦 Din cache' + (m._cacheDate ? ' (' + m._cacheDate + ')' : ''), '#0f6e56', '#e1f5ee'],
                 };
                 const b = badges[m.sursa];
                 return b ? `<div style="display:inline-flex;align-items:center;gap:3px;margin-top:3px;background:${b[2]};border:1px solid ${b[1]}33;border-radius:4px;padding:2px 6px;font-size:9px;font-weight:600;color:${b[1]}">${b[0]}</div>` : '';
