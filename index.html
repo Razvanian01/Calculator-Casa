@@ -3017,6 +3017,9 @@
         <button class="nav-btn" onclick="window.print()">🖨 Print</button>
         <button class="nav-btn" onclick="switchMode('oferte')" style="color:var(--blue);border-color:#BFDBFE" id="nav-oferte">🗂 Oferte AI</button>
         <button class="nav-btn" onclick="openChat()" style="color:var(--orange);border-color:var(--orange-m)">🤖 Consultant AI</button>
+        <button class="nav-btn" onclick="debugOpenPanel()" style="color:var(--txt3);border-color:var(--border);font-size:11px;padding:4px 10px;position:relative" title="Debug Log — vezi toate request-urile API">
+          🐛<span id="debug-badge" style="display:none;position:absolute;top:-4px;right:-4px;background:#dc2626;color:#fff;font-size:9px;font-weight:700;width:16px;height:16px;border-radius:50%;align-items:center;justify-content:center"></span>
+        </button>
       </div>
     </header>
 
@@ -3608,6 +3611,136 @@
 
     <script>
       "use strict";
+      // ═══════════════════════════════════════════════════════
+      // DEBUG LOGGER — Interceptează toate fetch-urile API
+      // ═══════════════════════════════════════════════════════
+      const _debugLog = [];
+      const _DEBUG_MAX = 200;
+      const _origFetch = window.fetch;
+
+      window.fetch = async function(url, opts) {
+        const entry = {
+          id: Date.now() + '-' + Math.random().toString(36).substr(2,4),
+          ts: new Date().toLocaleTimeString('ro-RO'),
+          tsDate: new Date().toLocaleDateString('ro-RO'),
+          url: typeof url === 'string' ? url : url?.url || '?',
+          method: opts?.method || 'GET',
+          status: null,
+          ok: null,
+          duration: null,
+          error: null,
+          reqSize: null,
+          resSize: null,
+          type: 'unknown'
+        };
+        // Classify request type
+        const u = entry.url.toLowerCase();
+        if (u.includes('anthropic.com')) entry.type = 'anthropic';
+        else if (u.includes('openai.com')) entry.type = 'whisper';
+        else if (u.includes('serpapi.com')) entry.type = 'serpapi';
+        else if (u.includes('allorigins') || u.includes('corsproxy')) entry.type = 'proxy';
+        else if (u.includes('google.com/spreadsheets') || u.includes('docs.google.com')) entry.type = 'sheets';
+        else entry.type = 'other';
+
+        // Measure request size
+        if (opts?.body) {
+          try { entry.reqSize = typeof opts.body === 'string' ? opts.body.length : (opts.body.size || 0); } catch(e) {}
+        }
+
+        const t0 = performance.now();
+        try {
+          const resp = await _origFetch.call(window, url, opts);
+          entry.duration = Math.round(performance.now() - t0);
+          entry.status = resp.status;
+          entry.ok = resp.ok;
+          if (!resp.ok) {
+            // Try to read error body without consuming the stream
+            try {
+              const clone = resp.clone();
+              const errText = await clone.text();
+              entry.error = errText.substring(0, 500);
+            } catch(e) {}
+          }
+          _debugLog.unshift(entry);
+          if (_debugLog.length > _DEBUG_MAX) _debugLog.length = _DEBUG_MAX;
+          _debugUpdateBadge();
+          return resp;
+        } catch(err) {
+          entry.duration = Math.round(performance.now() - t0);
+          entry.status = 'FAIL';
+          entry.ok = false;
+          entry.error = err.message || 'Unknown error';
+          _debugLog.unshift(entry);
+          if (_debugLog.length > _DEBUG_MAX) _debugLog.length = _DEBUG_MAX;
+          _debugUpdateBadge();
+          throw err;
+        }
+      };
+
+      function _debugUpdateBadge() {
+        const el = document.getElementById('debug-badge');
+        if (!el) return;
+        const errors = _debugLog.filter(e => !e.ok).length;
+        el.textContent = errors > 0 ? errors : '';
+        el.style.display = errors > 0 ? 'flex' : 'none';
+      }
+
+      function debugOpenPanel() {
+        const panel = document.getElementById('debug-panel');
+        if (panel) { panel.style.display = 'flex'; debugRenderLog(); }
+      }
+      function debugClosePanel() {
+        const panel = document.getElementById('debug-panel');
+        if (panel) panel.style.display = 'none';
+      }
+      function debugClearLog() {
+        _debugLog.length = 0;
+        _debugUpdateBadge();
+        debugRenderLog();
+      }
+      function debugRenderLog() {
+        const cont = document.getElementById('debug-log-content');
+        if (!cont) return;
+
+        // Update stats
+        const statsEl = document.getElementById('debug-stats');
+        if (statsEl) {
+          const total = _debugLog.length;
+          const ok = _debugLog.filter(e => e.ok).length;
+          const fail = _debugLog.filter(e => !e.ok).length;
+          const types = {};
+          _debugLog.forEach(e => { types[e.type] = (types[e.type]||0) + 1; });
+          const typeStr = Object.entries(types).map(([k,v]) => k + ':' + v).join(' · ');
+          statsEl.innerHTML = `<strong>${total}</strong> requests · <span style="color:#15803d">${ok} OK</span> · <span style="color:#dc2626">${fail} erori</span> · ${typeStr}`;
+        }
+
+        if (!_debugLog.length) { cont.innerHTML = '<div style="padding:20px;text-align:center;color:var(--txt3);font-size:12px">Niciun request încă. Fă o acțiune (chat, ofertă, sincronizare) și vezi aici rezultatele.</div>'; return; }
+
+        const typeIcons = { anthropic:'🤖', whisper:'🎤', serpapi:'🔍', proxy:'🔄', sheets:'📊', other:'🌐' };
+        const typeColors = { anthropic:'#6b21a8', whisper:'#0f6e56', serpapi:'#1a73e8', proxy:'#92400e', sheets:'#15803d', other:'#555' };
+
+        cont.innerHTML = _debugLog.map(e => {
+          const icon = typeIcons[e.type] || '🌐';
+          const color = typeColors[e.type] || '#555';
+          const statusColor = e.ok ? '#15803d' : e.status === 'FAIL' ? '#dc2626' : '#d97706';
+          const statusText = e.status === 'FAIL' ? 'FETCH FAILED' : e.status;
+          const shortUrl = e.url.length > 80 ? e.url.substring(0, 77) + '...' : e.url;
+          const sizeInfo = e.reqSize ? (e.reqSize > 1024 ? Math.round(e.reqSize/1024) + 'KB' : e.reqSize + 'B') : '';
+
+          return `<div style="padding:8px 10px;border-bottom:1px solid var(--border);font-size:11px;${!e.ok ? 'background:#fef2f2;' : ''}">
+            <div style="display:flex;align-items:center;gap:6px;margin-bottom:3px">
+              <span style="font-size:13px">${icon}</span>
+              <span style="font-weight:700;color:${color};text-transform:uppercase;font-size:10px">${e.type}</span>
+              <span style="font-weight:700;color:${statusColor};font-family:var(--mono)">${statusText}</span>
+              <span style="color:var(--txt3);font-family:var(--mono)">${e.duration}ms</span>
+              ${sizeInfo ? '<span style="color:var(--txt3);font-family:var(--mono)">' + sizeInfo + '</span>' : ''}
+              <span style="margin-left:auto;color:var(--txt3)">${e.ts}</span>
+            </div>
+            <div style="font-family:var(--mono);font-size:10px;color:var(--txt2);word-break:break-all">${e.method} ${shortUrl}</div>
+            ${e.error ? '<div style="margin-top:4px;padding:4px 6px;background:#fee2e2;border-radius:4px;font-family:var(--mono);font-size:10px;color:#991b1b;word-break:break-all">❌ ' + (e.error.length > 300 ? e.error.substring(0,297) + '...' : e.error) + '</div>' : ''}
+          </div>`;
+        }).join('');
+      }
       // ─────────────────────────── UTILS ─────────────────────────────
       const $ = (s) => document.getElementById(s);
       const fmt = (n) => (isFinite(n) ? Math.round(n * 10) / 10 : 0);
@@ -16407,11 +16540,32 @@ LIMBA: ${lang === 'ro' ? 'Română' : lang === 'en' ? 'English' : 'Auto-detect'}
         try {
           const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
           _ofertaAudioChunks = [];
+          window._webSpeechTranscript = '';
           _ofertaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm' });
           _ofertaRecorder.ondataavailable = e => { if (e.data.size > 0) _ofertaAudioChunks.push(e.data); };
           _ofertaRecorder.onstop = ofertaOnRecordingStop;
           _ofertaRecorder.start();
           _ofertaIsRecording = true;
+
+          // Start Web Speech API in parallel (free, no API key needed)
+          try {
+            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+            if (SpeechRecognition) {
+              window._webSpeechRecog = new SpeechRecognition();
+              window._webSpeechRecog.lang = 'ro-RO';
+              window._webSpeechRecog.continuous = true;
+              window._webSpeechRecog.interimResults = false;
+              window._webSpeechRecog.onresult = (e) => {
+                let t = '';
+                for (let i = e.resultIndex; i < e.results.length; i++) {
+                  if (e.results[i].isFinal) t += e.results[i][0].transcript + ' ';
+                }
+                window._webSpeechTranscript = (window._webSpeechTranscript || '') + t;
+              };
+              window._webSpeechRecog.onerror = () => {}; // silent fail
+              window._webSpeechRecog.start();
+            }
+          } catch(e) {} // Web Speech not available — will use Whisper
 
           const btn = $('oferta-voice-btn');
           const section = $('oferta-voice-section');
@@ -16429,29 +16583,50 @@ LIMBA: ${lang === 'ro' ? 'Română' : lang === 'en' ? 'English' : 'Auto-detect'}
           _ofertaRecorder.stop();
           _ofertaRecorder.stream?.getTracks().forEach(t => t.stop());
           _ofertaIsRecording = false;
+          // Stop Web Speech too
+          try { if (window._webSpeechRecog) window._webSpeechRecog.stop(); } catch(e) {}
           const btn = $('oferta-voice-btn');
           const section = $('oferta-voice-section');
           const status = $('oferta-voice-status');
           if (btn) { btn.textContent = '⏳'; btn.classList.remove('recording'); }
           if (section) section.classList.remove('recording');
-          if (status) status.textContent = '⏳ Transcriem cu Whisper AI...';
+          if (status) status.textContent = '⏳ Transcriere în curs...';
         }
       }
 
       async function ofertaOnRecordingStop() {
         const blob = new Blob(_ofertaAudioChunks, { type: 'audio/webm' });
         const key = ofertaGetOpenAIKey();
+        const btn = $('oferta-voice-btn');
+        const status = $('oferta-voice-status');
 
+        // Strategy: try Web Speech API first (free, no CORS), then Whisper API
+        // Web Speech API runs during recording via ofertaStartRecording
+        // If we already have a transcript from Web Speech, use it
+        if (window._webSpeechTranscript) {
+          const transcript = window._webSpeechTranscript;
+          window._webSpeechTranscript = '';
+          if (transcript.trim()) {
+            const transcriptEl = $('oferta-transcript');
+            if (transcriptEl) { transcriptEl.textContent = transcript; transcriptEl.classList.add('show'); }
+            const textEl = $('oferta-text');
+            if (textEl) textEl.value = (textEl.value ? textEl.value + '\n' : '') + transcript;
+            if (btn) btn.textContent = '🎤';
+            if (status) status.textContent = '✅ Transcriere completă (Web Speech)';
+            return;
+          }
+        }
+
+        // Fallback: try Whisper API if key available
         if (!key) {
-          toast('⚠ Cheie OpenAI lipsă — adaugă-o în formularul de mai sus');
-          const btn = $('oferta-voice-btn');
-          if (btn) { btn.textContent = '🎤'; }
-          const status = $('oferta-voice-status');
-          if (status) status.textContent = 'Apasă pentru a dicta materialele';
+          if (btn) btn.textContent = '🎤';
+          if (status) status.textContent = '⚠ Transcriere vocală indisponibilă — scrie manual textul';
+          toast('ℹ Fără cheie OpenAI, transcrierea vocală folosește Web Speech API (poate fi mai puțin precisă). Pentru transcriere Whisper, adaugă cheia OpenAI.');
           return;
         }
 
         try {
+          if (status) status.textContent = '⏳ Transcriem cu Whisper AI...';
           const formData = new FormData();
           formData.append('file', blob, 'recording.webm');
           formData.append('model', 'whisper-1');
@@ -16538,18 +16713,17 @@ LIMBA: ${lang === 'ro' ? 'Română' : lang === 'en' ? 'English' : 'Auto-detect'}
         toast('🔍 Testez conexiunea SerpAPI...');
         try {
           const testUrl = 'https://serpapi.com/search.json?engine=google_shopping&q=BCA+Elpreco+200mm&gl=ro&hl=ro&num=3&api_key=' + encodeURIComponent(kb.serpApiKey);
-          let data;
-          try {
-            const resp = await fetch(testUrl, { cache: 'no-cache' });
-            data = await resp.json();
-          } catch(corsErr) {
-            const proxyResp = await fetch('https://api.allorigins.win/get?url=' + encodeURIComponent(testUrl));
-            const proxyData = await proxyResp.json();
-            data = JSON.parse(proxyData.contents || '{}');
-          }
+          let data, ok = false;
+          // Try direct
+          try { const r = await fetch(testUrl, {cache:'no-cache'}); if(r.ok){data=await r.json();ok=true;} } catch(e){}
+          // Try allorigins
+          if(!ok) try { const r=await fetch('https://api.allorigins.win/get?url='+encodeURIComponent(testUrl),{cache:'no-cache'}); if(r.ok){const d=await r.json();data=JSON.parse(d.contents||'{}');ok=true;} } catch(e){}
+          // Try corsproxy
+          if(!ok) try { const r=await fetch('https://corsproxy.io/?'+encodeURIComponent(testUrl),{cache:'no-cache'}); if(r.ok){data=await r.json();ok=true;} } catch(e){}
+          if(!ok) throw new Error('Toate proxy-urile au eșuat. Deschide aplicația de pe un server HTTP (nu file:///).');
           if (data.error) throw new Error(data.error);
           const results = data.shopping_results || [];
-          toast('✅ SerpAPI funcționează! ' + results.length + ' rezultate găsite');
+          toast('✅ SerpAPI funcționează! ' + results.length + ' rezultate găsite' + (ok ? '' : ' (via proxy)'));
         } catch(e) {
           toast('❌ Eroare SerpAPI: ' + e.message);
         }
@@ -16558,29 +16732,41 @@ LIMBA: ${lang === 'ro' ? 'Română' : lang === 'en' ? 'English' : 'Auto-detect'}
       // Cauta pretul unui material pe Google Shopping via SerpAPI
       // Returneaza obiect cu preturi per retailer
       async function searchPricesSerpApi(materialName, serpKey, competitori, siteuri, sapCode) {
-        // Daca avem SAP, cautam dupa cod SAP pentru precizie maxima pe mathaus.ro
         const searchTerm = sapCode ? materialName + ' ' + sapCode : materialName;
         const query = encodeURIComponent(searchTerm + ' pret');
         const url = `https://serpapi.com/search.json?engine=google_shopping&q=${query}&gl=ro&hl=ro&num=20&api_key=${encodeURIComponent(serpKey)}`;
         let data;
         try {
-          // Incercam direct mai intai
+          // Try 1: direct fetch
           let fetchOk = false;
           try {
             const resp = await fetch(url, { cache: 'no-cache' });
             if (resp.ok) { data = await resp.json(); fetchOk = true; }
-          } catch(e) { /* CORS blocat */ }
+          } catch(e) { /* CORS blocked */ }
 
-          // Fallback CORS proxy
+          // Try 2: allorigins proxy
           if (!fetchOk) {
-            const proxyUrl = 'https://api.allorigins.win/get?url=' + encodeURIComponent(url);
-            const proxyResp = await fetch(proxyUrl, { cache: 'no-cache' });
-            if (!proxyResp.ok) throw new Error('Proxy HTTP ' + proxyResp.status);
-            const proxyData = await proxyResp.json();
-            data = JSON.parse(proxyData.contents || '{}');
+            try {
+              const proxyUrl = 'https://api.allorigins.win/get?url=' + encodeURIComponent(url);
+              const proxyResp = await fetch(proxyUrl, { cache: 'no-cache' });
+              if (proxyResp.ok) {
+                const proxyData = await proxyResp.json();
+                data = JSON.parse(proxyData.contents || '{}');
+                fetchOk = true;
+              }
+            } catch(e) { /* proxy 1 failed */ }
           }
 
-          if (!data) throw new Error('Niciun raspuns de la SerpAPI');
+          // Try 3: corsproxy.io
+          if (!fetchOk) {
+            try {
+              const proxyUrl2 = 'https://corsproxy.io/?' + encodeURIComponent(url);
+              const proxyResp2 = await fetch(proxyUrl2, { cache: 'no-cache' });
+              if (proxyResp2.ok) { data = await proxyResp2.json(); fetchOk = true; }
+            } catch(e) { /* proxy 2 failed */ }
+          }
+
+          if (!fetchOk || !data) throw new Error('Toate metodele de acces SerpAPI au eșuat (CORS). Încearcă să deschizi aplicația de pe un server HTTP, nu din fișier local.');
           if (data.error) throw new Error(data.error);
         } catch(fetchErr) {
           throw new Error('SerpAPI: ' + fetchErr.message);
@@ -16691,8 +16877,9 @@ LIMBA: ${lang === 'ro' ? 'Română' : lang === 'en' ? 'English' : 'Auto-detect'}
         if (!text) { toast('⚠ Scrie sau dictează materialele mai întâi!'); return; }
         const _forceRefresh = $('oferta-force-refresh')?.checked || false;
         const apiKey = localStorage.getItem(CHAT_API_KEY_STORE);
-        if (!apiKey) { toast('⚠ Cheie API Anthropic lipsă'); return; }
+        if (!apiKey) { toast('⚠ Cheie API Anthropic lipsă — configurează în Admin → AI Agent → Setări'); return; }
 
+        try {
         // OFERTARE uses ONLY its own KB + Common — never Consultant data
         const _common = loadCommonKB();
         const _ofKb = loadOfertareKB();
@@ -16743,6 +16930,17 @@ LIMBA: ${lang === 'ro' ? 'Română' : lang === 'en' ? 'English' : 'Auto-detect'}
         } else {
           if (serpKey) toast('ℹ Limita SerpAPI atinsă — folosim Claude web_search');
           await ofertaProcessClaude(ofertaId, text, adresa, kb, compList, siteList, contextMathaus, contextProdus, reguli, extraPrompt, model, apiKey);
+        }
+
+        } catch(globalErr) {
+          console.error('[Ofertare] Eroare globală:', globalErr);
+          toast('❌ Eroare: ' + globalErr.message);
+          // Try to mark the offer as errored
+          try {
+            const _list = loadOferte();
+            const _idx = _list.findIndex(o => o.id === ofertaId);
+            if (_idx >= 0) { _list[_idx].status = 'draft'; _list[_idx].eroare = globalErr.message; saveOferte(_list); ofertaShowDetail(ofertaId); }
+          } catch(e2) {}
         }
       }
 
@@ -17331,11 +17529,13 @@ RETURNEAZĂ STRICT JSON:
 
         // Stare: eroare
         if (oferta.status === 'draft' && oferta.eroare) {
+          const isFetchErr = (oferta.eroare || '').includes('fetch') || (oferta.eroare || '').includes('Failed');
           cont.innerHTML = `<div class="oferta-detail" style="padding:30px;text-align:center">
             <div style="font-size:36px;margin-bottom:8px">⚠️</div>
             <div style="font-weight:700;color:var(--red);margin-bottom:8px">Eroare la cercetare</div>
-            <div style="font-size:12px;color:var(--txt2);background:var(--surface2);padding:10px;border-radius:8px;font-family:var(--mono)">${escHtml(oferta.eroare)}</div>
-            <button class="btn btn-primary" style="margin-top:16px" onclick="ofertaRetry('${id}')">🔄 Reîncearcă</button>
+            <div style="font-size:12px;color:var(--txt2);background:var(--surface2);padding:10px;border-radius:8px;font-family:var(--mono);margin-bottom:12px">${escHtml(oferta.eroare)}</div>
+            ${isFetchErr ? '<div style="font-size:11px;color:var(--txt2);background:var(--amber-l);border:1px solid #fde68a;padding:10px;border-radius:8px;text-align:left;line-height:1.7;margin-bottom:12px"><strong style="color:var(--amber)">Posibile cauze:</strong><br>• Aplicația e deschisă ca fișier local (file:///) — deschide-o de pe un server HTTP<br>• Cheia API Anthropic lipsește sau e invalidă — verifică în Admin → Setări<br>• Conexiune la internet întreruptă<br>• Firewall sau VPN blochează accesul la api.anthropic.com</div>' : ''}
+            <button class="btn btn-primary" style="margin-top:8px" onclick="ofertaRetry('${id}')">🔄 Reîncearcă</button>
           </div>`;
           return;
         }
@@ -17981,6 +18181,28 @@ RETURNEAZĂ STRICT JSON:
             oninput="this.style.height='auto';this.style.height=Math.min(this.scrollHeight,120)+'px'"></textarea>
           <button class="chat-send-btn" id="chat-send-btn" onclick="sendChatMessage()" title="Trimite">➤</button>
         </div>
+      </div>
+    </div>
+
+    <!-- Debug Log Panel -->
+    <div id="debug-panel" style="display:none;position:fixed;inset:0;background:rgba(28,43,74,0.5);z-index:9998;justify-content:center;align-items:center;padding:16px;backdrop-filter:blur(2px)">
+      <div style="background:var(--surface);border-radius:16px;width:100%;max-width:720px;max-height:85vh;box-shadow:0 20px 60px rgba(0,0,0,0.3);display:flex;flex-direction:column;overflow:hidden">
+        <div style="padding:14px 18px;background:var(--navy);color:#fff;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;border-radius:16px 16px 0 0">
+          <div>
+            <div style="font-size:15px;font-weight:800">🐛 Debug Log — API Requests</div>
+            <div style="font-size:10px;opacity:.6;margin-top:2px">Toate apelurile API interceptate — click pe un request pentru detalii</div>
+          </div>
+          <div style="display:flex;gap:6px">
+            <button onclick="debugClearLog()" style="background:rgba(255,255,255,.15);border:none;color:#fff;padding:4px 10px;border-radius:6px;font-size:11px;cursor:pointer;font-family:var(--font)">🗑 Golește</button>
+            <button onclick="navigator.clipboard.writeText(JSON.stringify(_debugLog,null,2));toast('✅ Log copiat în clipboard')" style="background:rgba(255,255,255,.15);border:none;color:#fff;padding:4px 10px;border-radius:6px;font-size:11px;cursor:pointer;font-family:var(--font)">📋 Copiază</button>
+            <button onclick="debugClosePanel()" style="background:rgba(255,255,255,.2);border:none;color:#fff;width:28px;height:28px;border-radius:50%;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center">×</button>
+          </div>
+        </div>
+        <div style="padding:8px 12px;background:var(--surface2);border-bottom:1px solid var(--border);display:flex;gap:12px;align-items:center;flex-shrink:0;font-size:11px;color:var(--txt2)">
+          <span id="debug-stats"></span>
+          <span style="margin-left:auto;font-size:10px;color:var(--txt3)">Auto-refresh la fiecare acțiune</span>
+        </div>
+        <div id="debug-log-content" style="flex:1;overflow-y:auto;min-height:200px"></div>
       </div>
     </div>
 
