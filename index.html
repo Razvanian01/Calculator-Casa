@@ -3612,6 +3612,44 @@
     <script>
       "use strict";
       // ═══════════════════════════════════════════════════════
+      // SAP LINK LOOKUP — extrage link-uri corecte din baza de materiale
+      // ═══════════════════════════════════════════════════════
+      let _sapLinkMap = null; // lazy init
+
+      function buildSapLinkMap() {
+        if (_sapLinkMap) return _sapLinkMap;
+        _sapLinkMap = {};
+        // Scan page source for all mathaus.ro/p/slug/000000000XXXXXXXXXXX patterns
+        try {
+          const html = document.documentElement.innerHTML;
+          const re = /https:\/\/mathaus\.ro\/p\/[a-z0-9-]+\/(\d{18})/g;
+          let match;
+          while ((match = re.exec(html)) !== null) {
+            const fullSap = match[1]; // 000000000010700878
+            const shortSap = fullSap.replace(/^0+/, ''); // 10700878
+            if (shortSap && !_sapLinkMap[shortSap]) {
+              _sapLinkMap[shortSap] = match[0]; // full URL
+            }
+          }
+          console.log('[MatHaus] SAP link map: ' + Object.keys(_sapLinkMap).length + ' link-uri extrase din baza de materiale');
+        } catch(e) { console.warn('[SAP Link Map] Error:', e); }
+        return _sapLinkMap;
+      }
+
+      // Get the best MatHaus link for a SAP code
+      function getMathausLink(sap) {
+        if (!sap) return '';
+        const map = buildSapLinkMap();
+        const clean = String(sap).replace(/^0+/, '').trim();
+        if (map[clean]) return map[clean];
+        try {
+          const cat = getCatalogBySap(clean);
+          if (cat?.link && cat.link.includes('mathaus.ro/p/')) return cat.link;
+        } catch(e) {}
+        return 'https://mathaus.ro/search?text=' + encodeURIComponent(clean);
+      }
+
+      // ═══════════════════════════════════════════════════════
       // DEBUG LOGGER — Interceptează toate fetch-urile API
       // ═══════════════════════════════════════════════════════
       const _debugLog = [];
@@ -10808,7 +10846,7 @@
         aiModelOferte: 'claude-sonnet-4-5-20250929',
         ofertaSystemPrompt: '',
         ofertaReguli: `REGULI IDENTIFICARE MATERIALE:
-1. POTRIVIRE CATALOG: Caută ÎNTÂI în catalogul local după cod SAP sau cuvinte cheie din denumire. Dacă găsești → folosește SAP-ul exact și construiește link: https://mathaus.ro/p/[SAP]
+1. POTRIVIRE CATALOG: Caută ÎNTÂI în catalogul local după cod SAP sau cuvinte cheie din denumire. Dacă găsești → folosește SAP-ul exact și construiește link: https://mathaus.ro/search?text=[SAP]
 2. MATERIAL NEGĂSIT ÎN CATALOG: Pune sap="" și in_catalog=false. Agentul va căuta manual pe mathaus.ro.
 3. CANTITĂȚI: Extrage cantitatea EXACTĂ din notiță. Dacă lipsește cantitatea → pune 1 și marchează cu observație.
 4. UNITATE DE MĂSURĂ: Folosește UM din catalog dacă e disponibilă. Altfel: m², ml, buc, sac, kg, rolă, palet.
@@ -10819,7 +10857,7 @@
 9. MATERIALE EXTERNE: Beton, fier-beton, cherestea, manoperă → NU sunt pe mathaus.ro, marchează-le separat.
 10. PREȚURI MATHAUS: Caută ÎNTÂI după cod SAP (link direct). Fără SAP → "site:mathaus.ro [produs]". NICIODATĂ Google generic.
 11. PREȚURI COMPETITORI: Caută după specificații (brand, grosime, kg) nu după cod. Echivalent cel mai apropiat.
-12. LINK-URI: Fiecare material trebuie să aibă link valid mathaus.ro. Link-ul SAP e prioritar: https://mathaus.ro/p/[SAP]`,
+12. LINK-URI: Fiecare material trebuie să aibă link valid mathaus.ro. Link-ul SAP e prioritar: https://mathaus.ro/search?text=[SAP]`,
         ofertaCompetitori: 'Dedeman,Leroy Merlin,Bricostore,Hornbach',
         ofertaSiteuri: 'dedeman.ro,leroymerlin.ro,bricostore.ro,hornbach.ro',
         ofertaCompetitoriList: [
@@ -11777,7 +11815,7 @@ PROGRAM MAGAZINE:
         const header = 'SAP,Denumire_SAP,UM,Pret,Link_mathaus';
         const lines = rows.map(p => {
           const sap = (p.sap || '').trim();
-          const link = sap ? 'https://mathaus.ro/p/' + sap : '';
+          const link = sap ? getMathausLink(sap) : '';
           return `${sap},${(p.name || '').replace(/,/g, ' ')},${p.um || ''},${p.price || ''},${link}`;
         });
         return header + '\n' + lines.join('\n');
@@ -15075,7 +15113,7 @@ LIMBA: ${lang === 'ro' ? 'Română' : lang === 'en' ? 'English' : 'Auto-detect'}
             const _seen = new Set(_catRelevant.map(p => p.sap || p.name));
             const _catMerged = [..._catRelevant, ..._catFallback.filter(p => !_seen.has(p.sap || p.name))];
             
-            sp += `\n\nCATALOG PRODUSE MATHAUS (${_catAll.length} produse total — cele relevante pentru întrebare):\nDENUMIRILE sunt INTERNE SAP — NU identice cu ce vezi pe site.\nCODUL SAP este CHEIA UNICĂ — identic pe mathaus.ro.\nLINK DIRECT: https://mathaus.ro/p/[COD_SAP] — ACCESEAZĂ ACEST LINK, nu căuta pe Google.\nDacă produsul NU e în lista de mai jos, caută pe site: "site:mathaus.ro [descriere]"\n`;
+            sp += `\n\nCATALOG PRODUSE MATHAUS (${_catAll.length} produse total — cele relevante pentru întrebare):\nDENUMIRILE sunt INTERNE SAP — NU identice cu ce vezi pe site.\nCODUL SAP este CHEIA UNICĂ — identic pe mathaus.ro.\nLINK DIRECT: https://mathaus.ro/search?text=[COD_SAP] — ACCESEAZĂ ACEST LINK, nu căuta pe Google.\nDacă produsul NU e în lista de mai jos, caută pe site: "site:mathaus.ro [descriere]"\n`;
             sp += catalogToPromptCSV(_catMerged);
             if (_catAll.length > _catMerged.length) {
               sp += `\n[... încă ${_catAll.length - _catMerged.length} produse disponibile — dacă clientul întreabă de un produs care nu e în lista de mai sus, caută-l pe mathaus.ro]`;
@@ -15108,7 +15146,7 @@ LIMBA: ${lang === 'ro' ? 'Română' : lang === 'en' ? 'English' : 'Auto-detect'}
           });
         } catch(e) {}
 
-        sp += `\n\n⚡ PROTOCOL IDENTIFICARE PRODUS — OBLIGATORIU, ÎN ACEASTĂ ORDINE:\n\nPAS 1 — CAUTĂ LOCAL: Verifică ÎNTÂI în catalogul de mai sus (după nume SAU cod SAP). Dacă produsul e în catalog, ai deja: denumire internă, cod SAP, UM, preț.\n\nPAS 2A — AI COD SAP → ACCESARE DIRECTĂ: Dacă ai cod SAP din catalog, construiește URL-ul DIRECT: https://mathaus.ro/p/[COD_SAP] și accesează-l cu web search. NU căuta pe Google generic. NU căuta după denumire. Link-ul SAP e cel mai curat mod de a ajunge la pagina produsului. De acolo citești: preț actualizat, buc/palet, m³/palet, disponibilitate.\n\nPAS 2B — NU AM COD SAP → CĂUTARE PE SITE: Dacă produsul NU e în catalog (sau nu are SAP), faci web search STRICT pe site: "site:mathaus.ro [nume produs]". Exemplu: "site:mathaus.ro adeziv BCA 25kg". NU căuta pe Google generic, NU căuta pe site-uri concurente.\n\nPAS 3 — PRODUS EXTERN (marcat ⚠️EXT): NU se vinde pe mathaus.ro. Informezi agentul că trebuie comandat de la furnizori specializați (beton de la stație, fier-beton de la depozit metalurgic) și dai cantitatea calculată.\n\n⚠️ NICIODATĂ nu căuta prețuri pe Dedeman, Leroy, Hornbach sau alte site-uri concurente. Consultantul vinde EXCLUSIV MatHaus.\n`;
+        sp += `\n\n⚡ PROTOCOL IDENTIFICARE PRODUS — OBLIGATORIU, ÎN ACEASTĂ ORDINE:\n\nPAS 1 — CAUTĂ LOCAL: Verifică ÎNTÂI în catalogul de mai sus (după nume SAU cod SAP). Dacă produsul e în catalog, ai deja: denumire internă, cod SAP, UM, preț.\n\nPAS 2A — AI COD SAP → ACCESARE DIRECTĂ: Dacă ai cod SAP din catalog, construiește URL-ul DIRECT: https://mathaus.ro/search?text=[COD_SAP] și accesează-l cu web search. NU căuta pe Google generic. NU căuta după denumire. Link-ul SAP e cel mai curat mod de a ajunge la pagina produsului. De acolo citești: preț actualizat, buc/palet, m³/palet, disponibilitate.\n\nPAS 2B — NU AM COD SAP → CĂUTARE PE SITE: Dacă produsul NU e în catalog (sau nu are SAP), faci web search STRICT pe site: "site:mathaus.ro [nume produs]". Exemplu: "site:mathaus.ro adeziv BCA 25kg". NU căuta pe Google generic, NU căuta pe site-uri concurente.\n\nPAS 3 — PRODUS EXTERN (marcat ⚠️EXT): NU se vinde pe mathaus.ro. Informezi agentul că trebuie comandat de la furnizori specializați (beton de la stație, fier-beton de la depozit metalurgic) și dai cantitatea calculată.\n\n⚠️ NICIODATĂ nu căuta prețuri pe Dedeman, Leroy, Hornbach sau alte site-uri concurente. Consultantul vinde EXCLUSIV MatHaus.\n`;
 
         sp += `\nBCA — catalog intern (accesează link pentru date exacte):\n`;
         try {
@@ -16654,15 +16692,11 @@ LIMBA: ${lang === 'ro' ? 'Română' : lang === 'en' ? 'English' : 'Auto-detect'}
             textEl.value = (textEl.value ? textEl.value + '\n' : '') + transcript;
           }
 
-          const btn = $('oferta-voice-btn');
-          const status = $('oferta-voice-status');
           if (btn) { btn.textContent = '🎤'; btn.classList.remove('recording'); }
           if (status) status.textContent = '✅ Transcriere completă — poți continua să dictezi';
 
         } catch(e) {
-          const status = $('oferta-voice-status');
           if (status) status.textContent = '⚠ Eroare transcriere: ' + e.message;
-          const btn = $('oferta-voice-btn');
           if (btn) btn.textContent = '🎤';
         }
       }
@@ -16955,7 +16989,7 @@ LIMBA: ${lang === 'ro' ? 'Română' : lang === 'en' ? 'English' : 'Auto-detect'}
             body: JSON.stringify({
               model,
               max_tokens: 3000,
-              system: (() => { const _cat = searchCatalog(extractKeywords(text), 40); const _csv = _cat.length ? '\nCATALOG MATHAUS (SAP = codul unic pe mathaus.ro, denumirile sunt INTERNE — NU identice cu site-ul):\n' + catalogToPromptCSV(_cat) : ''; const _reguli = (kb.ofertaReguli || '').trim(); return 'Identifica materialele din nota agentului. Potriveste FIECARE material cu catalogul local.\n\nPROTOCOL IDENTIFICARE:\n1. Cauta in catalogul de mai jos dupa CUVINTE CHEIE din nota (nu potrivire exacta — cauta cel mai apropiat)\n2. Daca gasesti potrivire: pune SAP exact din catalog + link = https://mathaus.ro/p/[SAP] + in_catalog=true\n3. Daca NU gasesti in catalog: pune sap="" si in_catalog=false — agentul va cauta manual pe mathaus.ro dupa nume\n4. Denumirile din catalog sunt INTERNE SAP — nu le afisa clientului, foloseste-le doar pentru potrivire' + (_reguli ? '\n\nREGULI ADMINISTRATOR:\n' + _reguli : '') + _csv + '\nRETURN STRICT JSON: {"materiale":[{"nume":"denumire clara pentru client","cantitate":50,"um":"buc","mentionat_ca":"text original din nota","sap":"SAP exact din catalog sau gol","in_catalog":true,"link_mathaus":"https://mathaus.ro/p/SAP sau gol"}],"neidentificate":["materiale pe care nu le intelegi"]}'; })(),
+              system: (() => { const _cat = searchCatalog(extractKeywords(text), 40); const _csv = _cat.length ? '\nCATALOG MATHAUS (SAP = codul unic pe mathaus.ro, denumirile sunt INTERNE — NU identice cu site-ul):\n' + catalogToPromptCSV(_cat) : ''; const _reguli = (kb.ofertaReguli || '').trim(); return 'Identifica materialele din nota agentului. Potriveste FIECARE material cu catalogul local.\n\nPROTOCOL IDENTIFICARE:\n1. Cauta in catalogul de mai jos dupa CUVINTE CHEIE din nota (nu potrivire exacta — cauta cel mai apropiat)\n2. Daca gasesti potrivire: pune SAP exact din catalog + link = https://mathaus.ro/search?text=[SAP] + in_catalog=true\n3. Daca NU gasesti in catalog: pune sap="" si in_catalog=false — agentul va cauta manual pe mathaus.ro dupa nume\n4. Denumirile din catalog sunt INTERNE SAP — nu le afisa clientului, foloseste-le doar pentru potrivire' + (_reguli ? '\n\nREGULI ADMINISTRATOR:\n' + _reguli : '') + _csv + '\nRETURN STRICT JSON: {"materiale":[{"nume":"denumire clara pentru client","cantitate":50,"um":"buc","mentionat_ca":"text original din nota","sap":"SAP exact din catalog sau gol","in_catalog":true,"link_mathaus":"https://mathaus.ro/search?text=SAP sau gol"}],"neidentificate":["materiale pe care nu le intelegi"]}'; })(),
               messages: [{ role: 'user', content: 'Identifica materialele:\n\n' + text }]
             })
           });
@@ -17016,48 +17050,61 @@ LIMBA: ${lang === 'ro' ? 'Română' : lang === 'en' ? 'English' : 'Auto-detect'}
                     mathaus: null, dedeman: null, leroy: null, bricostore: null, hornbach: null
                   }))
                 ]);
-                continue; // Skip search — used cache
+                continue;
               }
             }
 
-            // Verificam daca mai avem budget SerpAPI pentru materialul curent
+            // ── LOCAL PRICE LOOKUP (catalog + PRICE_TABLE) — ALWAYS runs first ──
+            const _sap = (m.sap || '').trim();
+            const _inCatalog = m.in_catalog !== false && !!_sap;
+            const _mhUrl = _sap
+              ? getMathausLink(_sap)
+              : 'https://mathaus.ro/search?text=' + encodeURIComponent(m.mentionat_ca || m.nume);
+            let _localPretMathaus = null;
+
+            // Check 1: Catalog (Google Sheet imported)
+            if (_sap) {
+              const catProduct = getCatalogBySap(_sap);
+              if (catProduct?.price) _localPretMathaus = catProduct.price;
+            }
+            // Check 2: PRICE_TABLE (hardcoded + synced prices)
+            if (!_localPretMathaus) {
+              const ptPrice = PRICE_TABLE[m.nume] || PRICE_TABLE[m.mentionat_ca];
+              if (ptPrice) _localPretMathaus = ptPrice;
+            }
+
+            // Build mathaus object with local price if available
+            const _mathausLocal = _localPretMathaus
+              ? { pret: _localPretMathaus, link: _mhUrl, disponibil: true }
+              : { pret: null, link: _mhUrl, disponibil: false };
+
+            // ── SERP API SEARCH (for competitor prices) ──
             const _currentUsage = loadSerpUsage().count;
             const _useSerp = _currentUsage < _serpLimitLocal;
-            const _searchTerm = (m.sap && m.in_catalog !== false) ? m.sap : (m.mentionat_ca || m.nume);
+            const _searchTerm = (_sap && _inCatalog) ? _sap : (m.mentionat_ca || m.nume);
 
             if (!_useSerp) {
-              // Budget epuizat — colectam restul pentru Claude
-              _materiiPentruClaude.push(m);
+              _materiiPentruClaude.push({ ...m, mathaus: _mathausLocal });
               continue;
             }
 
             try {
               const prices = await searchPricesSerpApi(_searchTerm, serpKey, compList, siteList);
               serpSearches++;
-              const _sap = (m.sap || '').trim();
-              const _inCatalog = m.in_catalog !== false && !!_sap;
-              const _mhUrl = _sap
-                ? 'https://mathaus.ro/p/' + _sap
-                : 'https://mathaus.ro/search?text=' + encodeURIComponent(m.mentionat_ca || m.nume);
               const matItem = {
-                sap: _sap,
-                inCatalog: _inCatalog,
-                nume: m.nume,
-                cantitate: m.cantitate || 1,
-                um: m.um || 'buc',
+                sap: _sap, inCatalog: _inCatalog, nume: m.nume,
+                cantitate: m.cantitate || 1, um: m.um || 'buc',
                 mentionat_ca: m.mentionat_ca || '',
-                mathaus: prices.mathaus || { pret: null, link: _mhUrl, disponibil: false },
+                // MatHaus: prefer SerpAPI price, fallback to local
+                mathaus: (prices.mathaus?.pret) ? prices.mathaus : _mathausLocal,
                 dedeman: prices.dedeman || { pret: null, link: null, disponibil: false },
                 leroy: prices.leroy || { pret: null, link: null, disponibil: false },
                 bricostore: prices.bricostore || { pret: null, link: null, disponibil: false },
                 hornbach: prices.hornbach || { pret: null, link: null, disponibil: false },
-                pretOferta: prices.mathaus?.pret || 0,
-                validat: false,
-                sursa: 'serpapi',
-                _status: 'done'
+                pretOferta: prices.mathaus?.pret || _localPretMathaus || 0,
+                validat: false, sursa: 'serpapi', _status: 'done'
               };
               materiale.push(matItem);
-              // Update live: materialul curent e gata, restul inca in cautare
               ofertaUpdateProgress(ofertaId, 'preturi', [
                 ...materiale,
                 ...(parsed.materiale || []).slice(materiale.length).map(x => ({
@@ -17066,8 +17113,19 @@ LIMBA: ${lang === 'ro' ? 'Română' : lang === 'en' ? 'English' : 'Auto-detect'}
                 }))
               ]);
             } catch(e) {
-              // Daca SerpAPI esueaza pentru un material, il adaugam fara preturi
-              materiale.push({ ...m, mathaus:{pret:null,link:'',disponibil:false}, dedeman:{pret:null,link:null,disponibil:false}, leroy:{pret:null,link:null,disponibil:false}, bricostore:{pret:null,link:null,disponibil:false}, hornbach:{pret:null,link:null,disponibil:false}, pretOferta:0, validat:false, sursa:'serpapi-error' });
+              // SerpAPI failed → use local price for MatHaus, add to Claude fallback for competitors
+              console.warn('[Ofertare] SerpAPI fail for', m.nume, ':', e.message, '→ using local price + Claude fallback');
+              if (_localPretMathaus) {
+                // We have MatHaus price locally — add material with local price, competitors via Claude
+                _materiiPentruClaude.push({
+                  ...m, sap: _sap,
+                  mathaus: _mathausLocal,
+                  _hasLocalPrice: true
+                });
+              } else {
+                // No local price either — Claude needs to find everything
+                _materiiPentruClaude.push({ ...m, sap: _sap });
+              }
             }
           }
 
@@ -17075,9 +17133,11 @@ LIMBA: ${lang === 'ro' ? 'Română' : lang === 'en' ? 'English' : 'Auto-detect'}
           saveSerpUsage(loadSerpUsage().count + serpSearches);
           if (_cacheHits > 0) toast(`📦 ${_cacheHits} materiale din cache · ${serpSearches} căutate live`);
 
-          // FALLBACK: Claude preia materialele ramase fara SerpAPI budget
+          // FALLBACK: Claude preia materialele unde SerpAPI a eșuat sau budget epuizat
           if (_materiiPentruClaude.length > 0) {
-            toast(`🤖 Budget SerpAPI epuizat — Claude preia ${_materiiPentruClaude.length} materiale rămase...`);
+            const _withLocal = _materiiPentruClaude.filter(m => m._hasLocalPrice).length;
+            const _withoutLocal = _materiiPentruClaude.length - _withLocal;
+            toast(`🤖 Claude preia ${_materiiPentruClaude.length} materiale (${_withLocal} cu preț local, ${_withoutLocal} de căutat complet)...`);
             ofertaUpdateProgress(ofertaId, 'preturi', [
               ...materiale,
               ..._materiiPentruClaude.map(m => ({...m, _status: 'searching', sursa: 'claude-fallback'}))
@@ -17085,7 +17145,14 @@ LIMBA: ${lang === 'ro' ? 'Română' : lang === 'en' ? 'English' : 'Auto-detect'}
             try {
               const _compStr = compList.map((c,i) => '  • ' + (siteList[i]||c.toLowerCase()+'.ro') + ' (' + c + ')').join('\n');
               const _reguliFb = (kb.ofertaReguli || '').trim();
-              const _fallbackPrompt = `Caută prețurile pentru aceste materiale.\n\nPROTOCOL OBLIGATORIU:\n- Dacă materialul are cod SAP → accesează DIRECT https://mathaus.ro/p/[SAP] — NU căuta pe Google\n- Dacă NU are SAP → caută "site:mathaus.ro [nume produs]"\n- La competitori caută după specificații (grosime, brand, kg)${_reguliFb ? '\n\nREGULI ADMINISTRATOR:\n' + _reguliFb : ''}\n\nMateriale:\n${_materiiPentruClaude.map(m => '- ' + m.nume + (m.sap?' → LINK DIRECT: https://mathaus.ro/p/'+m.sap:'') + ' (' + (m.cantitate||1) + ' ' + (m.um||'') + ')').join('\n')}\n\nCompetitori:\n${_compStr}\n\nRETURN JSON: {"materiale":[{"nume":"...","sap":"...","mathaus":{"pret":12.5,"link":"https://mathaus.ro/p/SAP"},"dedeman":{"pret":11.8,"link":"..."},"leroy":{"pret":null,"link":null},"bricostore":{"pret":null,"link":null},"hornbach":{"pret":null,"link":null}}]}`;
+              const _matList = _materiiPentruClaude.map(m => {
+                let line = '- ' + m.nume;
+                if (m.sap) line += ' → LINK: https://mathaus.ro/search?text=' + m.sap;
+                line += ' (' + (m.cantitate||1) + ' ' + (m.um||'') + ')';
+                if (m._hasLocalPrice && m.mathaus?.pret) line += ' [PREȚ MATHAUS LOCAL: ' + m.mathaus.pret + ' lei — caută DOAR prețuri competitori]';
+                return line;
+              }).join('\n');
+              const _fallbackPrompt = `Caută prețurile pentru aceste materiale.\n\nPROTOCOL OBLIGATORIU:\n- Dacă materialul are cod SAP → accesează DIRECT https://mathaus.ro/search?text=[SAP] — NU căuta pe Google\n- Dacă NU are SAP → caută "site:mathaus.ro [nume produs]"\n- Dacă materialul are deja PREȚ MATHAUS LOCAL → NU mai căuta pe mathaus.ro, caută DOAR la competitori\n- La competitori caută după specificații (grosime, brand, kg)${_reguliFb ? '\n\nREGULI ADMINISTRATOR:\n' + _reguliFb : ''}\n\nMateriale:\n${_matList}\n\nCompetitori:\n${_compStr}\n\nRETURN JSON: {"materiale":[{"nume":"...","sap":"...","mathaus":{"pret":12.5,"link":"https://mathaus.ro/search?text=SAP"},"dedeman":{"pret":11.8,"link":"..."},"leroy":{"pret":null,"link":null},"bricostore":{"pret":null,"link":null},"hornbach":{"pret":null,"link":null}}]}`;
 
               const _fbResp = await fetch('https://api.anthropic.com/v1/messages', {
                 method: 'POST',
@@ -17104,6 +17171,9 @@ LIMBA: ${lang === 'ro' ? 'Română' : lang === 'en' ? 'English' : 'Auto-detect'}
                 (_fbParsed.materiale||[]).forEach(fm => {
                   const orig = _materiiPentruClaude.find(m => m.nume === fm.nume || (m.sap && m.sap === fm.sap));
                   if (!orig) return;
+                  // Keep local MatHaus price if we had one, use Claude for competitors
+                  const _useLocalMH = orig._hasLocalPrice && orig.mathaus?.pret;
+                  const _mhResult = _useLocalMH ? orig.mathaus : (fm.mathaus || { pret: null, link: orig.sap?getMathausLink(orig.sap):'', disponibil: false });
                   materiale.push({
                     sap: (orig.sap||'').trim(),
                     inCatalog: !!(orig.sap),
@@ -17111,41 +17181,44 @@ LIMBA: ${lang === 'ro' ? 'Română' : lang === 'en' ? 'English' : 'Auto-detect'}
                     cantitate: orig.cantitate || 1,
                     um: orig.um || 'buc',
                     mentionat_ca: orig.mentionat_ca || '',
-                    mathaus: fm.mathaus || { pret: null, link: orig.sap?'https://mathaus.ro/p/'+orig.sap:'', disponibil: false },
+                    mathaus: _mhResult,
                     dedeman: fm.dedeman || { pret: null, link: null, disponibil: false },
                     leroy: fm.leroy || { pret: null, link: null, disponibil: false },
                     bricostore: fm.bricostore || { pret: null, link: null, disponibil: false },
                     hornbach: fm.hornbach || { pret: null, link: null, disponibil: false },
-                    pretOferta: fm.mathaus?.pret || 0,
+                    pretOferta: _mhResult?.pret || fm.mathaus?.pret || 0,
                     validat: false,
-                    sursa: 'claude-fallback',
+                    sursa: _useLocalMH ? 'local+claude' : 'claude-fallback',
                     _status: 'done'
                   });
                 });
-                // Materiale negasite de Claude
+                // Materiale negasite de Claude — use local price if available
                 _materiiPentruClaude.forEach(m => {
                   if (!materiale.find(x => x.nume === m.nume)) {
+                    const _mhLocal = (m._hasLocalPrice && m.mathaus?.pret) ? m.mathaus : {pret:null,link:'',disponibil:false};
                     materiale.push({
                       sap: (m.sap||'').trim(), inCatalog: !!(m.sap),
                       nume: m.nume, cantitate: m.cantitate||1, um: m.um||'buc', mentionat_ca: m.mentionat_ca||'',
-                      mathaus: {pret:null,link:'',disponibil:false}, dedeman:{pret:null,link:null,disponibil:false},
+                      mathaus: _mhLocal, dedeman:{pret:null,link:null,disponibil:false},
                       leroy:{pret:null,link:null,disponibil:false}, bricostore:{pret:null,link:null,disponibil:false}, hornbach:{pret:null,link:null,disponibil:false},
-                      pretOferta:0, validat:false, sursa:'claude-fallback', _status:'done',
-                      _nota:'Preț negăsit de Claude'
+                      pretOferta: _mhLocal.pret || 0, validat:false, sursa: _mhLocal.pret ? 'local' : 'claude-fallback', _status:'done',
+                      _nota: _mhLocal.pret ? 'Preț MatHaus din baza locală' : 'Preț negăsit'
                     });
                   }
                 });
               }
             } catch(fbErr) {
               console.warn('Claude fallback error:', fbErr.message);
-              // Adaugam materialele fara preturi
+              // Claude also failed — use local prices where available
               _materiiPentruClaude.forEach(m => {
+                const _mhLocal = (m._hasLocalPrice && m.mathaus?.pret) ? m.mathaus : {pret:null,link:'',disponibil:false};
                 materiale.push({
                   sap:(m.sap||'').trim(), inCatalog:!!(m.sap), nume:m.nume, cantitate:m.cantitate||1,
                   um:m.um||'buc', mentionat_ca:m.mentionat_ca||'',
-                  mathaus:{pret:null,link:'',disponibil:false}, dedeman:{pret:null,link:null,disponibil:false},
+                  mathaus: _mhLocal, dedeman:{pret:null,link:null,disponibil:false},
                   leroy:{pret:null,link:null,disponibil:false}, bricostore:{pret:null,link:null,disponibil:false}, hornbach:{pret:null,link:null,disponibil:false},
-                  pretOferta:0, validat:false, sursa:'claude-fallback', _status:'done', _nota:'Eroare Claude fallback'
+                  pretOferta: _mhLocal.pret || 0, validat:false, sursa: _mhLocal.pret ? 'local' : 'error', _status:'done',
+                  _nota: _mhLocal.pret ? 'Preț MatHaus local (competitori indisponibili)' : 'Eroare — niciun preț găsit'
                 });
               });
             }
@@ -17213,7 +17286,7 @@ MISIUNEA TA (folosește web_search):
 PROTOCOL CĂUTARE PREȚURI — OBLIGATORIU, ÎN ACEASTĂ ORDINE:
 
 1. MATHAUS.RO — ÎNTÂI DUPĂ COD SAP:
-   • Dacă materialul are cod SAP din catalog → accesează DIRECT https://mathaus.ro/p/[COD_SAP]
+   • Dacă materialul are cod SAP din catalog → accesează DIRECT https://mathaus.ro/search?text=[COD_SAP]
    • NU căuta pe Google generic — link-ul SAP te duce exact la pagina produsului
    • Dacă materialul NU are SAP → caută "site:mathaus.ro [nume produs]"
    • Citește: preț, disponibilitate, buc/palet, m²/bax
@@ -17226,7 +17299,7 @@ ${compSearchList}
 3. DEPOZITE MATHAUS din zona adresei clientului
 
 REGULI: Caută prețul fără TVA. Dacă nu găsești la un competitor, pune null.
-IMPORTANT: Codul SAP din catalog = cheia unică pe mathaus.ro. Link direct = https://mathaus.ro/p/[SAP]. Denumirile din catalog sunt INTERNE — NU identice cu site-ul.${reguli ? '\n' + reguli : ''}
+IMPORTANT: Codul SAP din catalog = cheia unică pe mathaus.ro. Link direct = https://mathaus.ro/search?text=[SAP]. Denumirile din catalog sunt INTERNE — NU identice cu site-ul.${reguli ? '\n' + reguli : ''}
 ${extraPrompt ? '\nINSTRUCȚIUNI EXTRA:\n' + extraPrompt : ''}
 
 RETURNEAZĂ STRICT JSON:
@@ -17604,8 +17677,11 @@ RETURNEAZĂ STRICT JSON:
                   'serpapi': ['🔍 Google Shopping', '#1a73e8', '#e8f0fe'],
                   'claude-web': ['🤖 Claude Web Search', '#6b21a8', '#f3e8ff'],
                   'serpapi-error': ['⚠ SerpAPI eroare', '#92400e', '#fef3c7'],
-                  'claude-fallback': ['⚠ Budget SerpAPI epuizat — Claude', '#92400e', '#fef3c7'],
+                  'claude-fallback': ['🤖 Claude fallback', '#6b21a8', '#f3e8ff'],
+                  'local+claude': ['📊 Preț local + 🤖 competitori Claude', '#0f6e56', '#e1f5ee'],
+                  'local': ['📊 Preț din baza locală', '#0f6e56', '#e1f5ee'],
                   'cache': ['📦 Din cache' + (m._cacheDate ? ' (' + m._cacheDate + ')' : ''), '#0f6e56', '#e1f5ee'],
+                  'error': ['❌ Eroare — preț negăsit', '#dc2626', '#fef2f2'],
                 };
                 const b = badges[m.sursa];
                 return b ? `<div style="display:inline-flex;align-items:center;gap:3px;margin-top:3px;background:${b[2]};border:1px solid ${b[1]}33;border-radius:4px;padding:2px 6px;font-size:9px;font-weight:600;color:${b[1]}">${b[0]}</div>` : '';
