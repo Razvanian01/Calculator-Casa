@@ -2859,7 +2859,7 @@
         padding: 16px;
         overflow-y: auto;
       }
-      #oferta-new-modal {
+      #oferta-new-modal, #notita-new-modal {
         background: var(--surface);
         border-radius: var(--r);
         width: 100%; max-width: 520px;
@@ -2869,11 +2869,11 @@
         overflow: hidden;
       }
       @media (max-width: 540px) {
-        #oferta-new-modal { max-height: 98vh; border-radius: var(--r-sm); }
+        #oferta-new-modal, #notita-new-modal { max-height: 98vh; border-radius: var(--r-sm); }
         #oferta-new-overlay, #notita-new-overlay, #notita-edit-overlay { padding: 6px; align-items: flex-end; }
       }
 
-      #oferta-new-modal {
+      #oferta-new-modal, #notita-new-modal {
         background: var(--surface); border-radius: var(--r-lg);
         box-shadow: var(--shadow-lg);
         width: 100%; max-width: 620px;
@@ -3025,7 +3025,7 @@
 
       <!-- Modal Notita Rapida -->
       <div id="notita-new-overlay" style="display:none">
-        <div id="oferta-new-modal">
+        <div id="notita-new-modal">
           <div class="onm-header">
             <div>
               <div style="font-size:15px;font-weight:800">📝 Notiță Rapidă</div>
@@ -3166,7 +3166,13 @@
 
             <!-- TEXT -->
             <div style="margin-bottom:0">
-              <label class="label">Materiale & observații</label>
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:5px">
+                <label class="label" style="margin-bottom:0">Materiale & observații</label>
+                <div id="oferta-tpl-dropdown" style="position:relative">
+                  <button class="btn btn-ghost btn-sm" style="font-size:10px;padding:3px 8px" onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='block'?'none':'block'">📋 Template-uri</button>
+                  <div style="display:none;position:absolute;right:0;top:100%;z-index:100;background:var(--surface);border:1px solid var(--border);border-radius:var(--r-sm);box-shadow:var(--shadow);padding:6px;min-width:220px;max-height:200px;overflow-y:auto" id="oferta-templates-list"></div>
+                </div>
+              </div>
               <textarea class="input" id="oferta-text" rows="5"
                 placeholder="ex: 150mp BCA 30cm, 20 saci adeziv Termofix, 5 paleți gresie 60x60, livrare urgentă..."
                 style="resize:vertical;font-size:13px;line-height:1.6"></textarea>
@@ -8414,11 +8420,8 @@
         "EPS Grafitat 10cm (TERMOFIX EPS 80+)": 22.4,
         // EPS 15cm: bax 1.5mp/51lei → 34.00 lei/m²
         "EPS Grafitat 15cm (TERMOFIX EPS 80+)": 34.0,
-        // Adeziv lipire EPS Termofix 25kg/28lei
-        "Adeziv polistiren expandat Termofix 25KG": 28.0,
-        "Adeziv polistiren expandat Termofix 25KG": 28.0, //dup
-        // Masa spaclu EPS Termofix 25kg/28lei
-        "Masa spaclu polistiren expandat Termofix 25KG": 28.0,
+        // Adeziv lipire EPS Termofix 25kg/28lei — already defined above
+        // Masa spaclu EPS Termofix 25kg/28lei — already defined above
         // Dibluri DT-BP: 50buc/24lei → 0.48 lei/buc
         "Dibluri DT-BP 10×160mm": 0.48,
         "Diblu DT-BP 10×160mm EPS": 0.48,
@@ -8443,10 +8446,8 @@
         "Vată Rockwool Frontrock MAX 15cm": 105.56,
         // 20cm: bax 1.44mp/200lei → 138.89 lei/m²
         "Vată Rockwool Frontrock MAX 20cm": 138.89,
-        // Adeziv REDArt 25kg/41lei
-        "Adeziv REDArt (lipire vată) sac 25kg": 41.0,
-        // Masa spaclu REDArt 25kg/41lei
-        "Masă șpaclu REDArt (armare) sac 25kg": 41.0,
+        // Adeziv REDArt 25kg/41lei — already defined above
+        // Masa spaclu REDArt 25kg/41lei — already defined above
         // Ansamblu fixare vata 160mm — estimat (lipsă preț în Excel)
         "Ansamblu fixare vată 160mm": 3.5,
         // Plasa REDArt 160g/55m² rola/400lei
@@ -8544,10 +8545,7 @@
         "Glet de finisaj alb": 38.0,
         "Ceresit CT 127- Glet de finisaj (25kg)": 55.0,
         // CT127 finisaj 20kg/55lei (mai scump); CT126 incarcare 20kg/38lei
-        // Ceresit CT127 separat:
-        "Ceresit CT 127- Glet de finisaj (25kg)": 55.0,
-        "Ceresit CT 126- Glet de Incarcare (25kg)": 38.0,
-        // Amorsa penetranta CT17 10L/80lei → 8 lei/kg (app um=kg)
+        // Amorsă penetrantă CT17 10L/80lei → 8 lei/kg (app um=kg)
         "Amorsă penetrantă universală": 8.0,
         "Amorsă penetrantă": 8.0,
         // Amorsa lavabila — estimat
@@ -8564,12 +8562,7 @@
         // Rost ceramic — estimat
         "Rost ceramic 2kg": 20.0,
         "Sistem nivelare plăci": 2.5,
-        // Silicon sanitar tub/21lei
-        "Silicon sanitar întreținere": 21.0,
 
-        "Parchet ": 100.0,
-        "Accesorii Parchet": 25.0,
-        "Folie Parchet": 10.0,
         // ── ETAPA 13 — Parchet ──────────────────────────────────
         // Parchet 100 lei/m² (orientativ)
         "Parchet ": 100.0,
@@ -9892,7 +9885,7 @@
       document.addEventListener('input', (e) => {
         if (['me-consumM2','me-consumBaza','me-um','me-factorConv','me-uvUM','me-pretUV','me-L','me-H','me-pcsPerPal'].includes(e.target?.id)) {
           updateMatEditorPreview();
-          if (['me-L','me-H','me-pcsPerPal'].includes(e.target?.id)) updateBCACalcPreview();
+          if (['me-L','me-H','me-pcsPerPal'].includes(e.target?.id)) updateBcaCalcPreview();
         }
         // Auto-fill formula text
         if (e.target?.id === 'me-consumM2' || e.target?.id === 'me-consumBaza') {
@@ -11246,39 +11239,150 @@ PROGRAM MAGAZINE:
         if (sheetUrl) syncCatalogFromDrive(true);
       }
 
+      // ── Catalog Storage: memory cache + compact format + chunked storage ──
+      let _catalogCache = null; // in-memory cache to avoid repeated JSON.parse
+      const CATALOG_CHUNK_SIZE = 2 * 1024 * 1024; // 2MB per chunk
+
       function loadCatalog() {
+        // Return from memory cache if available
+        if (_catalogCache !== null) return _catalogCache;
         try {
+          // Try chunked storage first
+          const meta = localStorage.getItem(CATALOG_KEY + '_meta');
+          if (meta) {
+            const { chunks } = JSON.parse(meta);
+            let fullJson = '';
+            for (let i = 0; i < chunks; i++) {
+              fullJson += localStorage.getItem(CATALOG_KEY + '_' + i) || '';
+            }
+            _catalogCache = fullJson ? JSON.parse(fullJson) : [];
+            return _catalogCache;
+          }
+          // Fallback: single key (backward compatible)
           const raw = localStorage.getItem(CATALOG_KEY);
-          return raw ? JSON.parse(raw) : [];
-        } catch(e) { return []; }
+          _catalogCache = raw ? JSON.parse(raw) : [];
+          return _catalogCache;
+        } catch(e) { _catalogCache = []; return []; }
       }
 
       function saveCatalog(rows) {
+        _catalogCache = rows; // update memory cache
         try {
-          localStorage.setItem(CATALOG_KEY, JSON.stringify(rows));
+          // Compact: strip empty fields
+          const compact = rows.map(r => {
+            const o = { n: r.name || '' };
+            if (r.sap) o.s = r.sap;
+            if (r.um) o.u = r.um;
+            if (r.price) o.p = r.price;
+            if (r.synonyms) o.y = r.synonyms;
+            return o;
+          });
+          const json = JSON.stringify(compact);
+          
+          if (json.length > CATALOG_CHUNK_SIZE) {
+            // Chunked storage: split across multiple keys
+            const numChunks = Math.ceil(json.length / CATALOG_CHUNK_SIZE);
+            // Clean old chunks first
+            clearCatalogChunks();
+            for (let i = 0; i < numChunks; i++) {
+              localStorage.setItem(CATALOG_KEY + '_' + i, json.slice(i * CATALOG_CHUNK_SIZE, (i + 1) * CATALOG_CHUNK_SIZE));
+            }
+            localStorage.setItem(CATALOG_KEY + '_meta', JSON.stringify({ chunks: numChunks, count: rows.length, size: json.length }));
+            localStorage.removeItem(CATALOG_KEY); // remove old single-key
+          } else {
+            // Single key storage
+            localStorage.setItem(CATALOG_KEY, json);
+            clearCatalogChunks(); // clean up any old chunks
+          }
+          
+          // Also cache in expanded format for loadCatalog
+          _catalogCache = rows;
           return true;
         } catch(e) {
           if (e.name === 'QuotaExceededError') {
-            toast('⚠ Catalog prea mare pentru browser storage. Încearcă max 3000 produse.');
+            toast('⚠ Catalog prea mare! Încearcă să reduci la maxim 20.000 produse sau curăță alte date din browser.');
           }
           return false;
         }
       }
 
+      function clearCatalogChunks() {
+        for (let i = 0; i < 20; i++) { // max 20 chunks
+          const k = CATALOG_KEY + '_' + i;
+          if (localStorage.getItem(k) === null) break;
+          localStorage.removeItem(k);
+        }
+        localStorage.removeItem(CATALOG_KEY + '_meta');
+      }
+
+      // Override loadCatalog to also handle compact format
+      const _origLoadCatalog = loadCatalog;
+      loadCatalog = function() {
+        const rows = _origLoadCatalog();
+        // Auto-expand compact format (keys: n,s,u,p,y → name,sap,um,price,synonyms)
+        if (rows.length > 0 && rows[0].n !== undefined && rows[0].name === undefined) {
+          const expanded = rows.map(r => ({
+            name: r.n || '', sap: r.s || '', um: r.u || '', price: r.p || 0, synonyms: r.y || ''
+          }));
+          _catalogCache = expanded;
+          return expanded;
+        }
+        return rows;
+      };
+
+      function invalidateCatalogCache() { _catalogCache = null; }
+
       // Fuzzy search in catalog — returneaza top N produse relevante
+      // #6 — Common material synonym mappings
+      const CATALOG_SYNONYMS = {
+        'bca': ['bloc','celco','ytong','macon','elpreco','prefab','holcim','autoclav','gazobeton'],
+        'caramida': ['caramizi','porotherm','brikston','cemacon','siceram','evoceramic','ceramic'],
+        'adeziv': ['mortar','lipire','termofix','poren','brick'],
+        'eps': ['polistiren expandat','termoizolatie','grafitat','termofix eps'],
+        'xps': ['polistiren extrudat','briotherm','extrudat'],
+        'vata': ['rockwool','bazaltica','minerala','frontrock','izolatie fonica'],
+        'gips': ['rigips','gips-carton','gc','placa gc','knauf'],
+        'profil': ['uw','cw','ud','cd','metalic'],
+        'gresie': ['gresie','placi ceramice','placi portelanate','rectificata'],
+        'faianta': ['faianta','placaj ceramic','perete ceramic'],
+        'hidroizolatie': ['membrana','impermeabilizare','etansare','weber','ceresit','mapei'],
+        'tencuiala': ['tencuiala','decorativa','scoarta','praf piatra','ct175','ct174'],
+        'glet': ['glet','finisaj','incarcare','ct126','ct127','spaclu'],
+        'vopsea': ['lavabil','emulsie','alba','colorata','lavabila'],
+        'sapa': ['sapa','autonivelant','egalizare','pardoseala'],
+        'parchet': ['parchet','laminat','stratificat','stejar','fag']
+      };
+
       function searchCatalog(query, n) {
         n = n || 30;
         const catalog = loadCatalog();
         if (!catalog.length || !query) return [];
-        const tokens = query.toLowerCase().split(/\s+/).filter(t => t.length > 2);
+        let tokens = query.toLowerCase().split(/\s+/).filter(t => t.length > 2);
         if (!tokens.length) return catalog.slice(0, n);
 
+        // #6 Expand tokens with synonyms
+        const expandedTokens = [...tokens];
+        tokens.forEach(t => {
+          Object.entries(CATALOG_SYNONYMS).forEach(([key, syns]) => {
+            if (t.includes(key) || syns.some(s => t.includes(s) || s.includes(t))) {
+              expandedTokens.push(key);
+              syns.forEach(s => { if (!expandedTokens.includes(s)) expandedTokens.push(s); });
+            }
+          });
+        });
+        const uniqueTokens = [...new Set(expandedTokens)];
+
         const scored = catalog.map(p => {
-          const haystack = (p.name + ' ' + (p.sap || '') + ' ' + (p.um || '')).toLowerCase();
+          const haystack = (p.name + ' ' + (p.sap || '') + ' ' + (p.um || '') + ' ' + (p.synonyms || '')).toLowerCase();
           let score = 0;
+          // Original tokens get higher weight
           tokens.forEach(t => {
             if (haystack.includes(t)) score += t.length > 4 ? 3 : 1;
             if ((p.name || '').toLowerCase().startsWith(t)) score += 2;
+          });
+          // Expanded synonyms get lower weight
+          uniqueTokens.forEach(t => {
+            if (!tokens.includes(t) && haystack.includes(t)) score += 1;
           });
           return { ...p, _score: score };
         });
@@ -11444,6 +11548,8 @@ PROGRAM MAGAZINE:
         const _okCat = await showConfirm('Toate produsele vor fi șterse permanent.', 'Ștergi catalogul?', '📦', 'Da, șterge tot', 'var(--red)');
         if (!_okCat) return;
         localStorage.removeItem(CATALOG_KEY);
+        clearCatalogChunks();
+        invalidateCatalogCache();
         renderAdminAIKB();
         toast('✅ Catalog șters');
       }
@@ -11581,7 +11687,7 @@ PROGRAM MAGAZINE:
       </div>
     </label>
     <div style="font-size:11px;color:var(--txt3);margin-top:8px">
-      ⚠ La re-import, catalogul existent se înlocuiește complet. Maxim recomandat: 3000 produse.
+      ⚠ La re-import, catalogul existent se înlocuiește complet. Suport până la ~20.000 produse.
     </div>
   </div>
 
@@ -11844,7 +11950,7 @@ PROGRAM MAGAZINE:
       <!-- CINE SUNTEM NOI -->
       <div style="margin-bottom:14px">
         <label class="label">Context MatHaus (cine suntem, ce oferim)</label>
-        <textarea class="input" id="oferta-context-mathaus-input" rows="3"
+        <textarea class="input" id="ais-context-mathaus-input" rows="3"
           style="font-size:12px;line-height:1.5;resize:vertical;background:#fff"
           oninput="saveOfertaSettings()">${escHtml(kb.ofertaContextMathaus || 'MatHaus este un lanț de magazine de materiale de construcții din România, cu depozite în principalele orașe. Oferim livrare și consultanță tehnică. Site: mathaus.ro')}</textarea>
         <p style="font-size:11px;color:var(--txt3);margin-top:4px">AI-ul se documentează despre MatHaus înainte să caute prețurile. Include USP-uri, zone de livrare, avantaje față de concurență.</p>
@@ -11875,7 +11981,7 @@ PROGRAM MAGAZINE:
       <!-- CONTEXT PRODUSE / AVANTAJE -->
       <div style="margin-bottom:14px">
         <label class="label">Context produse & avantaje MatHaus (opțional)</label>
-        <textarea class="input" id="oferta-context-produs-input" rows="3"
+        <textarea class="input" id="ais-context-produs-input" rows="3"
           style="font-size:12px;line-height:1.5;resize:vertical;background:#fff"
           placeholder="ex: MatHaus oferă garanție palet BCA Elpreco, livrare gratuită peste 500 lei, produse certificate CE..."
           oninput="saveOfertaSettings()">${escHtml(kb.ofertaContextProdus || '')}</textarea>
@@ -11885,7 +11991,7 @@ PROGRAM MAGAZINE:
       <!-- REGULI IDENTIFICARE -->
       <div style="margin-bottom:14px">
         <label class="label">Reguli de identificare & comportament agent</label>
-        <textarea class="input" id="oferta-reguli-input" rows="3"
+        <textarea class="input" id="ais-reguli-input" rows="3"
           style="font-size:12px;line-height:1.5;resize:vertical;background:#fff"
           placeholder="ex: Prioritizează produsele cu link mathaus.ro. Nu include materiale de manoperă. Caută echivalentul exact ca specificații."
           oninput="saveOfertaSettings()">${escHtml(kb.ofertaReguli || 'Prioritizează produsele cu link mathaus.ro. Dacă un material e menționat vag, alege varianta standard din catalog.')}</textarea>
@@ -11895,7 +12001,7 @@ PROGRAM MAGAZINE:
       <!-- PROMPT AVANSAT -->
       <div style="margin-bottom:14px">
         <label class="label">Instrucțiuni avansate suplimentare (opțional)</label>
-        <textarea class="input" id="oferta-system-prompt-input" rows="3"
+        <textarea class="input" id="ais-system-prompt-input" rows="3"
           style="font-family:var(--mono);font-size:11px;line-height:1.6;resize:vertical;background:#fff"
           placeholder="Instrucțiuni avansate — lasă gol pentru comportamentul standard..."
           oninput="saveOfertaSettings()">${escHtml(kb.ofertaSystemPrompt || '')}</textarea>
@@ -14503,7 +14609,7 @@ function sendWeeklyReport() {
       }
 
       // ── Build System Prompt ──
-      function buildSystemPrompt() {
+      function buildSystemPrompt(userMessage) {
         const kb = loadAIKB();
         const lang = kb.language || 'ro';
         const agentName = kb.agentName || 'Consultant MatHaus';
@@ -14527,14 +14633,24 @@ LIMBA: ${lang === 'ro' ? 'Română' : lang === 'en' ? 'English' : 'Auto-detect'}
           sp += `\n⚖ MOD ECHILIBRAT: Preferă mathaus.ro. Cunoștințe generale permise dar marchează cu ℹ️. Ignoră site-uri concurente.\n`;
         }
 
-        // ── CATALOG PRODUSE LOCAL ──
+        // ── CATALOG PRODUSE LOCAL (search dinamic pe baza întrebării) ──
         try {
           const _catAll = loadCatalog();
           if (_catAll.length > 0) {
-            const _catHead = _catAll.slice(0, 80); // primele 80 produse ca referinta
-            sp += `\n\nCATALOG PRODUSE MATHAUS (${_catAll.length} produse — denumirile sunt INTERNE SAP, NU identice cu site-ul; codul SAP este identic cu mathaus.ro; link-ul direct = https://mathaus.ro/p/[SAP]; DACA materialul nu e in catalog, cauta-l pe mathaus.ro dupa descriere si returneaza cel mai apropiat):\n`;
-            sp += catalogToPromptCSV(_catHead);
-            sp += `\n[... ${_catAll.length - 80} produse suplimentare disponibile local]`;
+            // Search relevant products based on user's question
+            const _keywords = extractKeywords(userMessage || '');
+            const _catRelevant = _keywords ? searchCatalog(_keywords, 40) : [];
+            // Fallback: if no matches or generic question, include first 30 as reference
+            const _catFallback = _catRelevant.length < 5 ? _catAll.slice(0, 30) : [];
+            // Merge without duplicates
+            const _seen = new Set(_catRelevant.map(p => p.sap || p.name));
+            const _catMerged = [..._catRelevant, ..._catFallback.filter(p => !_seen.has(p.sap || p.name))];
+            
+            sp += `\n\nCATALOG PRODUSE MATHAUS (${_catAll.length} produse total — cele relevante pentru întrebare):\nDENUMIRILE sunt INTERNE SAP — NU identice cu ce vezi pe site.\nCODUL SAP este CHEIA UNICĂ — identic pe mathaus.ro.\nLINK DIRECT: https://mathaus.ro/p/[COD_SAP] — ACCESEAZĂ ACEST LINK, nu căuta pe Google.\nDacă produsul NU e în lista de mai jos, caută pe site: "site:mathaus.ro [descriere]"\n`;
+            sp += catalogToPromptCSV(_catMerged);
+            if (_catAll.length > _catMerged.length) {
+              sp += `\n[... încă ${_catAll.length - _catMerged.length} produse disponibile — dacă clientul întreabă de un produs care nu e în lista de mai sus, caută-l pe mathaus.ro]`;
+            }
           }
         } catch(e) {}
 
@@ -14563,7 +14679,7 @@ LIMBA: ${lang === 'ro' ? 'Română' : lang === 'en' ? 'English' : 'Auto-detect'}
           });
         } catch(e) {}
 
-        sp += `\n\n⚡ REGULA PRODUSE — 3 CAZURI:\n1. PRODUS CU LINK mathaus.ro → accesează link-ul imediat cu web search → citești buc/palet, m³/palet, preț, disponibilitate → răspunzi cu date reale din site\n2. PRODUS FĂRĂ LINK (dar vândut pe mathaus.ro) → faci web search "mathaus.ro + [nume produs]" → găsești pagina → citești datele\n3. PRODUS EXTERN (marcat ⚠️EXT) → NU se vinde pe mathaus.ro → informezi clientul că trebuie comandat de la furnizori specializați (beton de la stație, fier-beton de la depozit metalurgic etc.) și dai cantitatea calculată\n`;
+        sp += `\n\n⚡ PROTOCOL IDENTIFICARE PRODUS — OBLIGATORIU, ÎN ACEASTĂ ORDINE:\n\nPAS 1 — CAUTĂ LOCAL: Verifică ÎNTÂI în catalogul de mai sus (după nume SAU cod SAP). Dacă produsul e în catalog, ai deja: denumire internă, cod SAP, UM, preț.\n\nPAS 2A — AI COD SAP → ACCESARE DIRECTĂ: Dacă ai cod SAP din catalog, construiește URL-ul DIRECT: https://mathaus.ro/p/[COD_SAP] și accesează-l cu web search. NU căuta pe Google generic. NU căuta după denumire. Link-ul SAP e cel mai curat mod de a ajunge la pagina produsului. De acolo citești: preț actualizat, buc/palet, m³/palet, disponibilitate.\n\nPAS 2B — NU AM COD SAP → CĂUTARE PE SITE: Dacă produsul NU e în catalog (sau nu are SAP), faci web search STRICT pe site: "site:mathaus.ro [nume produs]". Exemplu: "site:mathaus.ro adeziv BCA 25kg". NU căuta pe Google generic, NU căuta pe site-uri concurente.\n\nPAS 3 — PRODUS EXTERN (marcat ⚠️EXT): NU se vinde pe mathaus.ro. Informezi agentul că trebuie comandat de la furnizori specializați (beton de la stație, fier-beton de la depozit metalurgic) și dai cantitatea calculată.\n\n⚠️ NICIODATĂ nu căuta prețuri pe Dedeman, Leroy, Hornbach sau alte site-uri concurente. Consultantul vinde EXCLUSIV MatHaus.\n`;
 
         sp += `\nBCA — catalog intern (accesează link pentru date exacte):\n`;
         try {
@@ -14614,11 +14730,17 @@ LIMBA: ${lang === 'ro' ? 'Română' : lang === 'en' ? 'English' : 'Auto-detect'}
             sp += `\n\nCUNOȘTINȚE FIXE:\n${kb.freeText.trim()}`;
           }
 
+          // #8 Fuzzy matching: custom answers cu potrivire semantică
           if (kb.customAnswers && kb.customAnswers.length > 0) {
             const validQA = kb.customAnswers.filter(qa => qa.q && qa.a);
             if (validQA.length > 0) {
               sp += `\n\nRĂSPUNSURI PREDEFINITE:`;
               validQA.forEach(qa => { sp += `\nQ: "${qa.q}" → A: ${qa.a}`; });
+              // Fuzzy match: if user message closely matches a custom answer, highlight it
+              const fuzzyHit = fuzzyMatchCustomAnswers(userMessage, validQA);
+              if (fuzzyHit) {
+                sp += `\n\n⚡ POTRIVIRE GĂSITĂ — răspunde PRIORITAR cu acest răspuns predefinit:\nQ: "${fuzzyHit.q}"\nA: ${fuzzyHit.a}`;
+              }
             }
           }
 
@@ -14627,6 +14749,41 @@ LIMBA: ${lang === 'ro' ? 'Română' : lang === 'en' ? 'English' : 'Auto-detect'}
             kb.files.forEach(f => {
               if (f.content) sp += `\n[${f.name}]: ${f.content.substring(0, 10000)}`;
             });
+          }
+        } catch(e) {}
+
+        // #3 Stage awareness: tell Consultant which stage the agent is viewing
+        try {
+          if (typeof activeEtapa === 'string' && activeEtapa && typeof currentMode === 'string' && currentMode === 'etapizat') {
+            const _stageDef = (typeof STAGES_DEFAULT !== 'undefined' ? STAGES_DEFAULT : []).find(s => s.id === activeEtapa);
+            if (_stageDef) {
+              sp += `\n\n🎯 CONTEXT ETAPĂ: Agentul are deschisă ETAPA ${_stageDef.nr} — "${_stageDef.title}" (${_stageDef.sub}).`;
+              sp += `\nConcentrează-te pe materialele și întrebările specifice acestei etape.`;
+              sp += `\nScript vânzare: ${_stageDef.script?.substring(0, 200) || ''}`;
+              // Include stage-specific materials
+              const _smats = (typeof STAGE_MATS_DB !== 'undefined' ? STAGE_MATS_DB[activeEtapa] : null);
+              if (Array.isArray(_smats) && _smats.length) {
+                sp += `\nMateriale etapă: ${_smats.map(m => m.name + (m.link ? ' → ' + m.link : '')).join('; ')}`;
+              }
+            }
+          } else if (typeof currentMode === 'string' && currentMode === 'total') {
+            sp += `\n\n🎯 CONTEXT: Agentul folosește CALCULATORUL TOTAL — estimare completă casă.`;
+          }
+        } catch(e) {}
+
+        // #2 Price cache: inject known market prices from Ofertare
+        try {
+          const _priceCSV = getPriceCacheForPrompt(userMessage ? extractKeywords(userMessage) : '');
+          if (_priceCSV && _priceCSV.includes('\n')) {
+            sp += `\n\nPREȚURI PIAȚĂ (din oferte recente — folosește-le ca referință orientativă):\n${_priceCSV}`;
+          }
+        } catch(e) {}
+
+        // #7 Feedback loop: show patterns from validated offers
+        try {
+          const _fbText = getFeedbackForPrompt();
+          if (_fbText) {
+            sp += `\n\nCOMBINAȚII VALIDATE DIN OFERTE REALE:${_fbText}`;
           }
         } catch(e) {}
 
@@ -14809,7 +14966,7 @@ LIMBA: ${lang === 'ro' ? 'Română' : lang === 'en' ? 'English' : 'Auto-detect'}
           const body = {
             model: kb.aiModel || "claude-sonnet-4-20250514",
             max_tokens: kb.maxTokens || 1024,
-            system: buildSystemPrompt(),
+            system: buildSystemPrompt(text),
             stream: true,
             messages: chatConversation.slice(-20)
           };
@@ -14918,10 +15075,11 @@ LIMBA: ${lang === 'ro' ? 'Română' : lang === 'en' ? 'English' : 'Auto-detect'}
         const kb = loadAIKB();
         const knowledgeLevel = kb.knowledgeLevel || 'medium';
 
+        const _lastUserMsg = (trimmedMessages.filter(m => m.role === 'user').pop()?.content) || '';
         const body = {
           model: kb.aiModel || "claude-sonnet-4-20250514",
           max_tokens: kb.maxTokens || 1024,
-          system: buildSystemPrompt(),
+          system: buildSystemPrompt(_lastUserMsg),
           messages: trimmedMessages
         };
 
@@ -15417,6 +15575,247 @@ LIMBA: ${lang === 'ro' ? 'Română' : lang === 'en' ? 'English' : 'Auto-detect'}
 
       function saveOferte(list) {
         localStorage.setItem(OFERTE_STORE, JSON.stringify(list));
+        // #7 Feedback loop: cache validated materials for Consultant training
+        cacheFeedbackFromOferte(list);
+      }
+
+      // ════════════════════════════════════════════════════════
+      // #2 — PRICE CACHE: Ofertare → Consultant shared prices
+      // ════════════════════════════════════════════════════════
+      const PRICE_CACHE_KEY = 'mathaus_price_cache';
+
+      function loadPriceCache() {
+        try { return JSON.parse(localStorage.getItem(PRICE_CACHE_KEY) || '{}'); }
+        catch(e) { return {}; }
+      }
+      function savePriceCache(cache) {
+        try { localStorage.setItem(PRICE_CACHE_KEY, JSON.stringify(cache)); } catch(e) {}
+      }
+      function cachePricesFromOferta(materiale) {
+        if (!materiale || !materiale.length) return;
+        const cache = loadPriceCache();
+        const now = new Date().toISOString();
+        materiale.forEach(m => {
+          if (!m.nume) return;
+          const key = (m.sap || m.nume).toLowerCase().trim();
+          const entry = { 
+            nume: m.nume, sap: m.sap || '', um: m.um || '',
+            mathaus: m.mathaus?.pret || null,
+            timestamp: now,
+            sursa: m.sursa || 'unknown'
+          };
+          // Store competitor prices
+          ['dedeman','leroy','bricostore','hornbach'].forEach(comp => {
+            if (m[comp]?.pret) entry[comp] = m[comp].pret;
+          });
+          // #9 Price history: keep last 5 price points
+          if (!cache[key]) cache[key] = { current: entry, history: [] };
+          else {
+            if (cache[key].current) cache[key].history.push(cache[key].current);
+            cache[key].history = cache[key].history.slice(-4); // keep last 4 + current = 5
+            cache[key].current = entry;
+          }
+        });
+        savePriceCache(cache);
+      }
+      function getPriceCacheForPrompt(keywords) {
+        const cache = loadPriceCache();
+        const entries = Object.values(cache);
+        if (!entries.length) return '';
+        // If keywords provided, filter relevant
+        let relevant = entries;
+        if (keywords) {
+          const tokens = keywords.toLowerCase().split(/\s+/).filter(t => t.length > 2);
+          if (tokens.length) {
+            relevant = entries.filter(e => {
+              const hay = ((e.current?.nume || '') + ' ' + (e.current?.sap || '')).toLowerCase();
+              return tokens.some(t => hay.includes(t));
+            });
+          }
+        }
+        if (!relevant.length) relevant = entries.slice(0, 20); // fallback top 20
+        relevant = relevant.slice(0, 30);
+        let csv = 'Produs|MatHaus|Dedeman|Leroy|Bricostore|Hornbach|Data';
+        relevant.forEach(e => {
+          const c = e.current;
+          if (!c) return;
+          const d = c.timestamp ? c.timestamp.substring(0, 10) : '?';
+          csv += `\n${c.nume}|${c.mathaus||'?'}|${c.dedeman||'-'}|${c.leroy||'-'}|${c.bricostore||'-'}|${c.hornbach||'-'}|${d}`;
+          // #9 Price trend
+          if (e.history?.length >= 2) {
+            const prev = e.history[e.history.length - 1];
+            if (prev.mathaus && c.mathaus) {
+              const diff = ((c.mathaus - prev.mathaus) / prev.mathaus * 100).toFixed(0);
+              if (Math.abs(diff) >= 3) csv += ` (${diff > 0 ? '+' : ''}${diff}%)`;
+            }
+          }
+        });
+        return csv;
+      }
+
+      // ════════════════════════════════════════════════════════
+      // #5 — TEMPLATE SYSTEM: Oferte pre-populate
+      // ════════════════════════════════════════════════════════
+      const TEMPLATES_KEY = 'mathaus_offer_templates';
+
+      function loadTemplates() {
+        try { return JSON.parse(localStorage.getItem(TEMPLATES_KEY) || '[]'); }
+        catch(e) { return []; }
+      }
+      function saveTemplates(list) {
+        try { localStorage.setItem(TEMPLATES_KEY, JSON.stringify(list)); } catch(e) {}
+      }
+      function templateSaveFromOferta(ofertaId) {
+        const list = loadOferte();
+        const o = list.find(x => x.id === ofertaId);
+        if (!o || !o.materiale?.length) { toast('⚠ Oferta nu are materiale'); return; }
+        const name = prompt('Denumire template:', o.client ? `Template ${o.client}` : 'Template nou');
+        if (!name) return;
+        const templates = loadTemplates();
+        templates.push({
+          id: 'tpl-' + Date.now(),
+          name: name.trim(),
+          created: new Date().toISOString(),
+          text: o.materiale.map(m => `${m.cantitate || 1} ${m.um || 'buc'} ${m.nume}${m.sap ? ' (SAP: '+m.sap+')' : ''}`).join('\n'),
+          materiale: o.materiale.map(m => ({ nume: m.nume, cantitate: m.cantitate, um: m.um, sap: m.sap || '' }))
+        });
+        saveTemplates(templates);
+        toast(`✅ Template "${name}" salvat (${o.materiale.length} materiale)`);
+      }
+      function templateApply(tplId) {
+        const templates = loadTemplates();
+        const tpl = templates.find(t => t.id === tplId);
+        if (!tpl) return;
+        const textEl = document.getElementById('oferta-text');
+        if (textEl) textEl.value = tpl.text;
+        toast(`✅ Template "${tpl.name}" aplicat`);
+      }
+      function templateDelete(tplId) {
+        let templates = loadTemplates();
+        templates = templates.filter(t => t.id !== tplId);
+        saveTemplates(templates);
+        toast('✅ Template șters');
+        renderTemplateList();
+      }
+      function renderTemplateList() {
+        const el = document.getElementById('oferta-templates-list');
+        if (!el) return;
+        const templates = loadTemplates();
+        if (!templates.length) { el.innerHTML = '<div style="font-size:11px;color:var(--txt3);padding:8px">Niciun template salvat. Creează din ofertele finalizate.</div>'; return; }
+        el.innerHTML = templates.map(t => 
+          `<div style="display:flex;align-items:center;gap:8px;padding:6px 8px;background:var(--surface2);border-radius:var(--r-sm);margin-bottom:4px">
+            <button onclick="templateApply('${t.id}')" style="flex:1;text-align:left;background:none;border:none;cursor:pointer;font-family:var(--font);font-size:12px;font-weight:600;color:var(--navy)">${escHtml(t.name)}</button>
+            <span style="font-size:10px;color:var(--txt3)">${(t.materiale||[]).length} mat.</span>
+            <button onclick="templateDelete('${t.id}')" style="background:none;border:none;cursor:pointer;color:var(--red);font-size:12px" title="Șterge">🗑</button>
+          </div>`
+        ).join('');
+      }
+
+      // ════════════════════════════════════════════════════════
+      // #7 — FEEDBACK LOOP: Validated offers → Consultant KB
+      // ════════════════════════════════════════════════════════
+      const FEEDBACK_CACHE_KEY = 'mathaus_feedback_cache';
+
+      function loadFeedbackCache() {
+        try { return JSON.parse(localStorage.getItem(FEEDBACK_CACHE_KEY) || '[]'); }
+        catch(e) { return []; }
+      }
+      function cacheFeedbackFromOferte(oferte) {
+        if (!Array.isArray(oferte)) return;
+        const feedback = [];
+        oferte.forEach(o => {
+          if (!o.materiale) return;
+          const validated = o.materiale.filter(m => m.validat);
+          if (validated.length < 2) return; // need at least 2 validated materials
+          feedback.push({
+            client: o.client || '',
+            text: o.text || '',
+            materiale: validated.map(m => ({
+              nume: m.nume, cantitate: m.cantitate, um: m.um, sap: m.sap || '',
+              pret: m.pretOferta || m.mathaus?.pret || 0
+            })),
+            timestamp: o.created || new Date().toISOString()
+          });
+        });
+        if (feedback.length) {
+          try { localStorage.setItem(FEEDBACK_CACHE_KEY, JSON.stringify(feedback.slice(-50))); } catch(e) {}
+        }
+      }
+      function getFeedbackForPrompt() {
+        const fb = loadFeedbackCache();
+        if (!fb.length) return '';
+        // Summarize last 10 validated offers as training data
+        const recent = fb.slice(-10);
+        let text = '';
+        recent.forEach(o => {
+          if (!o.materiale?.length) return;
+          text += `\n• "${o.text?.substring(0, 80)}" → ${o.materiale.map(m => m.cantitate + ' ' + m.um + ' ' + m.nume).join(', ')}`;
+        });
+        return text;
+      }
+
+      // ════════════════════════════════════════════════════════
+      // #4 — CROSS-SELL: Suggest complementary products
+      // ════════════════════════════════════════════════════════
+      function getCrossSellSuggestions(materiale) {
+        if (!materiale?.length || typeof STAGE_MATS_DB === 'undefined') return [];
+        const suggestions = [];
+        const existingNames = new Set(materiale.map(m => (m.nume || '').toLowerCase()));
+        
+        // Map material keywords to stages
+        const stageKeywords = {
+          'fundatii': ['beton','armare','hidroizol','membrană','amorsă','plasă sudată','distanțier'],
+          'xps': ['xps','polistiren extrudat','folie pe','barieră vapori'],
+          'bca': ['bca','bloc','celco','ytong','macon','elpreco','adeziv bca','mortar'],
+          'caramida': ['cărămidă','porotherm','brikston','cemacon','mortar zidărie'],
+          'planseu': ['planșeu','cofraj','armare placă'],
+          'acoperis': ['acoperiș','țiglă','folie anticondens','contrașipci','șipci','coamă','jgheab','burlan'],
+          'termosistem': ['termosistem','eps','vată','rockwool','polistiren expandat','adeziv eps','masă șpaclu','diblu','plasă fibră'],
+          'gips-carton': ['gips','rigips','profil uw','profil cw','profil ud','profil cd','placă gc','bridă'],
+          'sapa': ['șapă','autonivelant','folie parchet'],
+          'gresie': ['gresie','faianță','adeziv gresie','adeziv flex','rost','chit rost','silicon sanitar','hidroizol baie'],
+          'parchet': ['parchet','subparchet','folie parchet','pervaz','profil trecere'],
+          'vopsit': ['glet','amorsă','vopsea','lavabil','tencuială']
+        };
+        
+        materiale.forEach(m => {
+          const name = (m.nume || m.mentionat_ca || '').toLowerCase();
+          Object.entries(stageKeywords).forEach(([stageId, keywords]) => {
+            if (keywords.some(kw => name.includes(kw))) {
+              const stageMats = STAGE_MATS_DB[stageId];
+              if (!Array.isArray(stageMats)) return;
+              stageMats.forEach(sm => {
+                if (!existingNames.has(sm.name.toLowerCase()) && !sm.ext) {
+                  if (!suggestions.find(s => s.name === sm.name)) {
+                    suggestions.push({ name: sm.name, formula: sm.formula || '', stageId, reason: `Complementar cu ${m.nume}` });
+                  }
+                }
+              });
+            }
+          });
+        });
+        return suggestions.slice(0, 10); // max 10 suggestions
+      }
+
+      // ════════════════════════════════════════════════════════
+      // #8 — FUZZY MATCHING: Custom answers semantic search
+      // ════════════════════════════════════════════════════════
+      function fuzzyMatchCustomAnswers(userMsg, customAnswers) {
+        if (!customAnswers?.length || !userMsg) return null;
+        const tokens = userMsg.toLowerCase().replace(/[^a-zA-ZăîâșțĂÎÂȘȚ0-9\s]/g, ' ').split(/\s+/).filter(t => t.length > 2);
+        if (!tokens.length) return null;
+        
+        let bestMatch = null, bestScore = 0;
+        customAnswers.forEach(qa => {
+          if (!qa.q || !qa.a) return;
+          const qTokens = qa.q.toLowerCase().replace(/[^a-zA-ZăîâșțĂÎÂȘȚ0-9\s]/g, ' ').split(/\s+/).filter(t => t.length > 2);
+          if (!qTokens.length) return;
+          let score = 0;
+          tokens.forEach(t => { if (qTokens.some(qt => qt.includes(t) || t.includes(qt))) score++; });
+          const ratio = score / Math.max(tokens.length, qTokens.length);
+          if (ratio > 0.4 && score > bestScore) { bestScore = score; bestMatch = qa; }
+        });
+        return bestMatch;
       }
 
       function ofertaGetOpenAIKey() {
@@ -15631,6 +16030,8 @@ LIMBA: ${lang === 'ro' ? 'Română' : lang === 'en' ? 'English' : 'Auto-detect'}
         if ($('oferta-client')) $('oferta-client').value = '';
         if ($('oferta-adresa')) $('oferta-adresa').value = '';
         if ($('oferta-voice-status')) $('oferta-voice-status').textContent = 'Apasă pentru a dicta materialele';
+        // #5 Render template list
+        setTimeout(renderTemplateList, 50);
       }
 
       function ofertaCloseModal() {
@@ -15917,7 +16318,12 @@ LIMBA: ${lang === 'ro' ? 'Română' : lang === 'en' ? 'English' : 'Auto-detect'}
         const idx = list.findIndex(o => o.id === ofertaId);
         if (idx < 0) return;
         list[idx].progressStep = step;
-        if (materiale) list[idx].progressMateriale = materiale;
+        if (materiale) {
+          list[idx].progressMateriale = materiale;
+          // #2 Price cache: save found prices for Consultant
+          const withPrices = materiale.filter(m => m.mathaus?.pret || m.dedeman?.pret);
+          if (withPrices.length) cachePricesFromOferta(withPrices);
+        }
         saveOferte(list);
         // Re-randam detaliul daca e selectat
         if (_ofertaSelectedId === ofertaId) {
@@ -15995,7 +16401,7 @@ LIMBA: ${lang === 'ro' ? 'Română' : lang === 'en' ? 'English' : 'Auto-detect'}
             body: JSON.stringify({
               model,
               max_tokens: 3000,
-              system: (() => { const _cat = searchCatalog(extractKeywords(text), 40); const _csv = _cat.length ? '\nCATALOG MATHAUS (SAP = codul produsului pe mathaus.ro, denumirile sunt interne SAP nu identice cu site-ul):\n' + catalogToPromptCSV(_cat) : ''; return 'Identifica materialele din nota agentului.' + _csv + '\nREGULI:\n- Daca materialul EXISTA in catalog: foloseste SAP exact, link = https://mathaus.ro/p/[SAP]\n- Daca materialul NU exista in catalog: pune sap=\"\" si in_catalog=false, agentul va cauta manual pe mathaus.ro\n- Denumirile din catalog sunt interne SAP, nu identice cu site-ul\nRETURN STRICT JSON: {"materiale":[{"nume":"denumire","cantitate":50,"um":"buc","mentionat_ca":"text original","sap":"SAP exact sau gol","in_catalog":true,"link_mathaus":"https://mathaus.ro/p/SAP sau gol"}],"neidentificate":[]}'; })(),
+              system: (() => { const _cat = searchCatalog(extractKeywords(text), 40); const _csv = _cat.length ? '\nCATALOG MATHAUS (SAP = codul unic pe mathaus.ro, denumirile sunt INTERNE — NU identice cu site-ul):\n' + catalogToPromptCSV(_cat) : ''; return 'Identifica materialele din nota agentului. Potriveste FIECARE material cu catalogul local.\n\nPROTOCOL IDENTIFICARE:\n1. Cauta in catalogul de mai jos dupa CUVINTE CHEIE din nota (nu potrivire exacta — cauta cel mai apropiat)\n2. Daca gasesti potrivire: pune SAP exact din catalog + link = https://mathaus.ro/p/[SAP] + in_catalog=true\n3. Daca NU gasesti in catalog: pune sap="" si in_catalog=false — agentul va cauta manual pe mathaus.ro dupa nume\n4. Denumirile din catalog sunt INTERNE SAP — nu le afisa clientului, foloseste-le doar pentru potrivire' + _csv + '\nRETURN STRICT JSON: {"materiale":[{"nume":"denumire clara pentru client","cantitate":50,"um":"buc","mentionat_ca":"text original din nota","sap":"SAP exact din catalog sau gol","in_catalog":true,"link_mathaus":"https://mathaus.ro/p/SAP sau gol"}],"neidentificate":["materiale pe care nu le intelegi"]}'; })(),
               messages: [{ role: 'user', content: 'Identifica materialele:\n\n' + text }]
             })
           });
@@ -16096,7 +16502,7 @@ LIMBA: ${lang === 'ro' ? 'Română' : lang === 'en' ? 'English' : 'Auto-detect'}
             ]);
             try {
               const _compStr = compList.map((c,i) => '  • ' + (siteList[i]||c.toLowerCase()+'.ro') + ' (' + c + ')').join('\n');
-              const _fallbackPrompt = `Caută prețurile pentru aceste materiale pe mathaus.ro și competitori.\n\nMateriale:\n${_materiiPentruClaude.map(m => '- ' + m.nume + (m.sap?' (SAP: '+m.sap+')':'') + ', cantitate: ' + (m.cantitate||1) + ' ' + (m.um||'')).join('\n')}\n\nCaută pe:\n• mathaus.ro\n${_compStr}\n\nRETURN JSON: {"materiale":[{"nume":"...","sap":"...","mathaus":{"pret":12.5,"link":"..."},"dedeman":{"pret":11.8,"link":"..."},"leroy":{"pret":null,"link":null},"bricostore":{"pret":null,"link":null},"hornbach":{"pret":null,"link":null}}]}`;
+              const _fallbackPrompt = `Caută prețurile pentru aceste materiale.\n\nPROTOCOL OBLIGATORIU:\n- Dacă materialul are cod SAP → accesează DIRECT https://mathaus.ro/p/[SAP] — NU căuta pe Google\n- Dacă NU are SAP → caută "site:mathaus.ro [nume produs]"\n- La competitori caută după specificații (grosime, brand, kg)\n\nMateriale:\n${_materiiPentruClaude.map(m => '- ' + m.nume + (m.sap?' → LINK DIRECT: https://mathaus.ro/p/'+m.sap:'') + ' (' + (m.cantitate||1) + ' ' + (m.um||'') + ')').join('\n')}\n\nCompetitori:\n${_compStr}\n\nRETURN JSON: {"materiale":[{"nume":"...","sap":"...","mathaus":{"pret":12.5,"link":"https://mathaus.ro/p/SAP"},"dedeman":{"pret":11.8,"link":"..."},"leroy":{"pret":null,"link":null},"bricostore":{"pret":null,"link":null},"hornbach":{"pret":null,"link":null}}]}`;
 
               const _fbResp = await fetch('https://api.anthropic.com/v1/messages', {
                 method: 'POST',
@@ -16220,14 +16626,24 @@ ${contextProdus ? 'AVANTAJE PRODUSE: ' + contextProdus : ''}
 ${adresa ? 'Adresa de livrare: ' + adresa : ''}
 
 MISIUNEA TA (folosește web_search):
-1. Identifică materialele din notă
-2. Pentru FIECARE material caută prețul pe:
-   • mathaus.ro
-${compSearchList}
-3. Caută depozitele MatHaus din zona adresei
 
-REGULI: Caută prețul fără TVA. Dacă nu găsești la un competitor, pune null. Echivalent cel mai apropiat ca specificații.
-IMPORTANT CATALOG: Denumirile din catalog sunt INTERNE SAP (nu identice cu site-ul). Codul SAP este identic cu mathaus.ro. Construieste link-ul mathaus.ro ca: https://mathaus.ro/p/[COD_SAP]. Cauta pe mathaus.ro dupa codul SAP pentru pret exact.${reguli ? '\n' + reguli : ''}
+PROTOCOL CĂUTARE PREȚURI — OBLIGATORIU, ÎN ACEASTĂ ORDINE:
+
+1. MATHAUS.RO — ÎNTÂI DUPĂ COD SAP:
+   • Dacă materialul are cod SAP din catalog → accesează DIRECT https://mathaus.ro/p/[COD_SAP]
+   • NU căuta pe Google generic — link-ul SAP te duce exact la pagina produsului
+   • Dacă materialul NU are SAP → caută "site:mathaus.ro [nume produs]"
+   • Citește: preț, disponibilitate, buc/palet, m²/bax
+
+2. COMPETITORI — DUPĂ NUME PRODUS:
+${compSearchList}
+   • La competitori caută după SPECIFICAȚII (grosime, brand, kg/sac) nu după cod SAP
+   • Caută echivalentul cel mai apropiat ca specificații
+
+3. DEPOZITE MATHAUS din zona adresei clientului
+
+REGULI: Caută prețul fără TVA. Dacă nu găsești la un competitor, pune null.
+IMPORTANT: Codul SAP din catalog = cheia unică pe mathaus.ro. Link direct = https://mathaus.ro/p/[SAP]. Denumirile din catalog sunt INTERNE — NU identice cu site-ul.${reguli ? '\n' + reguli : ''}
 ${extraPrompt ? '\nINSTRUCȚIUNI EXTRA:\n' + extraPrompt : ''}
 
 RETURNEAZĂ STRICT JSON:
@@ -16697,8 +17113,19 @@ RETURNEAZĂ STRICT JSON:
             <button class="chat-fb-btn ${oferta.feedback === 'like' ? 'liked' : ''}" onclick="ofertaFeedback('${id}','like')">👍 Precisă</button>
             <button class="chat-fb-btn ${oferta.feedback === 'dislike' ? 'disliked' : ''}" onclick="ofertaFeedback('${id}','dislike')">👎 Greșeli</button>
             <div style="flex:1"></div>
+            <button class="btn btn-ghost btn-sm" style="font-size:10px" onclick="templateSaveFromOferta('${id}')">💾 Salvează ca template</button>
             <div style="font-size:10px;color:var(--txt3)">💡 Prețul verde = cel mai mic · Preț portocaliu = editabil</div>
           </div>
+
+          ${(() => {
+            const _cs = getCrossSellSuggestions(oferta.materiale || []);
+            if (!_cs.length) return '';
+            return '<div style="margin:8px 14px 14px;padding:12px 14px;background:var(--amber-l);border:1px solid #fde68a;border-radius:var(--r-sm)">' +
+              '<div style="font-size:11px;font-weight:700;color:var(--amber);margin-bottom:8px">💡 Produse complementare sugerate (cross-sell)</div>' +
+              '<div style="display:flex;flex-wrap:wrap;gap:6px">' +
+              _cs.map(s => '<span style="font-size:11px;background:var(--surface);border:1px solid var(--border);border-radius:4px;padding:3px 8px" title="' + escHtml(s.reason) + '">' + escHtml(s.name) + '</span>').join('') +
+              '</div></div>';
+          })()}
         </div>`;
 
         
@@ -17080,84 +17507,8 @@ RETURNEAZĂ STRICT JSON:
             </div>
           </div>
 
-          <div id="me-section-bca" style="display:none">
-            <div style="font-size:11px;font-weight:700;color:var(--orange);letter-spacing:1px;text-transform:uppercase;margin:0 0 10px;font-family:var(--mono)">Dimensiuni BCA / Caramida</div>
-            <div style="display:grid;gap:10px;margin-bottom:18px;padding:12px;background:var(--orange-l);border:1px solid var(--orange-m);border-radius:var(--r-sm)">
-              <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">
-                <div><label class="label">L lungime (mm)</label><input class="input" type="number" id="me-L" placeholder="625"/></div>
-                <div><label class="label">H inaltime (mm)</label><input class="input" type="number" id="me-H" placeholder="240"/></div>
-                <div><label class="label">Buc/Palet</label><input class="input" type="number" id="me-pcsPerPal" placeholder="60"/></div>
-              </div>
-              <div id="me-portant-wrap" style="display:none"><label class="label">Portant</label><select class="input" id="me-portant"><option value="true">Da</option><option value="false">Nu</option></select></div>
-              <div id="me-bca-calc" style="font-size:11px;color:var(--txt2);padding:6px;background:var(--surface);border-radius:4px"></div>
-              <div><label class="label">Garantie Palet (optional)</label>
-                <div style="display:grid;grid-template-columns:1fr 80px 100px;gap:6px"><input class="input" id="me-garName" placeholder="Denumire garantie"/><input class="input" type="number" step="0.01" id="me-garPret" placeholder="Pret"/><input class="input" id="me-garSap" placeholder="SAP gar."/></div>
-              </div>
-            </div>
-          </div>
-          <div id="me-section-tvg" style="display:none">
-            <div style="font-size:11px;font-weight:700;color:var(--green);letter-spacing:1px;text-transform:uppercase;margin:0 0 10px;font-family:var(--mono)">Acoperire / Consum TVG</div>
-            <div style="display:grid;gap:10px;margin-bottom:18px;padding:12px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:var(--r-sm)">
-              <div id="me-tvg-cov-wrap" style="display:none"><label class="label">Acoperire per grosime (JSON)</label><input class="input" id="me-tvgCov" placeholder='{"50":5,"100":2.5}' style="font-family:var(--mono);font-size:11px"/></div>
-              <div id="me-tvg-roll-wrap" style="display:none"><label class="label">m2/rola</label><input class="input" type="number" step="0.1" id="me-tvgRollM2"/></div>
-              <div id="me-tvg-bpm-wrap" style="display:none"><label class="label">buc/m2</label><input class="input" type="number" id="me-tvgBpm"/></div>
-              <div id="me-tvg-simpcov-wrap" style="display:none"><label class="label">m2/unitate</label><input class="input" type="number" step="0.5" id="me-tvgSimpCov"/></div>
-            </div>
-          </div>
-          <div id="me-section-gc" style="display:none">
-            <div style="font-size:11px;font-weight:700;color:var(--blue);letter-spacing:1px;text-transform:uppercase;margin:0 0 10px;font-family:var(--mono)">Consum Gips-Carton</div>
-            <div style="display:grid;gap:10px;margin-bottom:14px;padding:12px;background:var(--blue-l);border:1px solid #bfdbfe;border-radius:var(--r-sm)">
-              <div><label class="label">Consum/m2 (rate)</label><input class="input" type="number" step="0.01" id="me-gcRate" placeholder="1.8" style="font-size:14px;font-weight:600"/></div>
-            </div>
-          </div>
+          <!-- [REMOVED] duplicate BCA/TVG/GC block 2 of 3 -->
 
-          <div id="me-section-bca" style="display:none">
-            <div style="font-size:11px;font-weight:700;color:var(--orange);letter-spacing:1px;text-transform:uppercase;margin:0 0 10px;font-family:var(--mono)">Dimensiuni și ambalare</div>
-            <div style="display:grid;gap:10px;margin-bottom:14px;padding:12px;background:var(--orange-l);border:1px solid var(--orange-m);border-radius:var(--r-sm)">
-              <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">
-                <div>
-                  <label class="label">L lungime (mm) <span style="color:var(--red);font-size:10px">obligatoriu</span></label>
-                  <input class="input" type="number" id="me-L" placeholder="ex: 625"/>
-                </div>
-                <div>
-                  <label class="label">H înălțime (mm) <span style="color:var(--red);font-size:10px">obligatoriu</span></label>
-                  <input class="input" type="number" id="me-H" placeholder="ex: 240"/>
-                </div>
-                <div>
-                  <label class="label">Buc/Palet <span style="color:var(--red);font-size:10px">obligatoriu</span></label>
-                  <input class="input" type="number" id="me-pcsPerPal" placeholder="ex: 60"/>
-                </div>
-              </div>
-              <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-                <div id="me-portant-row" style="display:none">
-                  <label class="label">Portant</label>
-                  <select class="input" id="me-portant"><option value="true">Da — portant</option><option value="false">Nu — neportant</option></select>
-                </div>
-              </div>
-              <div id="me-bca-calc" style="font-size:11px;color:var(--txt2);padding:6px;background:var(--surface);border-radius:4px"></div>
-            </div>
-          </div>
-
-          <div id="me-section-tvg" style="display:none">
-            <div style="font-size:11px;font-weight:700;color:var(--green);letter-spacing:1px;text-transform:uppercase;margin:0 0 10px;font-family:var(--mono)">Date specifice TVG</div>
-            <div style="display:grid;gap:10px;margin-bottom:14px;padding:12px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:var(--r-sm)">
-              <div id="me-tvg-cov-row">
-                <label class="label">Acoperire per grosime (JSON)</label>
-                <input class="input" id="me-tvg-cov" placeholder='{"50":5,"100":2.5,"150":1.67}'/>
-                <div style="font-size:10px;color:var(--txt3);margin-top:2px">Format: {"grosime_mm": m²/pachet}</div>
-              </div>
-              <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-                <div id="me-tvg-rollM2-row">
-                  <label class="label">m²/rolă</label>
-                  <input class="input" type="number" step="0.1" id="me-tvg-rollM2" placeholder="ex: 50"/>
-                </div>
-                <div id="me-tvg-bpm-row">
-                  <label class="label">buc/m²</label>
-                  <input class="input" type="number" step="1" id="me-tvg-bpm" placeholder="ex: 6"/>
-                </div>
-              </div>
-            </div>
-          </div>
 
           <div id="me-calc-preview" style="padding:10px;background:var(--surface2);border-radius:var(--r-sm);font-size:12px;color:var(--txt2);display:none">
           </div>
