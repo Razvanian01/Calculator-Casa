@@ -12167,7 +12167,6 @@ PROGRAM MAGAZINE:
         <div style="display:flex;gap:6px;flex-wrap:wrap;font-size:10px">
           <span style="background:rgba(255,255,255,.15);padding:2px 8px;border-radius:4px">✓ Identificare materiale din text liber</span>
           <span style="background:rgba(255,255,255,.15);padding:2px 8px;border-radius:4px">✓ Prețuri live mathaus.ro + concurență</span>
-          <span style="background:rgba(255,255,255,.15);padding:2px 8px;border-radius:4px">✓ Depozite MatHaus din zonă</span>
           <span style="background:rgba(255,255,255,.15);padding:2px 8px;border-radius:4px">✓ Export ofertă PDF pentru client</span>
         </div>
       </div>
@@ -12414,7 +12413,7 @@ PROGRAM MAGAZINE:
 
       <div style="background:rgba(255,255,255,.7);border-radius:var(--r-sm);padding:10px 12px;font-size:11px;color:var(--txt2);line-height:1.7">
         <strong style="color:var(--navy)">Flux agent:</strong>
-        Dictare/text → Whisper → Claude citește contextul MatHaus → identifică materiale → caută prețuri pe ${escHtml(kb.ofertaCompetitori || 'Dedeman, Leroy, BricoDepot, Hornbach')} → depozite locale → tabel editabil → PDF ofertă
+        Dictare/text → Whisper → Claude citește contextul MatHaus → identifică materiale → caută prețuri pe ${escHtml(kb.ofertaCompetitori || 'Dedeman, Leroy, BricoDepot, Hornbach')} → tabel editabil → PDF ofertă
       </div>
     </div>
 
@@ -16735,7 +16734,7 @@ LIMBA: ${lang === 'ro' ? 'Română' : lang === 'en' ? 'English' : 'Auto-detect'}
       async function ofertaProcessGoogleDorks(ofertaId, text, client, adresa, kb, compList, siteList, apiKey, model, forceRefresh) {
         try {
           // ──────── PAS 1: Claude identifică materialele din text ────────
-          toast('🤖 Pas 1/4: Identificare materiale...');
+          toast('🤖 Pas 1/3: Identificare materiale...');
           const identResp = await fetch('https://api.anthropic.com/v1/messages', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' },
@@ -16786,7 +16785,7 @@ LIMBA: ${lang === 'ro' ? 'Română' : lang === 'en' ? 'English' : 'Auto-detect'}
           );
 
           // ──────── PAS 2: Preț local MatHaus (catalog + PRICE_TABLE) ────────
-          toast('📊 Pas 2/4: Verific prețuri locale MatHaus...');
+          toast('📊 Pas 2/3: Verific prețuri locale MatHaus...');
           const materiale = [];
           const _cacheMaxDays = kb.priceCacheMaxDays || 7;
           let _cacheHits = 0;
@@ -16831,7 +16830,7 @@ LIMBA: ${lang === 'ro' ? 'Română' : lang === 'en' ? 'English' : 'Auto-detect'}
 
           // ──────── PAS 3: Claude Google Dorks — prețuri competitori ────────
           if (_needCompetitors.length > 0) {
-            toast(`🔍 Pas 3/4: Caut prețuri competitori (${_needCompetitors.length} materiale)...`);
+            toast(`🔍 Pas 3/3: Caut prețuri competitori (${_needCompetitors.length} materiale)...`);
 
             const compDorks = compList.map((c, i) => `${c} (${siteList[i] || c.toLowerCase().replace(/ /g,'') + '.ro'})`).join(', ');
 
@@ -16871,7 +16870,8 @@ LIMBA: ${lang === 'ro' ? 'Română' : lang === 'en' ? 'English' : 'Auto-detect'}
 
             const dorksPrompt = `Ești un agent expert de cercetare prețuri materiale de construcții din România.
 
-MISIUNE: Caută prețurile la COMPETITORI folosind Google Dorks (web search).
+MISIUNE: Caută prețurile REALE la COMPETITORI — accesând PAGINA PRODUSULUI, nu din snippet-uri Google.
+${adresa ? `\nZONA CLIENTULUI: ${adresa}\nImportant: Prețurile pot varia pe zone. Când accesezi pagina unui competitor, verifică dacă prețul afișat este pentru zona clientului. Pe Dedeman, Leroy etc. prețul depinde de locație.` : ''}
 
 COMPETITORI DE VERIFICAT:
 ${compDorks}
@@ -16879,24 +16879,32 @@ ${compDorks}
 MATERIALE DE CĂUTAT:
 ${matSearchList}
 
-PROTOCOL CĂUTARE — OBLIGATORIU:
-1. Pentru FIECARE material × FIECARE competitor, fă web search cu Google Dorks:
-   • Prima interogare: site:dedeman.ro "Ceresit CM17" 25kg
-   • Dacă nu găsești: variație scurtă: site:dedeman.ro "CM 17"
-   • Repetă pentru fiecare competitor
+PROTOCOL CĂUTARE — OBLIGATORIU, ÎN ACEASTĂ ORDINE:
 
-2. VALIDARE OBLIGATORIE (UM Matching):
-   • Dacă noi vindem la sac 25kg → IGNORĂ prețurile produsului la 5kg sau alte gramaje
-   • Compară DOAR produse cu aceeași unitate de măsură / gramaj
-   • Dacă prețul pare nerealist de mic (sub 50% din prețul MatHaus) → probabil e alt gramaj, IGNORĂ
+PAS A — GĂSEȘTE PAGINA PRODUSULUI:
+• Caută cu Google Dorks: site:dedeman.ro "Ceresit CM17" 25kg${adresa ? ' ' + adresa.split(',')[0].trim() : ''}
+• Dacă nu găsești: variație: site:dedeman.ro "CM 17" 25kg
+• Din rezultate, identifică link-ul DIRECT la pagina produsului
 
-3. EXTRAGE DOAR:
-   • Prețul fără TVA (dacă disponibil) sau cu TVA (specifică)
-   • Link-ul DIRECT la pagina produsului (nu link de search)
-   • Dacă nu găsești produsul echivalent la un competitor → null
+PAS B — ACCESEAZĂ PAGINA ȘI CITEȘTE PREȚUL REAL:
+• OBLIGATORIU: accesează fiecare link găsit pentru a citi prețul AFIȘAT PE PAGINĂ
+• NU folosi prețul din snippet-ul Google — acela poate fi vechi sau pentru alt gramaj
+• Citește prețul cu TVA inclus (toate magazinele din România afișează cu TVA)
+• Verifică pe pagină că gramajul/ambalajul corespunde (ex: 25kg, nu 5kg)
+
+PAS C — VALIDARE OBLIGATORIE:
+• GRAMAJ: Dacă noi vindem la 25kg → ia prețul DOAR pentru varianta de 25kg, IGNORĂ 5kg sau alte gramaje
+• Dacă pe pagină sunt mai multe variante (5kg / 25kg) → alege EXACT gramajul care se potrivește cu al nostru
+• PREȚ NEREALIST: Dacă prețul e sub 50% din prețul MatHaus → probabil e alt gramaj, IGNORĂ
+• LINK: Pune link-ul DIRECT la pagina produsului cu gramajul corect
+
+CE EXTRAGI DE PE FIECARE PAGINĂ:
+• Prețul cu TVA (lei/bucată sau lei/sac) — EXACT cum scrie pe pagină
+• Link-ul direct la pagina produsului
+• Dacă nu găsești produsul echivalent → null
 
 RETURNEAZĂ STRICT JSON (fără alt text):
-{"materiale":[{"idx":0,"nume":"...","dedeman":{"pret":95.5,"link":"https://dedeman.ro/..."},"leroy":{"pret":null,"link":null},"bricodepot":{"pret":102,"link":"https://bricodepot.ro/..."},"hornbach":{"pret":null,"link":null}}]}
+{"materiale":[{"idx":0,"nume":"...","dedeman":{"pret":95.5,"link":"https://dedeman.ro/...","gramaj":"25kg"},"leroy":{"pret":null,"link":null},"bricodepot":{"pret":102,"link":"https://bricodepot.ro/...","gramaj":"25kg"},"hornbach":{"pret":null,"link":null}}]}
 
 idx = indexul materialului din lista de mai sus (0-based)`;
 
@@ -16911,7 +16919,24 @@ idx = indexul materialului din lista de mai sus (0-based)`;
                   messages: [{ role: 'user', content: 'Caută prețurile la competitori pentru materialele de mai sus. Folosește Google Dorks (site:...) pentru fiecare competitor.' }]
                 })
               });
-              const priceData = await priceResp.json();
+              let priceData;
+              if (priceResp.status === 429) {
+                toast('⏳ Rate limit — aștept 20s și reîncerc...');
+                await new Promise(r => setTimeout(r, 20000));
+                const retryResp = await fetch('https://api.anthropic.com/v1/messages', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true', 'anthropic-beta': 'web-search-2025-03-05' },
+                  body: JSON.stringify({
+                    model, max_tokens: 8000,
+                    tools: [{ type: 'web_search_20250305', name: 'web_search' }],
+                    system: dorksPrompt,
+                    messages: [{ role: 'user', content: 'Caută prețurile la competitori pentru materialele de mai sus. Folosește Google Dorks (site:...) pentru fiecare competitor.' }]
+                  })
+                });
+                priceData = await retryResp.json();
+              } else {
+                priceData = await priceResp.json();
+              }
               trackAIUsage('message', 'oferte');
               const priceText = (priceData.content || []).filter(b => b.type === 'text').map(b => b.text).join('');
               
@@ -16948,30 +16973,6 @@ idx = indexul materialului din lista de mai sus (0-based)`;
             ofertaUpdateProgress(ofertaId, 'preturi', materiale);
           }
 
-          // ──────── PAS 4: Depozite MatHaus (separat, max 50km) ────────
-          toast('📍 Pas 4/4: Caut depozite MatHaus în zona clientului...');
-          let depozite = [];
-          if (adresa) {
-            try {
-              const depoResp = await fetch('https://api.anthropic.com/v1/messages', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true', 'anthropic-beta': 'web-search-2025-03-05' },
-                body: JSON.stringify({
-                  model, max_tokens: 1000,
-                  tools: [{ type: 'web_search_20250305', name: 'web_search' }],
-                  messages: [{ role: 'user', content: `Caută cel mai apropiat magazin MatHaus (Arabesque) și cel mai apropiat depozit MatHaus (Arabesque) de adresa: ${adresa}. MAXIM 2 locații (1 magazin + 1 depozit), DOAR cele din raza de 50km. Dacă nu există niciuna sub 50km, returnează array gol. Returnează JSON: {"depozite":[{"nume":"MatHaus Chitila (Depozit)","adresa":"...","telefon":"...","distanta_km":8}]}` }]
-                })
-              });
-              const depoData = await depoResp.json();
-              const depoText = (depoData.content || []).filter(b => b.type === 'text').map(b => b.text).join('');
-              const jm = depoText.match(/\{[\s\S]*\}/);
-              if (jm) {
-                depozite = JSON.parse(jm[0]).depozite || [];
-                depozite = depozite.filter(d => (d.distanta_km || 999) <= 50).sort((a,b) => (a.distanta_km||999) - (b.distanta_km||999)).slice(0, 2);
-              }
-            } catch(e) { console.warn('[Depozite] Error:', e.message); }
-          }
-
           // ──────── SALVARE FINALĂ ────────
           const list2 = loadOferte();
           const idx = list2.findIndex(o => o.id === ofertaId);
@@ -16979,7 +16980,7 @@ idx = indexul materialului din lista de mai sus (0-based)`;
             list2[idx].status = 'done';
             list2[idx].eticheta = 'finalizat';
             list2[idx].materiale = materiale;
-            list2[idx].depozite_locale = depozite;
+            list2[idx].depozite_locale = [];
             list2[idx].neidentificate = parsed.neidentificate || [];
           }
           saveOferte(list2);
@@ -17164,12 +17165,10 @@ idx = indexul materialului din lista de mai sus (0-based)`;
           // Pasii vizuali
           const steps = [
             { key: 'identificare', icon: '🔎', label: 'Identificare materiale' },
-            { key: 'preturi', icon: '💰', label: 'Căutare prețuri' },
-            { key: 'depozite', icon: '📍', label: 'Depozite locale' },
+            { key: 'preturi', icon: '💰', label: 'Căutare prețuri competitori' },
           ];
           const stepsHtml = steps.map(s => {
-            const isDone = (step === 'preturi' && s.key === 'identificare')
-                        || (step === 'depozite' && (s.key === 'identificare' || s.key === 'preturi'));
+            const isDone = (step === 'preturi' && s.key === 'identificare');
             const isActive = s.key === step;
             return `<div style="display:flex;align-items:center;gap:6px;padding:6px 12px;border-radius:20px;font-size:12px;font-weight:${isActive?'700':'400'};
               background:${isDone?'var(--green-l)':isActive?'var(--blue-l)':'var(--surface2)'};
@@ -17266,21 +17265,6 @@ idx = indexul materialului din lista de mai sus (0-based)`;
         const nrValidate = oferta.materiale.filter(m => m.validat).length;
         const nrTotal = oferta.materiale.length;
 
-        // Depozite locale
-        const depoHtml = (oferta.depozite_locale || []).length > 0 ? `
-          <div style="padding:14px 18px;border-bottom:1px solid var(--border2);background:var(--blue-l)">
-            <div style="font-size:11px;font-weight:700;color:var(--blue);letter-spacing:.05em;text-transform:uppercase;font-family:var(--mono);margin-bottom:8px">📍 Depozite MatHaus în zonă</div>
-            <div style="display:flex;flex-wrap:wrap;gap:8px">
-              ${oferta.depozite_locale.map(d => `
-                <div style="background:#fff;border:1px solid #BFDBFE;border-radius:8px;padding:8px 12px;min-width:200px">
-                  <div style="font-weight:700;font-size:12px;color:var(--navy)">${escHtml(d.nume)}</div>
-                  <div style="font-size:11px;color:var(--txt2);margin-top:2px">${escHtml(d.adresa || '')}</div>
-                  ${d.telefon ? `<div style="font-size:11px;color:var(--blue);margin-top:2px">📞 ${escHtml(d.telefon)}</div>` : ''}
-                  ${d.distanta_km ? `<div style="font-size:10px;color:var(--txt3)">~${d.distanta_km} km</div>` : ''}
-                </div>`).join('')}
-            </div>
-          </div>` : '';
-
         // Randuri tabel
         const COMPETITORS = ['mathaus','dedeman','leroy','bricodepot','hornbach'];
         const COMP_LABELS = { mathaus:'MatHaus', dedeman:'Dedeman', leroy:'Leroy', bricodepot:'BricoDepot', hornbach:'Hornbach' };
@@ -17322,11 +17306,11 @@ idx = indexul materialului din lista de mai sus (0-based)`;
               ${(() => {
                 const badges = {
                   'dorks': ['🔍 Google Dorks', '#1a73e8', '#e8f0fe'],
-                  'local+dorks': ['📊 Local + 🔍 Dorks competitori', '#0f6e56', '#e1f5ee'],
+                  'local+dorks': ['📊 Intern + 🔍 Competitori web', '#0f6e56', '#e1f5ee'],
                   'claude-web': ['🤖 Claude Web Search', '#6b21a8', '#f3e8ff'],
                   'claude-fallback': ['🤖 Claude fallback', '#6b21a8', '#f3e8ff'],
-                  'local+claude': ['📊 Local + 🤖 Claude', '#0f6e56', '#e1f5ee'],
-                  'local': ['📊 Preț din baza locală', '#0f6e56', '#e1f5ee'],
+                  'local+claude': ['📊 Intern + 🤖 Claude', '#0f6e56', '#e1f5ee'],
+                  'local': ['📊 Preț intern MatHaus', '#0f6e56', '#e1f5ee'],
                   'cache': ['📦 Din cache' + (m._cacheDate ? ' (' + m._cacheDate + ')' : ''), '#0f6e56', '#e1f5ee'],
                   'error': ['❌ Eroare — preț negăsit', '#dc2626', '#fef2f2'],
                   'pending': ['⏳ Se caută...', '#92400e', '#fef3c7'],
@@ -17387,7 +17371,6 @@ idx = indexul materialului din lista de mai sus (0-based)`;
             </div>
           </div>
 
-          ${depoHtml}
 
           <!-- Notița originală -->
           ${oferta.inputOriginal ? `
@@ -17433,7 +17416,7 @@ idx = indexul materialului din lista de mai sus (0-based)`;
             <button class="chat-fb-btn ${oferta.feedback === 'dislike' ? 'disliked' : ''}" onclick="ofertaFeedback('${id}','dislike')">👎 Greșeli</button>
             <div style="flex:1"></div>
             <button class="btn btn-ghost btn-sm" style="font-size:10px" onclick="templateSaveFromOferta('${id}')">💾 Salvează ca template</button>
-            <div style="font-size:10px;color:var(--txt3)">💡 Prețul verde = cel mai mic · Preț portocaliu = editabil</div>
+            <div style="font-size:10px;color:var(--txt3)">💡 Prețul verde = cel mai mic · Preț portocaliu = editabil · Prețuri competitori = de pe site, verifică prin click pe link</div>
           </div>
 
           ${(() => {
