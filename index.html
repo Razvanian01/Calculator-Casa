@@ -3150,15 +3150,8 @@
               </div>
             </div>
 
-            <!-- OpenAI key warning -->
-            <div class="openai-key-setup" id="openai-key-setup">
-              <label>⚠ Cheie API OpenAI necesară pentru transcriere vocală</label>
-              <div style="display:flex;gap:8px;align-items:center">
-                <input type="password" class="input" id="openai-key-input" placeholder="sk-..." style="flex:1;font-size:12px"/>
-                <button class="btn btn-sm" style="background:var(--amber);color:#fff;white-space:nowrap" onclick="ofertaSaveOpenAIKey()">Salvează</button>
-              </div>
-              <div style="font-size:10px;color:var(--txt3);margin-top:6px">Se salvează local. Necesar doar pentru voce — textul manual funcționează fără cheie OpenAI.</div>
-            </div>
+            <!-- Voice uses Web Speech API — no API key needed -->
+            <div id="openai-key-setup" style="display:none"></div>
 
             <!-- VOCE -->
             <div class="voice-section" id="oferta-voice-section">
@@ -16492,11 +16485,6 @@ LIMBA: ${lang === 'ro' ? 'Română' : lang === 'en' ? 'English' : 'Auto-detect'}
       function ofertaOpenModal() {
         const ov = $('oferta-new-overlay');
         if (ov) { ov.style.display = 'flex'; document.body.style.overflow = 'hidden'; }
-        // Verifica daca are cheia OpenAI
-        const setup = $('openai-key-setup');
-        if (setup) {
-          setup.classList.toggle('show', !ofertaGetOpenAIKey());
-        }
         if ($('oferta-transcript')) { $('oferta-transcript').className = 'voice-transcript'; $('oferta-transcript').textContent = ''; }
         if ($('oferta-text')) $('oferta-text').value = '';
         if ($('oferta-client')) $('oferta-client').value = '';
@@ -16584,71 +16572,24 @@ LIMBA: ${lang === 'ro' ? 'Română' : lang === 'en' ? 'English' : 'Auto-detect'}
       }
 
       async function ofertaOnRecordingStop() {
-        const blob = new Blob(_ofertaAudioChunks, { type: 'audio/webm' });
-        const key = ofertaGetOpenAIKey();
         const btn = $('oferta-voice-btn');
         const status = $('oferta-voice-status');
 
-        // Strategy: try Web Speech API first (free, no CORS), then Whisper API
-        // Web Speech API runs during recording via ofertaStartRecording
-        // If we already have a transcript from Web Speech, use it
-        if (window._webSpeechTranscript) {
-          const transcript = window._webSpeechTranscript;
-          window._webSpeechTranscript = '';
-          if (transcript.trim()) {
-            const transcriptEl = $('oferta-transcript');
-            if (transcriptEl) { transcriptEl.textContent = transcript; transcriptEl.classList.add('show'); }
-            const textEl = $('oferta-text');
-            if (textEl) textEl.value = (textEl.value ? textEl.value + '\n' : '') + transcript;
-            if (btn) btn.textContent = '🎤';
-            if (status) status.textContent = '✅ Transcriere completă (Web Speech)';
-            return;
-          }
-        }
+        // Web Speech API ran during recording — check if we captured text
+        const transcript = (window._webSpeechTranscript || '').trim();
+        window._webSpeechTranscript = '';
 
-        // Fallback: try Whisper API if key available
-        if (!key) {
-          if (btn) btn.textContent = '🎤';
-          if (status) status.textContent = '⚠ Transcriere vocală indisponibilă — scrie manual textul';
-          toast('ℹ Fără cheie OpenAI, transcrierea vocală folosește Web Speech API (poate fi mai puțin precisă). Pentru transcriere Whisper, adaugă cheia OpenAI.');
-          return;
-        }
-
-        try {
-          if (status) status.textContent = '⏳ Transcriem cu Whisper AI...';
-          const formData = new FormData();
-          formData.append('file', blob, 'recording.webm');
-          formData.append('model', 'whisper-1');
-          formData.append('language', 'ro');
-
-          const resp = await fetch('https://api.openai.com/v1/audio/transcriptions', {
-            method: 'POST',
-            headers: { 'Authorization': 'Bearer ' + key },
-            body: formData
-          });
-
-          if (!resp.ok) throw new Error('Whisper API error: ' + resp.status);
-          const data = await resp.json();
-          const transcript = data.text || '';
-
+        if (transcript) {
           const transcriptEl = $('oferta-transcript');
-          if (transcriptEl) {
-            transcriptEl.textContent = transcript;
-            transcriptEl.classList.add('show');
-          }
-
-          // Adauga la textul manual
+          if (transcriptEl) { transcriptEl.textContent = transcript; transcriptEl.classList.add('show'); }
           const textEl = $('oferta-text');
-          if (textEl) {
-            textEl.value = (textEl.value ? textEl.value + '\n' : '') + transcript;
-          }
-
-          if (btn) { btn.textContent = '🎤'; btn.classList.remove('recording'); }
-          if (status) status.textContent = '✅ Transcriere completă — poți continua să dictezi';
-
-        } catch(e) {
-          if (status) status.textContent = '⚠ Eroare transcriere: ' + e.message;
+          if (textEl) textEl.value = (textEl.value ? textEl.value + '\n' : '') + transcript;
           if (btn) btn.textContent = '🎤';
+          if (status) status.textContent = '✅ Transcriere completă — poți continua să dictezi sau să editezi textul';
+        } else {
+          if (btn) btn.textContent = '🎤';
+          if (status) status.textContent = '⚠ Nu am captat text — vorbește mai tare sau scrie manual';
+          toast('⚠ Transcrierea nu a captat text. Asigură-te că microfonul funcționează și vorbești clar.');
         }
       }
 
@@ -16808,7 +16749,34 @@ LIMBA: ${lang === 'ro' ? 'Română' : lang === 'en' ? 'English' : 'Auto-detect'}
           trackAIUsage('message', 'oferte');
           const identText = (identData.content || []).filter(b => b.type === 'text').map(b => b.text).join('');
           let parsed = { materiale: [], neidentificate: [] };
-          try { const jm = identText.match(/\{[\s\S]*\}/); if (jm) parsed = JSON.parse(jm[0]); } catch(e) {}
+          try { const jm = identText.match(/\{[\s\S]*\}/); if (jm) parsed = JSON.parse(jm[0]); } catch(e) {
+            console.warn('[Identificare] JSON parse failed:', e.message, 'Text:', identText.substring(0, 200));
+          }
+
+          // Validation: if no materials found, show error with original response
+          if (!parsed.materiale || parsed.materiale.length === 0) {
+            console.warn('[Identificare] 0 materiale identificate. Response:', identText.substring(0, 500));
+            // Try to salvage — maybe Claude returned differently
+            if (parsed.neidentificate?.length > 0) {
+              toast('⚠ Claude nu a putut identifica materialele: ' + parsed.neidentificate.join(', '));
+            } else {
+              toast('⚠ Niciun material identificat — verifică textul notiței');
+            }
+            // Save as error with details
+            const _errList = loadOferte();
+            const _errIdx = _errList.findIndex(o => o.id === ofertaId);
+            if (_errIdx >= 0) {
+              _errList[_errIdx].status = 'draft';
+              _errList[_errIdx].eroare = 'Niciun material identificat din text. Răspuns AI: ' + identText.substring(0, 300);
+              _errList[_errIdx].neidentificate = parsed.neidentificate || [];
+            }
+            saveOferte(_errList);
+            ofertaShowDetail(ofertaId);
+            return;
+          }
+
+          toast(`✅ ${parsed.materiale.length} materiale identificate`);
+          console.log('[Identificare]', parsed.materiale.length, 'materiale:', parsed.materiale.map(m => m.nume).join(', '));
 
           ofertaUpdateProgress(ofertaId, 'preturi',
             (parsed.materiale || []).map(m => ({
@@ -16870,15 +16838,35 @@ LIMBA: ${lang === 'ro' ? 'Română' : lang === 'en' ? 'English' : 'Auto-detect'}
             // Build material list with search instructions
             const matSearchList = _needCompetitors.map((m, i) => {
               const searchName = m.mentionat_ca || m.nume;
-              // Generate keyword variations
-              const variations = [searchName];
-              // Add short form (e.g., "CM17" from "Ceresit CM17 25kg")
-              const words = searchName.split(/\s+/);
-              const codeMatch = searchName.match(/[A-Z]{1,3}\s?\d{1,4}/i);
-              if (codeMatch) variations.push(codeMatch[0].replace(/\s/g, ''));
+              // Generate keyword variations for better Google Dorks matching
+              const variations = [];
+              // 1. Full name: "Adeziv Ceresit CM17 Flex interior/exterior 25kg"
+              variations.push(searchName);
+              // 2. Extract code pattern (CM17, CT84, EPS10, etc.)
+              const codeMatch = searchName.match(/[A-Z]{1,4}\s?\d{1,4}/i);
+              const shortCode = codeMatch ? codeMatch[0].replace(/\s/g, '') : null;
+              const spacedCode = codeMatch ? codeMatch[0].replace(/([A-Za-z]+)\s?(\d+)/, '$1 $2') : null;
+              // 3. Extract brand (first capitalized multi-letter word, e.g., "Ceresit")
+              const brandMatch = searchName.match(/\b([A-Z][a-z]{2,})\b/);
+              const brand = brandMatch ? brandMatch[1] : null;
+              // 4. Brand + short code: "Ceresit CM17"
+              if (brand && shortCode) variations.push(brand + ' ' + shortCode);
+              // 5. Spaced code only: "CM 17"
+              if (spacedCode && spacedCode !== shortCode) variations.push(spacedCode);
+              // 6. Generic + code: "Adeziv CM17"
+              const firstWord = searchName.split(/\s+/)[0];
+              if (shortCode && firstWord.toLowerCase() !== brand?.toLowerCase()) {
+                variations.push(firstWord + ' ' + shortCode);
+              }
+              // 7. Brand + spaced code: "Ceresit CM 17"
+              if (brand && spacedCode && spacedCode !== shortCode) variations.push(brand + ' ' + spacedCode);
+              // 8. Short code alone: "CM17"
+              if (shortCode) variations.push(shortCode);
+              // Deduplicate
+              const uniqueVars = [...new Set(variations.map(v => v.trim()).filter(Boolean))];
               const umInfo = m.um ? ` (vânzare: ${m.um}${m.localPret ? ', preț MatHaus: ' + m.localPret + ' lei' : ''})` : '';
 
-              return `${i+1}. "${m.nume}"${umInfo}\n   Caută variații: ${variations.map(v => '"' + v + '"').join(', ')}`;
+              return `${i+1}. "${m.nume}"${umInfo}\n   Caută variații: ${uniqueVars.map(v => '"' + v + '"').join(', ')}`;
             }).join('\n');
 
             const dorksPrompt = `Ești un agent expert de cercetare prețuri materiale de construcții din România.
@@ -17241,6 +17229,10 @@ idx = indexul materialului din lista de mai sus (0-based)`;
                 <span style="font-size:24px;display:block;margin-bottom:8px;animation:spin 2s linear infinite">⟳</span>
                 Claude analizează nota și identifică materialele...
               </div>` : matsHtml}
+              ${oferta.inputOriginal ? `<div style="margin-top:12px;padding:10px 14px;background:var(--surface2);border-radius:var(--r-sm);border-left:3px solid var(--amber)">
+                <div style="font-size:10px;font-weight:700;color:var(--txt3);text-transform:uppercase;margin-bottom:4px">📝 Notița originală</div>
+                <div style="font-size:11px;color:var(--txt2);white-space:pre-wrap;line-height:1.6">${escHtml(oferta.inputOriginal)}</div>
+              </div>` : ''}
               <div style="font-size:11px;color:var(--txt3);text-align:center;margin-top:12px">Nu închide pagina — procesarea poate dura 1-3 minute</div>
             </div>
           </div>
@@ -17260,6 +17252,10 @@ idx = indexul materialului din lista de mai sus (0-based)`;
             <div style="font-size:12px;color:var(--txt2);background:var(--surface2);padding:10px;border-radius:8px;font-family:var(--mono);margin-bottom:12px">${escHtml(oferta.eroare)}</div>
             ${isFetchErr ? '<div style="font-size:11px;color:var(--txt2);background:var(--amber-l);border:1px solid #fde68a;padding:10px;border-radius:8px;text-align:left;line-height:1.7;margin-bottom:12px"><strong style="color:var(--amber)">Posibile cauze:</strong><br>• Aplicația e deschisă ca fișier local (file:///) — deschide-o de pe un server HTTP<br>• Cheia API Anthropic lipsește sau e invalidă — verifică în Admin → Setări<br>• Conexiune la internet întreruptă<br>• Firewall sau VPN blochează accesul la api.anthropic.com</div>' : ''}
             <button class="btn btn-primary" style="margin-top:8px" onclick="ofertaRetry('${id}')">🔄 Reîncearcă</button>
+            ${oferta.inputOriginal ? `<div style="margin-top:12px;padding:10px 14px;background:var(--surface2);border-radius:var(--r-sm);border-left:3px solid var(--amber);text-align:left">
+              <div style="font-size:10px;font-weight:700;color:var(--txt3);text-transform:uppercase;margin-bottom:4px">📝 Notița originală</div>
+              <div style="font-size:11px;color:var(--txt2);white-space:pre-wrap;line-height:1.6">${escHtml(oferta.inputOriginal)}</div>
+            </div>` : ''}
           </div>`;
           return;
         }
@@ -17392,6 +17388,13 @@ idx = indexul materialului din lista de mai sus (0-based)`;
           </div>
 
           ${depoHtml}
+
+          <!-- Notița originală -->
+          ${oferta.inputOriginal ? `
+          <details style="padding:10px 18px;border-bottom:1px solid var(--border2)">
+            <summary style="font-size:11px;font-weight:700;color:var(--txt3);cursor:pointer;letter-spacing:.05em;text-transform:uppercase;font-family:var(--mono);padding:4px 0">📝 Notița originală a agentului</summary>
+            <div style="margin-top:8px;background:var(--surface2);border-radius:var(--r-sm);padding:12px 14px;font-size:12px;line-height:1.7;white-space:pre-wrap;color:var(--txt2);font-style:italic;border-left:3px solid var(--amber)">${escHtml(oferta.inputOriginal)}</div>
+          </details>` : ''}
 
           <div style="overflow-x:auto;padding:0 0 8px">
             <table class="oferta-table" style="min-width:900px">
