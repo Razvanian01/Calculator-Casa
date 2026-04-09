@@ -10813,7 +10813,7 @@
       // ── DEFAULTS ──
       const KB_COMMON_DEFAULTS = {
         language: 'ro',
-        contextMathaus: 'MatHaus este un lanț de magazine de materiale de construcții din România, cu depozite în principalele orașe. Oferim livrare și consultanță tehnică. Site: mathaus.ro',
+        contextMathaus: 'MatHaus (fostă Arabesque) este un lanț de magazine și depozite de materiale de construcții din România. Catalog cu peste 40.000 de produse: BCA, cărămidă, termosistem, acoperiș, instalații, finisaje, amenajări, unelte. Oferim livrare la domiciliu, consultanță tehnică și prețuri competitive. Site: mathaus.ro',
         contextProdus: '',
       };
       const KB_CONSULTANT_DEFAULTS = {
@@ -15025,7 +15025,7 @@ function sendWeeklyReport() {
         const agentName = consultant.agentName || 'Consultant MatHaus';
         const knowledgeLevel = consultant.knowledgeLevel || 'medium';
 
-        let sp = `Ești ${agentName}. MatHaus — catalog 40.000+ produse pe mathaus.ro.
+        let sp = `Ești ${agentName}. ${common.contextMathaus || 'MatHaus — catalog 40.000+ produse pe mathaus.ro.'}
 LIMBA: ${lang === 'ro' ? 'Română' : lang === 'en' ? 'English' : 'Auto-detect'}.
 `;
 
@@ -16868,10 +16868,13 @@ LIMBA: ${lang === 'ro' ? 'Română' : lang === 'en' ? 'English' : 'Auto-detect'}
               return `${i+1}. "${m.nume}"${umInfo}\n   Caută variații: ${uniqueVars.map(v => '"' + v + '"').join(', ')}`;
             }).join('\n');
 
+            const _mhContext = kb.ofertaContextMathaus || contextMathaus || 'MatHaus (Arabesque) — lanț de magazine materiale de construcții din România, mathaus.ro';
             const dorksPrompt = `Ești un agent expert de cercetare prețuri materiale de construcții din România.
 
+CONTEXT: ${_mhContext}
+
 MISIUNE: Caută prețurile REALE la COMPETITORI — accesând PAGINA PRODUSULUI, nu din snippet-uri Google.
-${adresa ? `\nZONA CLIENTULUI: ${adresa}\nImportant: Prețurile pot varia pe zone. Când accesezi pagina unui competitor, verifică dacă prețul afișat este pentru zona clientului. Pe Dedeman, Leroy etc. prețul depinde de locație.` : ''}
+${adresa ? `\nZONA CLIENTULUI: ${adresa}\nImportant: NU pune zona/orașul în interogarea Google Dorks (nu returnează rezultate). Zona este DOAR pentru verificare pe pagina produsului — unele magazine (Dedeman) afișează prețuri diferite pe localitate.` : ''}
 
 COMPETITORI DE VERIFICAT:
 ${compDorks}
@@ -16882,15 +16885,19 @@ ${matSearchList}
 PROTOCOL CĂUTARE — OBLIGATORIU, ÎN ACEASTĂ ORDINE:
 
 PAS A — GĂSEȘTE PAGINA PRODUSULUI:
-• Caută cu Google Dorks: site:dedeman.ro "Ceresit CM17" 25kg${adresa ? ' ' + adresa.split(',')[0].trim() : ''}
+• Caută cu Google Dorks: site:dedeman.ro "Ceresit CM17" 25kg
 • Dacă nu găsești: variație: site:dedeman.ro "CM 17" 25kg
+• Dacă tot nu găsești: fără gramaj: site:dedeman.ro "Ceresit CM17"
+• NU pune numele orașului/zonei în query — site: operator + localitate = 0 rezultate
 • Din rezultate, identifică link-ul DIRECT la pagina produsului
 
 PAS B — ACCESEAZĂ PAGINA ȘI CITEȘTE PREȚUL REAL:
-• OBLIGATORIU: accesează fiecare link găsit pentru a citi prețul AFIȘAT PE PAGINĂ
-• NU folosi prețul din snippet-ul Google — acela poate fi vechi sau pentru alt gramaj
-• Citește prețul cu TVA inclus (toate magazinele din România afișează cu TVA)
+• OBLIGATORIU: după ce găsești URL-ul cu web_search, folosește web_fetch pe acel URL pentru a citi pagina reală
+• Prețurile din snippet-urile Google sunt VECHI și INEXACTE — NU le folosi NICIODATĂ
+• Singura sursă validă de preț este pagina reală a produsului (accesată cu web_fetch)
+• Citește prețul cu TVA inclus — EXACT cum apare pe pagina produsului
 • Verifică pe pagină că gramajul/ambalajul corespunde (ex: 25kg, nu 5kg)
+• Ai disponibile 2 instrumente: web_search (pentru Google Dorks) și web_fetch (pentru a deschide pagina)
 
 PAS C — VALIDARE OBLIGATORIE:
 • GRAMAJ: Dacă noi vindem la 25kg → ia prețul DOAR pentru varianta de 25kg, IGNORĂ 5kg sau alte gramaje
@@ -16914,9 +16921,12 @@ idx = indexul materialului din lista de mai sus (0-based)`;
                 headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true', 'anthropic-beta': 'web-search-2025-03-05' },
                 body: JSON.stringify({
                   model, max_tokens: 8000,
-                  tools: [{ type: 'web_search_20250305', name: 'web_search' }],
+                  tools: [
+                    { type: 'web_search_20250305', name: 'web_search' },
+                    { type: 'web_fetch_20250305', name: 'web_fetch' }
+                  ],
                   system: dorksPrompt,
-                  messages: [{ role: 'user', content: 'Caută prețurile la competitori pentru materialele de mai sus. Folosește Google Dorks (site:...) pentru fiecare competitor.' }]
+                  messages: [{ role: 'user', content: 'Caută prețurile la competitori. FLUX OBLIGATORIU per competitor: 1) web_search cu Google Dork → găsește URL-ul paginii produsului 2) web_fetch pe URL-ul găsit → citește prețul REAL de pe pagină. NU raporta prețuri din snippet-uri Google.' }]
                 })
               });
               let priceData;
@@ -16928,9 +16938,12 @@ idx = indexul materialului din lista de mai sus (0-based)`;
                   headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true', 'anthropic-beta': 'web-search-2025-03-05' },
                   body: JSON.stringify({
                     model, max_tokens: 8000,
-                    tools: [{ type: 'web_search_20250305', name: 'web_search' }],
+                    tools: [
+                      { type: 'web_search_20250305', name: 'web_search' },
+                      { type: 'web_fetch_20250305', name: 'web_fetch' }
+                    ],
                     system: dorksPrompt,
-                    messages: [{ role: 'user', content: 'Caută prețurile la competitori pentru materialele de mai sus. Folosește Google Dorks (site:...) pentru fiecare competitor.' }]
+                    messages: [{ role: 'user', content: 'Caută prețurile la competitori. FLUX OBLIGATORIU: 1) web_search → găsește URL 2) web_fetch pe URL → citește prețul REAL.' }]
                   })
                 });
                 priceData = await retryResp.json();
