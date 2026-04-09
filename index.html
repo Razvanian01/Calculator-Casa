@@ -16795,13 +16795,18 @@ LIMBA: ${lang === 'ro' ? 'Română' : lang === 'en' ? 'English' : 'Auto-detect'}
             const _sap = (m.sap || '').trim();
             const _mhUrl = _sap ? getMathausLink(_sap) : 'https://mathaus.ro/search?text=' + encodeURIComponent(m.mentionat_ca || m.nume);
 
-            // Check cache first
+            // Check cache first — but ONLY if cache has competitor prices too
             if (!forceRefresh) {
               const cached = getCachedPrice(m.nume, _sap, _cacheMaxDays);
               if (cached) {
-                materiale.push({ ...cached, cantitate: m.cantitate || 1, um: m.um || cached.um || 'buc', mentionat_ca: m.mentionat_ca || '', validat: false, _status: 'done' });
-                _cacheHits++;
-                continue;
+                // Check if cache has at least 1 competitor price — otherwise re-search
+                const hasCompetitorPrice = cached.dedeman?.pret || cached.leroy?.pret || cached.bricodepot?.pret || cached.hornbach?.pret;
+                if (hasCompetitorPrice) {
+                  materiale.push({ ...cached, cantitate: m.cantitate || 1, um: m.um || cached.um || 'buc', mentionat_ca: m.mentionat_ca || '', validat: false, _status: 'done' });
+                  _cacheHits++;
+                  continue;
+                }
+                // Cache exists but no competitor prices — use local price, search competitors
               }
             }
 
@@ -16826,11 +16831,13 @@ LIMBA: ${lang === 'ro' ? 'Română' : lang === 'en' ? 'English' : 'Auto-detect'}
             _needCompetitors.push({ idx: materiale.length - 1, ...m, sap: _sap, um: m.um || 'buc', localPret: _localPret });
           }
           if (_cacheHits > 0) toast(`📦 ${_cacheHits} materiale din cache`);
+          console.log('[Ofertare] Pas 2 complet:', materiale.length, 'materiale,', _needCompetitors.length, 'pentru competitori,', _cacheHits, 'din cache');
           ofertaUpdateProgress(ofertaId, 'preturi', materiale);
 
           // ──────── PAS 3: Claude Google Dorks — prețuri competitori ────────
           if (_needCompetitors.length > 0) {
             toast(`🔍 Pas 3/3: Caut prețuri competitori (${_needCompetitors.length} materiale)...`);
+            console.log('[Ofertare] Pas 3: caut competitori pentru:', _needCompetitors.map(m => m.nume).join(', '));
 
             const compDorks = compList.map((c, i) => `${c} (${siteList[i] || c.toLowerCase().replace(/ /g,'') + '.ro'})`).join(', ');
 
@@ -16892,12 +16899,10 @@ PAS A — GĂSEȘTE PAGINA PRODUSULUI:
 • Din rezultate, identifică link-ul DIRECT la pagina produsului
 
 PAS B — ACCESEAZĂ PAGINA ȘI CITEȘTE PREȚUL REAL:
-• OBLIGATORIU: după ce găsești URL-ul cu web_search, folosește web_fetch pe acel URL pentru a citi pagina reală
-• Prețurile din snippet-urile Google sunt VECHI și INEXACTE — NU le folosi NICIODATĂ
-• Singura sursă validă de preț este pagina reală a produsului (accesată cu web_fetch)
+• OBLIGATORIU: după ce găsești produsul, accesează link-ul paginii pentru a citi prețul REAL
+• Prețurile din snippet-urile Google pot fi VECHI sau pentru alt gramaj — verifică mereu pe pagină
 • Citește prețul cu TVA inclus — EXACT cum apare pe pagina produsului
 • Verifică pe pagină că gramajul/ambalajul corespunde (ex: 25kg, nu 5kg)
-• Ai disponibile 2 instrumente: web_search (pentru Google Dorks) și web_fetch (pentru a deschide pagina)
 
 PAS C — VALIDARE OBLIGATORIE:
 • GRAMAJ: Dacă noi vindem la 25kg → ia prețul DOAR pentru varianta de 25kg, IGNORĂ 5kg sau alte gramaje
@@ -16921,12 +16926,9 @@ idx = indexul materialului din lista de mai sus (0-based)`;
                 headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true', 'anthropic-beta': 'web-search-2025-03-05' },
                 body: JSON.stringify({
                   model, max_tokens: 8000,
-                  tools: [
-                    { type: 'web_search_20250305', name: 'web_search' },
-                    { type: 'web_fetch_20250305', name: 'web_fetch' }
-                  ],
+                  tools: [{ type: 'web_search_20250305', name: 'web_search' }],
                   system: dorksPrompt,
-                  messages: [{ role: 'user', content: 'Caută prețurile la competitori. FLUX OBLIGATORIU per competitor: 1) web_search cu Google Dork → găsește URL-ul paginii produsului 2) web_fetch pe URL-ul găsit → citește prețul REAL de pe pagină. NU raporta prețuri din snippet-uri Google.' }]
+                  messages: [{ role: 'user', content: 'Caută prețurile la competitori. Per fiecare competitor: caută cu site:... dork, apoi accesează link-ul găsit pentru a citi prețul REAL de pe pagina produsului. NU raporta prețuri din snippet-uri Google.' }]
                 })
               });
               let priceData;
@@ -16938,12 +16940,9 @@ idx = indexul materialului din lista de mai sus (0-based)`;
                   headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true', 'anthropic-beta': 'web-search-2025-03-05' },
                   body: JSON.stringify({
                     model, max_tokens: 8000,
-                    tools: [
-                      { type: 'web_search_20250305', name: 'web_search' },
-                      { type: 'web_fetch_20250305', name: 'web_fetch' }
-                    ],
+                    tools: [{ type: 'web_search_20250305', name: 'web_search' }],
                     system: dorksPrompt,
-                    messages: [{ role: 'user', content: 'Caută prețurile la competitori. FLUX OBLIGATORIU: 1) web_search → găsește URL 2) web_fetch pe URL → citește prețul REAL.' }]
+                    messages: [{ role: 'user', content: 'Caută prețurile la competitori. Accesează pagina fiecărui produs pentru prețul REAL.' }]
                   })
                 });
                 priceData = await retryResp.json();
@@ -16955,8 +16954,10 @@ idx = indexul materialului din lista de mai sus (0-based)`;
               
               // Parse results
               const priceMatch = priceText.match(/\{[\s\S]*\}/);
+              console.log('[Google Dorks] Response text length:', priceText.length, 'JSON found:', !!priceMatch);
               if (priceMatch) {
                 const priceResults = JSON.parse(priceMatch[0]);
+                console.log('[Google Dorks] Parsed', (priceResults.materiale || []).length, 'materiale cu prețuri');
                 (priceResults.materiale || []).forEach(pr => {
                   const origIdx = pr.idx !== undefined ? pr.idx : _needCompetitors.findIndex(m => m.nume === pr.nume);
                   if (origIdx < 0 || origIdx >= _needCompetitors.length) return;
@@ -16984,7 +16985,16 @@ idx = indexul materialului din lista de mai sus (0-based)`;
             // Mark remaining as done even without competitor prices
             materiale.forEach(m => { if (m._status !== 'done') m._status = 'done'; });
             ofertaUpdateProgress(ofertaId, 'preturi', materiale);
+          } else {
+            console.log('[Ofertare] SKIP Pas 3: 0 materiale necesită căutare competitori (toate din cache)');
           }
+
+          // Log final state
+          console.log('[Ofertare] Rezultat final:', materiale.map(m => 
+            m.nume + ' → sursa:' + m.sursa + ' MH:' + (m.mathaus?.pret||'-') + 
+            ' DED:' + (m.dedeman?.pret||'-') + ' LER:' + (m.leroy?.pret||'-') +
+            ' BRI:' + (m.bricodepot?.pret||'-') + ' HOR:' + (m.hornbach?.pret||'-')
+          ).join('\n'));
 
           // ──────── SALVARE FINALĂ ────────
           const list2 = loadOferte();
