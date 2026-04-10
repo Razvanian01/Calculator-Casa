@@ -16730,6 +16730,36 @@ LIMBA: ${lang === 'ro' ? 'Română' : lang === 'en' ? 'English' : 'Auto-detect'}
       }
 
 
+      // Helper: parse batch competitor price results
+      function _parseBatchResult(apiData, batch, materiale, needCompetitors) {
+        try {
+          const text = (apiData.content || []).filter(b => b.type === 'text').map(b => b.text).join('');
+          const jm = text.match(/\{[\s\S]*\}/);
+          console.log(`[Dorks Batch] Response ${text.length} chars, JSON found: ${!!jm}`);
+          if (!jm) return;
+          const result = JSON.parse(jm[0]);
+          const items = result.r || result.materiale || [];
+          items.forEach(pr => {
+            const batchIdx = pr.i !== undefined ? pr.i : (pr.idx !== undefined ? pr.idx : 0);
+            if (batchIdx >= batch.length) return;
+            const globalIdx = batch[batchIdx].idx;
+            if (globalIdx >= materiale.length) return;
+            // Map compact keys to full keys
+            const compMap = { d: 'dedeman', de: 'dedeman', dedeman: 'dedeman', le: 'leroy', leroy: 'leroy', b: 'bricodepot', bricodepot: 'bricodepot', h: 'hornbach', hornbach: 'hornbach' };
+            Object.entries(pr).forEach(([key, val]) => {
+              const comp = compMap[key];
+              if (comp && val?.p !== undefined) {
+                materiale[globalIdx][comp] = { pret: val.p, link: val.l || null, disponibil: !!val.p };
+              } else if (comp && val?.pret !== undefined) {
+                materiale[globalIdx][comp] = val;
+              }
+            });
+            materiale[globalIdx].sursa = materiale[globalIdx].sursa === 'local' ? 'local+dorks' : 'dorks';
+            materiale[globalIdx]._status = 'done';
+          });
+        } catch(e) { console.warn('[Dorks Batch] Parse error:', e.message); }
+      }
+
       // ═══ METODA UNICĂ: Claude Google Dorks — identificare + prețuri competitori ═══
       async function ofertaProcessGoogleDorks(ofertaId, text, client, adresa, kb, compList, siteList, apiKey, model, forceRefresh) {
         try {
@@ -16834,159 +16864,103 @@ LIMBA: ${lang === 'ro' ? 'Română' : lang === 'en' ? 'English' : 'Auto-detect'}
           console.log('[Ofertare] Pas 2 complet:', materiale.length, 'materiale,', _needCompetitors.length, 'pentru competitori,', _cacheHits, 'din cache');
           ofertaUpdateProgress(ofertaId, 'preturi', materiale);
 
-          // ──────── PAS 3: Claude Google Dorks — prețuri competitori ────────
+          // ──────── PAS 3: Prețuri competitori — batch de max 2, prompt compact, Haiku ────────
           if (_needCompetitors.length > 0) {
             toast(`🔍 Pas 3/3: Caut prețuri competitori (${_needCompetitors.length} materiale)...`);
             console.log('[Ofertare] Pas 3: caut competitori pentru:', _needCompetitors.map(m => m.nume).join(', '));
 
-            const compDorks = compList.map((c, i) => `${c} (${siteList[i] || c.toLowerCase().replace(/ /g,'') + '.ro'})`).join(', ');
+            const compSites = compList.map((c, i) => siteList[i] || c.toLowerCase().replace(/ /g,'') + '.ro');
+            const BATCH_SIZE = 2; // max 2 materiale per apel API
+            const BATCH_DELAY = 3000; // 3s între batch-uri
 
-            // Build material list with search instructions
-            const matSearchList = _needCompetitors.map((m, i) => {
-              const searchName = m.mentionat_ca || m.nume;
-              // Generate keyword variations for better Google Dorks matching
-              const variations = [];
-              // 1. Full name: "Adeziv Ceresit CM17 Flex interior/exterior 25kg"
-              variations.push(searchName);
-              // 2. Extract code pattern (CM17, CT84, EPS10, etc.)
-              const codeMatch = searchName.match(/[A-Z]{1,4}\s?\d{1,4}/i);
-              const shortCode = codeMatch ? codeMatch[0].replace(/\s/g, '') : null;
-              const spacedCode = codeMatch ? codeMatch[0].replace(/([A-Za-z]+)\s?(\d+)/, '$1 $2') : null;
-              // 3. Extract brand (first capitalized multi-letter word, e.g., "Ceresit")
-              const brandMatch = searchName.match(/\b([A-Z][a-z]{2,})\b/);
-              const brand = brandMatch ? brandMatch[1] : null;
-              // 4. Brand + short code: "Ceresit CM17"
-              if (brand && shortCode) variations.push(brand + ' ' + shortCode);
-              // 5. Spaced code only: "CM 17"
-              if (spacedCode && spacedCode !== shortCode) variations.push(spacedCode);
-              // 6. Generic + code: "Adeziv CM17"
-              const firstWord = searchName.split(/\s+/)[0];
-              if (shortCode && firstWord.toLowerCase() !== brand?.toLowerCase()) {
-                variations.push(firstWord + ' ' + shortCode);
-              }
-              // 7. Brand + spaced code: "Ceresit CM 17"
-              if (brand && spacedCode && spacedCode !== shortCode) variations.push(brand + ' ' + spacedCode);
-              // 8. Short code alone: "CM17"
-              if (shortCode) variations.push(shortCode);
-              // Deduplicate
-              const uniqueVars = [...new Set(variations.map(v => v.trim()).filter(Boolean))];
-              const umInfo = m.um ? ` (vânzare: ${m.um}${m.localPret ? ', preț MatHaus: ' + m.localPret + ' lei' : ''})` : '';
+            for (let b = 0; b < _needCompetitors.length; b += BATCH_SIZE) {
+              const batch = _needCompetitors.slice(b, b + BATCH_SIZE);
+              const batchNum = Math.floor(b / BATCH_SIZE) + 1;
+              const totalBatches = Math.ceil(_needCompetitors.length / BATCH_SIZE);
+              
+              toast(`🔍 Batch ${batchNum}/${totalBatches}: ${batch.map(m => m.nume.substring(0,25)).join(', ')}...`);
 
-              return `${i+1}. "${m.nume}"${umInfo}\n   Caută variații: ${uniqueVars.map(v => '"' + v + '"').join(', ')}`;
-            }).join('\n');
+              // Build compact material description
+              const matDesc = batch.map((m, i) => {
+                const name = m.mentionat_ca || m.nume;
+                const code = name.match(/[A-Z]{1,4}\s?\d{1,4}/i);
+                const shortCode = code ? code[0].replace(/\s/g, '') : '';
+                const brand = (name.match(/\b([A-Z][a-z]{2,})\b/) || [])[1] || '';
+                const searchTerm = brand && shortCode ? brand + ' ' + shortCode : name.split(/\s+/).slice(0,3).join(' ');
+                return `${i+1}. ${name} (${m.um}${m.localPret ? ', MatHaus:' + m.localPret + 'lei' : ''}) → caută: "${searchTerm}"`;
+              }).join('\n');
 
-            const _mhContext = kb.ofertaContextMathaus || contextMathaus || 'MatHaus (Arabesque) — lanț de magazine materiale de construcții din România, mathaus.ro';
-            const dorksPrompt = `Ești un agent expert de cercetare prețuri materiale de construcții din România.
+              // Compact prompt — under 500 tokens
+              const compactPrompt = `Caută prețul REAL pe pagina produsului la competitori. NU folosi prețul din snippet Google.
 
-CONTEXT: ${_mhContext}
+MATERIALE:
+${matDesc}
 
-MISIUNE: Caută prețurile REALE la COMPETITORI — accesând PAGINA PRODUSULUI, nu din snippet-uri Google.
-${adresa ? `\nZONA CLIENTULUI: ${adresa}\nImportant: NU pune zona/orașul în interogarea Google Dorks (nu returnează rezultate). Zona este DOAR pentru verificare pe pagina produsului — unele magazine (Dedeman) afișează prețuri diferite pe localitate.` : ''}
+COMPETITORI: ${compList.map((c,i) => c + '(' + compSites[i] + ')').join(', ')}
+${adresa ? 'ZONĂ: ' + adresa + ' (nu pune zona în query)' : ''}
 
-COMPETITORI DE VERIFICAT:
-${compDorks}
+PER MATERIAL × PER COMPETITOR:
+1. web_search: site:${compSites[0]} "${batch[0] ? (batch[0].mentionat_ca||batch[0].nume).match(/[A-Z][a-z]+\s[A-Z]{1,4}\d{1,4}/i)?.[0] || batch[0].nume.split(' ').slice(0,3).join(' ') : ''}"
+2. Găsește link-ul paginii produsului → accesează-l cu web_search
+3. Citește prețul cu TVA de pe PAGINA REALĂ (nu din snippet)
+4. Verifică gramajul: ${batch[0]?.um || 'sac'} — ignoră alt gramaj
 
-MATERIALE DE CĂUTAT:
-${matSearchList}
+JSON STRICT:
+{"r":[{"i":0,"d":{"p":70.91,"l":"https://dedeman.ro/..."},"le":{"p":null,"l":null},"b":{"p":null,"l":null},"h":{"p":null,"l":null}}]}
+i=index, d=dedeman, le=leroy, b=bricodepot, h=hornbach, p=pret, l=link`;
 
-PROTOCOL CĂUTARE — OBLIGATORIU, ÎN ACEASTĂ ORDINE:
+              try {
+                // Wait between batches
+                if (b > 0) await new Promise(r => setTimeout(r, BATCH_DELAY));
 
-PAS A — GĂSEȘTE PAGINA PRODUSULUI:
-• Caută cu Google Dorks: site:dedeman.ro "Ceresit CM17" 25kg
-• Dacă nu găsești: variație: site:dedeman.ro "CM 17" 25kg
-• Dacă tot nu găsești: fără gramaj: site:dedeman.ro "Ceresit CM17"
-• NU pune numele orașului/zonei în query — site: operator + localitate = 0 rezultate
-• Din rezultate, identifică link-ul DIRECT la pagina produsului
-
-PAS B — ACCESEAZĂ PAGINA ȘI CITEȘTE PREȚUL REAL:
-• OBLIGATORIU: după ce găsești produsul, accesează link-ul paginii pentru a citi prețul REAL
-• Prețurile din snippet-urile Google pot fi VECHI sau pentru alt gramaj — verifică mereu pe pagină
-• Citește prețul cu TVA inclus — EXACT cum apare pe pagina produsului
-• Verifică pe pagină că gramajul/ambalajul corespunde (ex: 25kg, nu 5kg)
-
-PAS C — VALIDARE OBLIGATORIE:
-• GRAMAJ: Dacă noi vindem la 25kg → ia prețul DOAR pentru varianta de 25kg, IGNORĂ 5kg sau alte gramaje
-• Dacă pe pagină sunt mai multe variante (5kg / 25kg) → alege EXACT gramajul care se potrivește cu al nostru
-• PREȚ NEREALIST: Dacă prețul e sub 50% din prețul MatHaus → probabil e alt gramaj, IGNORĂ
-• LINK: Pune link-ul DIRECT la pagina produsului cu gramajul corect
-
-CE EXTRAGI DE PE FIECARE PAGINĂ:
-• Prețul cu TVA (lei/bucată sau lei/sac) — EXACT cum scrie pe pagină
-• Link-ul direct la pagina produsului
-• Dacă nu găsești produsul echivalent → null
-
-RETURNEAZĂ STRICT JSON (fără alt text):
-{"materiale":[{"idx":0,"nume":"...","dedeman":{"pret":95.5,"link":"https://dedeman.ro/...","gramaj":"25kg"},"leroy":{"pret":null,"link":null},"bricodepot":{"pret":102,"link":"https://bricodepot.ro/...","gramaj":"25kg"},"hornbach":{"pret":null,"link":null}}]}
-
-idx = indexul materialului din lista de mai sus (0-based)`;
-
-            try {
-              const priceResp = await fetch('https://api.anthropic.com/v1/messages', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true', 'anthropic-beta': 'web-search-2025-03-05' },
-                body: JSON.stringify({
-                  model, max_tokens: 8000,
-                  tools: [{ type: 'web_search_20250305', name: 'web_search' }],
-                  system: dorksPrompt,
-                  messages: [{ role: 'user', content: 'Caută prețurile la competitori. Per fiecare competitor: caută cu site:... dork, apoi accesează link-ul găsit pentru a citi prețul REAL de pe pagina produsului. NU raporta prețuri din snippet-uri Google.' }]
-                })
-              });
-              let priceData;
-              if (priceResp.status === 429) {
-                toast('⏳ Rate limit — aștept 20s și reîncerc...');
-                await new Promise(r => setTimeout(r, 20000));
-                const retryResp = await fetch('https://api.anthropic.com/v1/messages', {
+                const batchResp = await fetch('https://api.anthropic.com/v1/messages', {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true', 'anthropic-beta': 'web-search-2025-03-05' },
                   body: JSON.stringify({
-                    model, max_tokens: 8000,
+                    model: 'claude-haiku-4-5-20251001', // Haiku: rapid, ieftin, rate limit mare
+                    max_tokens: 2000,
                     tools: [{ type: 'web_search_20250305', name: 'web_search' }],
-                    system: dorksPrompt,
-                    messages: [{ role: 'user', content: 'Caută prețurile la competitori. Accesează pagina fiecărui produs pentru prețul REAL.' }]
+                    messages: [{ role: 'user', content: compactPrompt }]
                   })
                 });
-                priceData = await retryResp.json();
-              } else {
-                priceData = await priceResp.json();
-              }
-              trackAIUsage('message', 'oferte');
-              const priceText = (priceData.content || []).filter(b => b.type === 'text').map(b => b.text).join('');
-              
-              // Parse results
-              const priceMatch = priceText.match(/\{[\s\S]*\}/);
-              console.log('[Google Dorks] Response text length:', priceText.length, 'JSON found:', !!priceMatch);
-              if (priceMatch) {
-                const priceResults = JSON.parse(priceMatch[0]);
-                console.log('[Google Dorks] Parsed', (priceResults.materiale || []).length, 'materiale cu prețuri');
-                (priceResults.materiale || []).forEach(pr => {
-                  const origIdx = pr.idx !== undefined ? pr.idx : _needCompetitors.findIndex(m => m.nume === pr.nume);
-                  if (origIdx < 0 || origIdx >= _needCompetitors.length) return;
-                  const matIdx = _needCompetitors[origIdx].idx;
-                  if (matIdx >= materiale.length) return;
-                  
-                  // Merge competitor prices
-                  ['dedeman', 'leroy', 'bricodepot', 'hornbach'].forEach(comp => {
-                    if (pr[comp]?.pret) materiale[matIdx][comp] = pr[comp];
+
+                // Handle rate limit
+                if (batchResp.status === 429) {
+                  console.warn(`[Dorks Batch ${batchNum}] Rate limited, waiting 30s...`);
+                  toast('⏳ Rate limit — aștept 30s...');
+                  await new Promise(r => setTimeout(r, 30000));
+                  // Retry once
+                  const retryResp = await fetch('https://api.anthropic.com/v1/messages', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true', 'anthropic-beta': 'web-search-2025-03-05' },
+                    body: JSON.stringify({
+                      model: 'claude-haiku-4-5-20251001', max_tokens: 2000,
+                      tools: [{ type: 'web_search_20250305', name: 'web_search' }],
+                      messages: [{ role: 'user', content: compactPrompt }]
+                    })
                   });
-                  // If Claude found MatHaus price and we didn't have local
-                  if (pr.mathaus?.pret && !materiale[matIdx].mathaus?.pret) {
-                    materiale[matIdx].mathaus = pr.mathaus;
-                    materiale[matIdx].pretOferta = pr.mathaus.pret;
+                  if (retryResp.ok) {
+                    const retryData = await retryResp.json();
+                    _parseBatchResult(retryData, batch, materiale, _needCompetitors);
                   }
-                  materiale[matIdx].sursa = materiale[matIdx].mathaus?.pret ? (materiale[matIdx].sursa === 'local' ? 'local+dorks' : 'dorks') : 'dorks';
-                  materiale[matIdx]._status = 'done';
-                });
+                } else if (batchResp.ok) {
+                  const batchData = await batchResp.json();
+                  _parseBatchResult(batchData, batch, materiale, _needCompetitors);
+                }
+                trackAIUsage('message', 'oferte');
+              } catch(batchErr) {
+                console.warn(`[Dorks Batch ${batchNum}] Error:`, batchErr.message);
               }
-            } catch(dorkErr) {
-              console.warn('[Google Dorks] Error:', dorkErr.message);
-              toast('⚠ Eroare căutare competitori: ' + dorkErr.message);
+
+              // Update progress after each batch
+              ofertaUpdateProgress(ofertaId, 'preturi', materiale);
             }
 
-            // Mark remaining as done even without competitor prices
+            // Mark remaining as done
             materiale.forEach(m => { if (m._status !== 'done') m._status = 'done'; });
             ofertaUpdateProgress(ofertaId, 'preturi', materiale);
           } else {
-            console.log('[Ofertare] SKIP Pas 3: 0 materiale necesită căutare competitori (toate din cache)');
+            console.log('[Ofertare] SKIP Pas 3: 0 materiale necesită căutare competitori');
           }
 
           // Log final state
@@ -17302,6 +17276,7 @@ idx = indexul materialului din lista de mai sus (0-based)`;
           const pretCells = COMPETITORS.map(c => {
             const p = m[c]?.pret;
             const link = m[c]?.link;
+            const isMathaus = c === 'mathaus';
             if (!p) return `<td style="text-align:right;color:var(--txt3);font-size:11px">—</td>`;
             const isCheapest = p === minPret;
             const isExpensive = p === maxPret && preturiValide.length > 1;
@@ -17310,9 +17285,12 @@ idx = indexul materialului din lista de mai sus (0-based)`;
               : isExpensive
                 ? 'color:#dc2626;font-size:11px'
                 : 'font-size:12px';
+            // MatHaus = preț exact din baza internă. Competitori = aproximativ (web search)
+            const prefix = isMathaus ? '' : '~';
+            const tooltip = isMathaus ? '' : ' title="Preț aproximativ — click pentru a verifica pe site"';
             const pVal = link
-              ? `<a href="${escHtml(link)}" target="_blank" style="${style};text-decoration:none">${fmtP(p)}</a>`
-              : `<span style="${style}">${fmtP(p)}</span>`;
+              ? `<a href="${escHtml(link)}" target="_blank" style="${style};text-decoration:none"${tooltip}>${prefix}${fmtP(p)}</a>`
+              : `<span style="${style}"${tooltip}>${prefix}${fmtP(p)}</span>`;
             return `<td style="text-align:right;white-space:nowrap">${pVal}</td>`;
           }).join('');
 
@@ -17409,10 +17387,10 @@ idx = indexul materialului din lista de mai sus (0-based)`;
                 <th style="min-width:200px">Produs</th>
                 <th style="text-align:center">Cantitate</th>
                 <th style="text-align:right;color:#E2302A">MatHaus</th>
-                <th style="text-align:right;color:#E63946">Dedeman</th>
-                <th style="text-align:right;color:#00a551">Leroy</th>
-                <th style="text-align:right;color:#0047AB">BricoDepot</th>
-                <th style="text-align:right;color:#FF6600">Hornbach</th>
+                <th style="text-align:right;color:#E63946" title="Preț aproximativ — verifică pe site">≈ Dedeman</th>
+                <th style="text-align:right;color:#00a551" title="Preț aproximativ — verifică pe site">≈ Leroy</th>
+                <th style="text-align:right;color:#0047AB" title="Preț aproximativ — verifică pe site">≈ BricoDepot</th>
+                <th style="text-align:right;color:#FF6600" title="Preț aproximativ — verifică pe site">≈ Hornbach</th>
                 <th style="text-align:right;color:var(--orange)">Preț Ofertă ✏</th>
                 <th style="text-align:right">Total</th>
                 <th style="text-align:center;width:60px">✓ Valid</th>
