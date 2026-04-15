@@ -2944,14 +2944,6 @@
       }
       .oferta-feedback-label { font-size: 11px; color: var(--txt3); flex-shrink: 0; }
 
-      /* OpenAI key setup */
-      .openai-key-setup {
-        background: var(--amber-l); border: 1px solid #FDE68A;
-        border-radius: var(--r); padding: 14px 16px; margin-bottom: 16px;
-        display: none;
-      }
-      .openai-key-setup.show { display: block; }
-      .openai-key-setup label {
         font-size: 11px; font-weight: 700; color: var(--amber);
         text-transform: uppercase; letter-spacing: .04em; display: block; margin-bottom: 6px;
       }
@@ -3151,7 +3143,6 @@
             </div>
 
             <!-- Voice uses Web Speech API — no API key needed -->
-            <div id="openai-key-setup" style="display:none"></div>
 
             <!-- VOCE -->
             <div class="voice-section" id="oferta-voice-section">
@@ -6682,7 +6673,7 @@
         if (btn) btn.classList.add("active");
         currentMode = mode;
         syncMobileNav(mode);
-        if (mode === "total") { totalCalc(); }
+        if (mode === "total") { renderStageCards(); totalCalc(); }
         if (mode === "etapizat") { renderEtapizatGrid(); }
         if (mode === "admin") { renderAdmin(); }
       }
@@ -6718,8 +6709,6 @@
         const opts = $('t-gc-options');
         if (opts) opts.style.display = activ ? '' : 'none';
       }
-
-      function toggleGCTotal() { tcmGCToggle(); }
 
       function tcmPreview() {
         if (!$('prv-sup')) return;
@@ -6885,8 +6874,6 @@
       }
 
       // backward compat
-      function toggleTotalStage(id) { trToggle(id); }
-
       function renderTrMats(s, mats) {
         if (!mats || mats.length === 0) {
           return `<div class="tr-no-mats">Etapă administrativă — fără materiale MatHaus specifice.</div>`;
@@ -6948,10 +6935,6 @@
       }
 
 
-      function tcmExportOffer() {
-        // Deschide fereastra de print cu stil oferta
-        window.print();
-      }
 
       function buildCtx() {
         const amprenta = parseFloat($("t-amprenta").value) || 100;
@@ -7018,14 +7001,7 @@
         };
       }
 
-      // backward compat aliases
-      function renderTotalStages(c) { renderTotalNew(c); }
-      function renderTotalStageCard(s, stageDef, mats, idx) {
-        return renderTrMats(s, Array.isArray(mats) ? mats : []);
-      }
-
-
-      function renderEtapizatGrid() {
+      function renderStageCards() {
         const grid = $("e-stage-grid");
         if (!grid) return;
         grid.innerHTML = STAGES_DEFAULT.map((stageDef) => {
@@ -7507,11 +7483,6 @@
       }
 
       // ── STAGE TEXT EDITOR ──
-      function adminSelectStage(id) {
-        adminSection = "texte";
-        adminActiveStage = id;
-        renderAdmin();
-      }
 
       function renderAdminStageEditor() {
         const s = stagesData.find((x) => x.id === adminActiveStage) || {};
@@ -7624,77 +7595,10 @@
   </div>`;
       }
 
-      function adminSaveDBRow(type, i) {
-        const db = type === "bca" ? BCA_DB : CAR_DB;
-        const hasPortant = type === "caramida";
-        if (!db[i]) return;
-        const p = db[i];
-        p.name = $(`db-${type}-${i}-name`)?.value || p.name;
-        p.L = parseFloat($(`db-${type}-${i}-L`)?.value) || p.L;
-        p.H = parseFloat($(`db-${type}-${i}-H`)?.value) || p.H;
-        p.pcsPerPal = parseInt($(`db-${type}-${i}-pcsPerPal`)?.value) || p.pcsPerPal;
-        p.link = $(`db-${type}-${i}-link`)?.value ?? p.link;
-        p.pretUM = parseFloat($(`db-${type}-${i}-pretUM`)?.value) || 0;
-        p.sapKey = $(`db-${type}-${i}-sapKey`)?.value || '';
-        p.uv = $(`db-${type}-${i}-uv`)?.value || '';
-        if (hasPortant) p.portant = $(`db-${type}-${i}-portant`)?.value === "true";
-        // Save garanție palet if exists
-        if (p.garantiePalet) {
-          p.garantiePalet.name = $(`db-${type}-${i}-garName`)?.value || p.garantiePalet.name;
-          p.garantiePalet.pret = parseFloat($(`db-${type}-${i}-garPret`)?.value) || 0;
-          p.garantiePalet.sapKey = $(`db-${type}-${i}-garSap`)?.value || '';
-          p.garantiePalet.link = $(`db-${type}-${i}-garLink`)?.value || '';
-        }
-        adminSaveProducts();
-        toast(`✅ "${p.name.substring(0,30)}" salvat.`);
-      }
 
-      function adminSaveAllDB(type) {
-        const db = type === "bca" ? BCA_DB : CAR_DB;
-        db.forEach((_, i) => {
-          if ($(`db-${type}-${i}-name`)) adminSaveDBRow(type, i);
-        });
-        adminSaveProducts();
-        toast(`✅ Toate produsele ${type === "bca" ? "BCA" : "Cărămidă"} salvate.`);
-        renderAdminStageMats();
-      }
 
-      function adminAddDBRow(type) {
-        const db = type === "bca" ? BCA_DB : CAR_DB;
-        const newProd = type === "bca"
-          ? { name:"Produs BCA nou", L:625, H:240, pcsPerPal:50, link:"https://mathaus.ro/search?text=bca", pretUM:0, sapKey:'', uv:'', garantiePalet:null }
-          : { name:"Produs Cărămidă nou", L:375, H:238, pcsPerPal:60, portant:true, link:"https://mathaus.ro/search?text=caramida", pretUM:0, sapKey:'', uv:'', garantiePalet:null };
-        db.push(newProd);
-        adminSaveProducts();
-        renderAdminStageMats();
-        toast("➕ Produs adăugat — editează și salvează.");
-      }
 
-      function dbAddGar(type, i) {
-        const db = type === "bca" ? BCA_DB : CAR_DB;
-        if (!db[i]) return;
-        // Save current state first
-        if ($(`db-${type}-${i}-name`)) adminSaveDBRow(type, i);
-        db[i].garantiePalet = {
-          name: "Garanție palet " + (type === "bca" ? "BCA" : "Cărămidă"),
-          pret: 0,
-          sapKey: '',
-          link: ''
-        };
-        adminSaveProducts();
-        renderAdminStageMats();
-        toast("📦 Garanție palet adăugată. Completează datele și salvează.");
-      }
 
-      function dbRemoveGar(type, i) {
-        if (!safeConfirm("Ștergi garanția de palet pentru acest produs?")) return;
-        const db = type === "bca" ? BCA_DB : CAR_DB;
-        if (!db[i]) return;
-        db[i].garantiePalet = null;
-        adminSaveProducts();
-        renderAdminStageMats();
-        toast("🗑 Garanție palet ștearsă.");
-      }
 
       function adminDeleteDBRow(type, i) {
         if (!safeConfirm("Ștergi acest produs?")) return;
@@ -7799,66 +7703,8 @@
   </div>`;
       }
 
-      function adminSaveTVGRow(sub, i) {
-        const arr = TVG[sub];
-        if (!arr || !arr[i]) return;
-        arr[i].name = $(`tvg-${sub}-${i}-name`)?.value || arr[i].name;
-        arr[i].link = $(`tvg-${sub}-${i}-link`)?.value || arr[i].link;
-        arr[i].pkg = $(`tvg-${sub}-${i}-pkg`)?.value || arr[i].pkg;
-        arr[i].pretUM = parseFloat($(`tvg-${sub}-${i}-pretUM`)?.value) || 0;
-        arr[i].sapKey = $(`tvg-${sub}-${i}-sapKey`)?.value || '';
-        arr[i].uvUM = $(`tvg-${sub}-${i}-uvUM`)?.value || '';
-        arr[i].factorConv = parseFloat($(`tvg-${sub}-${i}-factorConv`)?.value) || 0;
-        arr[i].pretUV = parseFloat($(`tvg-${sub}-${i}-pretUV`)?.value) || 0;
-        const covEl = $(`tvg-${sub}-${i}-cov`);
-        if (covEl) {
-          if (typeof arr[i].cov === "object") {
-            try { arr[i].cov = JSON.parse(covEl.value); }
-            catch (e) { toast("⚠ JSON invalid la acoperire!"); return; }
-          } else arr[i].cov = parseFloat(covEl.value) || arr[i].cov;
-        }
-        const rollEl = $(`tvg-${sub}-${i}-rollM2`);
-        if (rollEl) arr[i].rollM2 = parseFloat(rollEl.value) || arr[i].rollM2;
-        const bpmEl = $(`tvg-${sub}-${i}-bpm`);
-        if (bpmEl) arr[i].bpm = parseFloat(bpmEl.value) || arr[i].bpm;
-        // Also update PRICE_TABLE for consistency
-        if (arr[i].pretUM > 0) PRICE_TABLE[arr[i].name] = arr[i].pretUM;
-        adminSaveProducts();
-        savePrices();
-        toast(`✅ "${arr[i].name.substring(0,25)}" salvat.`);
-      }
 
-      function adminSaveAllTVG(sub) {
-        const arr = TVG[sub];
-        if (!arr) return;
-        arr.forEach((_, i) => adminSaveTVGRow(sub, i));
-        toast(`✅ Toate produsele ${sub} salvate.`);
-      }
 
-      function adminAddTVGRow(sub) {
-        const arr = TVG[sub];
-        if (!arr) return;
-        const sample = arr[0] || {};
-        const newP = {
-          id: "nou-" + Date.now(),
-          name: "Produs nou",
-          link: "https://mathaus.ro",
-          pkg: "—",
-          pretUM: 0,
-          sapKey: '',
-          uvUM: '',
-          factorConv: 0,
-          pretUV: 0,
-        };
-        if (typeof sample.cov === "object") newP.cov = { 50: 5, 100: 2.5 };
-        else if (typeof sample.cov === "number") newP.cov = sample.cov || 6;
-        if (sample.rollM2) newP.rollM2 = 50;
-        if (sample.bpm) newP.bpm = 6;
-        arr.push(newP);
-        adminSaveProducts();
-        renderAdminStageMats();
-        toast("➕ Produs adăugat.");
-      }
 
       function adminDeleteTVGRow(sub, i) {
         if (!safeConfirm("Ștergi?")) return;
@@ -9245,21 +9091,7 @@
         } catch (e) {}
       }
 
-      function adminSavePretRow(name, i) {
-        // Legacy — redirect to pgSaveRow logic
-        const inp = document.getElementById(`pret-inp-${i}`);
-        if (inp) {
-          PRICE_TABLE[name] = parseFloat(inp.value) || 0;
-          savePrices();
-          const mat = findMatBySapOrName(null, name);
-          if (mat) { mat.pretUM = PRICE_TABLE[name]; saveStageMats(); adminSaveProducts(); }
-          toast(`✅ Preț salvat: ${name.substring(0, 30)}`);
-        }
-      }
 
-      function adminSaveAllPreturi() {
-        pgSaveAll();
-      }
 
       function adminExportPreturi() {
         const allPrices = {};
@@ -10124,17 +9956,6 @@
         renderAdminStageMats();
       }
 
-      function smAddRow(sid) {
-        if (!STAGE_MATS_DB[sid]) STAGE_MATS_DB[sid] = [];
-        STAGE_MATS_DB[sid].push({
-          name:"Material nou", um:"buc", uv:"—", pkg:"—", link:"https://mathaus.ro",
-          formula:"", pretUM:0, sapKey:"", variants:[], ext:false,
-          uvUM:"", factorConv:0, pretUV:0, consumM2:0, consumBaza:"m2"
-        });
-        saveStageMats();
-        renderAdminStageMats();
-        toast("➕ Material adăugat.");
-      }
 
       function smDeleteRow(sid, i) {
         if (!safeConfirm("Ștergi materialul?")) return;
@@ -10144,32 +9965,6 @@
         toast("🗑 Material șters.");
       }
 
-      function smAddVariant(sid, i) {
-        const m = STAGE_MATS_DB[sid]?.[i];
-        if (!m) return;
-        // First save current state
-        if ($(`sm-${sid}-${i}-name`)) smSaveRow(sid, i);
-        if (!m.variants) m.variants = [];
-        m.variants.push({
-          name:"Varianta nouă — alt producător",
-          um: m.um || "buc",
-          uv: m.uv || "—",
-          pkg: m.uv || "—",
-          link: "",
-          formula: m.formula || "",
-          pretUM: 0,
-          sapKey: "",
-          ext: false,
-          uvUM: m.uvUM || "",
-          factorConv: m.factorConv || 0,
-          pretUV: 0,
-          consumM2: m.consumM2 || 0,
-          consumBaza: m.consumBaza || "m2",
-        });
-        saveStageMats();
-        renderAdminStageMats();
-        toast("➕ Varianta adăugată.");
-      }
 
       function smDelVariant(sid, mi, vi) {
         if (!safeConfirm("Ștergi această variantă?")) return;
@@ -10867,8 +10662,6 @@
           {name:'BricoDepot', site:'bricodepot.ro'},
           {name:'Hornbach', site:'hornbach.ro'}
         ],
-        serpApiKey: '',
-        serpApiLimit: 250,
         priceCacheMaxDays: 7,
         priceFreshnessDays: 30,
       };
@@ -10930,8 +10723,6 @@
             ofertaCompetitori: old.ofertaCompetitori || KB_OFERTARE_DEFAULTS.ofertaCompetitori,
             ofertaSiteuri: old.ofertaSiteuri || KB_OFERTARE_DEFAULTS.ofertaSiteuri,
             ofertaCompetitoriList: old.ofertaCompetitoriList || KB_OFERTARE_DEFAULTS.ofertaCompetitoriList,
-            serpApiKey: old.serpApiKey || '',
-            serpApiLimit: old.serpApiLimit || 250,
           });
           console.log('[KB Migration] Old single KB migrated to 3 separate KBs');
         } catch(e) { console.warn('[KB Migration] Failed:', e); }
@@ -10982,8 +10773,6 @@
           ofertaCompetitori: data.ofertaCompetitori,
           ofertaSiteuri: data.ofertaSiteuri,
           ofertaCompetitoriList: data.ofertaCompetitoriList,
-          serpApiKey: data.serpApiKey,
-          serpApiLimit: data.serpApiLimit,
         });
         // Also save legacy key for any code that reads it directly
         try { localStorage.setItem(AI_KB_STORE, JSON.stringify(data)); } catch(e){}
@@ -11235,12 +11024,6 @@
         if (ta.value.trim() && !safeConfirm('Aceasta va înlocui prompt-ul curent. Continui?')) return;
         ta.value = `REGULI DE COMUNICARE:\n\n1. Răspunde SCURT și DIRECT — doar ce te-am întrebat, nimic în plus.\n2. Dacă există mai multe opțiuni (furnizori, grosimi, modele) → ÎNTREABĂ-MĂ pe care îl vreau, nu alege tu.\n3. După ce aleg → dă-mi DOAR: produsul, cantitatea, ambalajul, paleții/sacii. Atât.\n4. NU explica ce e materialul, cum se montează, sau alte informații pe care nu le-am cerut.\n5. Când îți cer un material suplimentar (mortar, plasă, adeziv) → răspunde DOAR despre acel material.\n6. NU face cross-sell automat. Nu-mi sugera alte produse decât dacă te rog eu.\n7. Vorbește ca un coleg care știe meserie — scurt, la obiect, fără introduceri.\n\nFLUX CONVERSAȚIE:\n\nPas 1: Primesc cererea (ex: "100mp BCA 25cm")\nPas 2: Dacă sunt opțiuni → întreb scurt: "Avem: Elpreco, Macon Deva, Ytong. Care?"\nPas 3: Clientul alege → răspund O SINGURĂ LINIE cu cantitatea\nPas 4: STOP. Aștept următoarea întrebare.\n\nDacă mă întreabă "Cât mortar?" → răspund DOAR mortarul.\nDacă mă întreabă "Mai ce îmi trebuie?" → ATUNCI listez materialele complementare.\n\nFORMAT RĂSPUNS:\n- Maxim 1-3 rânduri per răspuns simplu\n- Cifrele mari: cantitate, paleți/saci = BOLD\n- Link mathaus.ro la final, pe un rând separat\n- Fără emoji excesiv — maxim 1-2 per mesaj\n- Fără tabele lungi decât dacă le cer explicit\n\nCE NU FAC NICIODATĂ:\n- Nu dau prețuri inventate — dacă nu știu, zic "verifică pe mathaus.ro"\n- Nu inventez link-uri — dau link de căutare dacă nu am link exact\n- Nu recomand produse de pe alte magazine\n- Nu explic lucruri pe care consilierul le știe deja`;
         ta.dispatchEvent(new Event('input'));
-      }
-      function updateAIPersonality(val) {
-        const kb = loadAIKB();
-        kb.personality = val;
-        saveAIKB(kb);
-        renderAdminAIKB();
       }
       function updateAIStarter(i, val) {
         const kb = loadAIKB();
@@ -11868,6 +11651,12 @@ PROGRAM MAGAZINE:
           if (/^um$|^u\.m\.$|unitate|masura/i.test(s)) return 'um';
           // Pret
           if (/pret|price|lista/i.test(s)) return 'price';
+          // URL columns for tracked products
+          if (/url.?mathaus|link.?mathaus|mathaus.?url|mathaus.?link/i.test(s)) return 'url_mathaus';
+          if (/url.?dedeman|link.?dedeman|dedeman.?url|dedeman.?link/i.test(s)) return 'url_dedeman';
+          if (/url.?leroy|link.?leroy|leroy.?url|leroy.?link/i.test(s)) return 'url_leroy';
+          if (/url.?brico|link.?brico|brico.?url|brico.?link/i.test(s)) return 'url_bricodepot';
+          if (/url.?hornbach|link.?hornbach|hornbach.?url|hornbach.?link/i.test(s)) return 'url_hornbach';
           return s;
         }
 
@@ -11951,14 +11740,63 @@ PROGRAM MAGAZINE:
           name: r.name || r.denumire || r.produs || '',
           sap: (r.sap || r['cod sap'] || r['sap cod'] || '').replace(/\s/g, ''),
           um: r.um || r['u.m.'] || r.unitate || '',
-          // price deja convertit in parseCSVText; fallback pentru upload direct
           price: typeof r.price === 'number' ? r.price
-                 : parseFloat((r.price || r.pret || r['pret lista'] || '0').toString().replace(',','.')) || 0
+                 : parseFloat((r.price || r.pret || r['pret lista'] || '0').toString().replace(',','.')) || 0,
+          // URL columns for tracked products
+          url_mathaus: r.url_mathaus || '',
+          url_dedeman: r.url_dedeman || '',
+          url_leroy: r.url_leroy || '',
+          url_bricodepot: r.url_bricodepot || '',
+          url_hornbach: r.url_hornbach || ''
         })).filter(r => r.name);
 
         const ok = saveCatalog(normalized);
+
+        // Auto-import tracked products from URL columns
+        const urlRows = normalized.filter(r => r.url_mathaus || r.url_dedeman || r.url_leroy || r.url_bricodepot || r.url_hornbach);
+        if (urlRows.length > 0) {
+          const existing = loadTrackedProducts();
+          const existingSAPs = new Set(existing.map(p => p.sap).filter(Boolean));
+          let added = 0, updated = 0;
+          urlRows.forEach(r => {
+            const urls = {
+              mathaus: r.url_mathaus || '',
+              dedeman: r.url_dedeman || '',
+              leroy: r.url_leroy || '',
+              bricodepot: r.url_bricodepot || '',
+              hornbach: r.url_hornbach || ''
+            };
+            if (r.sap && existingSAPs.has(r.sap)) {
+              // Update existing tracked product URLs
+              const ep = existing.find(p => p.sap === r.sap);
+              if (ep) {
+                ['mathaus','dedeman','leroy','bricodepot','hornbach'].forEach(c => {
+                  if (urls[c] && !ep.urls?.[c]) { if (!ep.urls) ep.urls = {}; ep.urls[c] = urls[c]; }
+                });
+                updated++;
+              }
+            } else {
+              // Create new tracked product
+              existing.push({
+                id: 'tp_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4),
+                nume: r.name, sap: r.sap, um: r.um,
+                alternativ: [],
+                urls, status: 'aprobat', adaugatDe: 'sheet',
+                dataAdaugare: new Date().toISOString().split('T')[0]
+              });
+              existingSAPs.add(r.sap);
+              added++;
+            }
+          });
+          saveTrackedProducts(existing);
+          if (added || updated) {
+            console.log(`[Sheet Import] Tracked products: ${added} added, ${updated} updated from URL columns`);
+          }
+        }
+
         if (ok) {
-          toast(`✅ ${normalized.length} produse importate din ${fileName}`);
+          const urlMsg = urlRows.length > 0 ? ` + ${urlRows.length} produse urmărite din link-uri` : '';
+          toast(`✅ ${normalized.length} produse importate din ${fileName}${urlMsg}`);
           renderAdminAIKB();
         }
       }
@@ -11995,6 +11833,7 @@ PROGRAM MAGAZINE:
       // ══════════ TAB: PRODUSE URMĂRITE ══════════
       // ══════════ GLOBAL: search filter for tracked products ══════════
       let _tpSearchFilter = '';
+      let _tpPage = 0;
 
       function renderTrackedProducts() {
         const products = loadTrackedProducts();
@@ -12050,6 +11889,22 @@ PROGRAM MAGAZINE:
               </div>
             </div>
             <div style="display:flex;gap:4px;flex-wrap:wrap">${urlBadges}</div>
+            ${(() => {
+              if (!p.lastPrices || isPending) return '';
+              const trendIcon = (t) => t === 'down' ? '<span style="color:var(--green)">▼</span>' : t === 'up' ? '<span style="color:var(--red)">▲</span>' : '';
+              const COMPS2 = ['mathaus','dedeman','leroy','bricodepot','hornbach'];
+              const CL2 = {mathaus:'MH',dedeman:'DED',leroy:'LER',bricodepot:'BRI',hornbach:'HOR'};
+              const CC2 = {mathaus:'#E2302A',dedeman:'#E63946',leroy:'#00a551',bricodepot:'#0047AB',hornbach:'#FF6600'};
+              const priceChips = COMPS2.filter(c => p.lastPrices[c]).map(c => {
+                const trend = tpGetPriceTrend(p, c);
+                return '<span style="font-size:10px;font-family:var(--mono);background:var(--surface2);padding:2px 6px;border-radius:3px;white-space:nowrap"><span style="color:'+CC2[c]+';font-weight:600">'+CL2[c]+'</span> '+p.lastPrices[c].toFixed(2)+' '+trendIcon(trend)+'</span>';
+              });
+              if (!priceChips.length) return '';
+              return '<div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:4px;padding-top:4px;border-top:1px dashed var(--border)">' +
+                priceChips.join('') +
+                '<span style="font-size:9px;color:var(--txt3);align-self:center">Ultim: ' + escHtml(p.lastPriceDate || '?') + '</span>' +
+              '</div>';
+            })()}
           </div>`;
         }
 
@@ -12081,22 +11936,222 @@ PROGRAM MAGAZINE:
       <button class="btn btn-primary btn-sm" onclick="openTrackedProductForm()">+ Adaugă produs</button>
       <div style="flex:1;min-width:200px">
         <input class="input" placeholder="🔍 Caută după denumire, SAP, alternativ..." value="${escHtml(_tpSearchFilter)}" 
-          oninput="_tpSearchFilter=this.value;renderAdminAIKB()" style="font-size:12px;width:100%"/>
+          oninput="_tpSearchFilter=this.value;_tpPage=0;renderAdminAIKB()" style="font-size:12px;width:100%"/>
       </div>
       <span style="font-size:10px;color:var(--txt3)">${filtered.length}/${products.length} afișate</span>
+    </div>
+    <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap">
+      <button class="btn btn-ghost btn-sm" style="font-size:10px" onclick="tpExportJSON()">📤 Export JSON</button>
+      <button class="btn btn-ghost btn-sm" style="font-size:10px" onclick="tpImportJSON()">📥 Import JSON</button>
+      <input type="file" id="tp-import-file" accept=".json" style="display:none" onchange="tpHandleImport(this)"/>
     </div>
   </div>
 
   ${pending.length > 0 ? `<div class="admin-card" style="margin-bottom:12px;border-left:4px solid var(--amber)">
-    <div style="font-size:11px;font-weight:700;color:var(--amber);letter-spacing:1px;text-transform:uppercase;font-family:var(--mono);margin-bottom:10px">⏳ În așteptare aprobare (${pending.length})</div>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+      <div style="font-size:11px;font-weight:700;color:var(--amber);letter-spacing:1px;text-transform:uppercase;font-family:var(--mono)">⏳ În așteptare aprobare (${pending.length})</div>
+      <button class="btn btn-sm" style="background:var(--green);color:#fff;font-size:10px;padding:3px 12px" onclick="tpApproveAll()">✓ Aprobă toate (${pending.length})</button>
+    </div>
     ${pendingHtml}
   </div>` : ''}
 
   <div class="admin-card">
     <div style="font-size:11px;font-weight:700;color:var(--txt3);letter-spacing:1px;text-transform:uppercase;font-family:var(--mono);margin-bottom:10px">✅ Produse aprobate (${approved.length})</div>
-    ${approvedHtml || '<div style="padding:20px;text-align:center;color:var(--txt3);font-size:12px">Niciun produs urmărit încă. Adaugă primul produs sau procesează o ofertă — materialele noi vor apărea automat aici.</div>'}
+    ${(() => {
+      const PAGE_SIZE = 20;
+      const pageApproved = approved.slice(0, (_tpPage + 1) * PAGE_SIZE);
+      const hasMore = approved.length > pageApproved.length;
+      let h = pageApproved.map(p => card(p, false)).join('');
+      if (hasMore) h += '<div style="text-align:center;padding:12px"><button class="btn btn-ghost btn-sm" onclick="_tpPage++;renderAdminAIKB()">Arată mai multe (' + (approved.length - pageApproved.length) + ' rămase)</button></div>';
+      return h || '<div style="padding:20px;text-align:center;color:var(--txt3);font-size:12px">Niciun produs urmărit încă. Adaugă primul produs sau procesează o ofertă.</div>';
+    })()}
   </div>
+
+  <!-- DIAGNOSTIC: Test potrivire -->
+  <div class="admin-card" style="margin-bottom:12px;border-left:4px solid var(--blue)">
+    <div style="font-size:11px;font-weight:700;color:var(--blue);letter-spacing:1px;text-transform:uppercase;font-family:var(--mono);margin-bottom:10px">🔍 Test potrivire — Simulează căutarea</div>
+    <div style="font-size:10px;color:var(--txt3);margin-bottom:8px">Scrie cum ar dicta un agent materialul și vezi ce produs urmărit se potrivește (și de ce).</div>
+    <div style="display:flex;gap:8px;align-items:center">
+      <input class="input" id="tp-debug-input" placeholder="ex: 3 saci cm9 25kg, adeziv ceresit, BCA 25..." style="flex:1;font-size:12px" onkeydown="if(event.key==='Enter')tpDebugTest()"/>
+      <button class="btn btn-primary btn-sm" onclick="tpDebugTest()">Testează</button>
+    </div>
+    <div id="tp-debug-result" style="margin-top:10px"></div>
+  </div>
+
+  <!-- RECOMANDĂRI -->
+  ${(() => {
+    const all = products.filter(p => p.status === 'aprobat');
+    if (!all.length) return '';
+    const warnings = [];
+    let scoreTotal = 0;
+    all.forEach(p => {
+      let pScore = 0;
+      const issues = [];
+      // Check SAP
+      if (!p.sap) { issues.push('Fără cod SAP — potrivirea depinde doar de denumire'); } else { pScore += 20; }
+      // Check alternatives
+      if (!p.alternativ?.length) { issues.push('Fără denumiri alternative — risc de nepotrivire dacă agentul scrie diferit'); } 
+      else if (p.alternativ.length < 3) { issues.push('Doar ' + p.alternativ.length + ' alternative — adaugă mai multe variații'); pScore += 10; }
+      else { pScore += 20; }
+      // Check weight in alternatives
+      const hasWeight = (p.alternativ||[]).some(a => /\d+\s?kg|\d+\s?cm|\d+\s?mm|\d+\s?l/i.test(a));
+      if (!hasWeight && /\d+\s?kg|\d+\s?cm/i.test(p.nume||'')) { issues.push('Gramajul lipsește din alternative — risc confuzie între variante (ex: 25kg vs 5kg)'); }
+      else if (hasWeight) { pScore += 15; }
+      // Check competitor links
+      const urlCount = ['dedeman','leroy','bricodepot','hornbach'].filter(c => p.urls?.[c]).length;
+      if (urlCount === 0) { issues.push('Fără link-uri competitori — prețurile NU vor fi comparate'); }
+      else if (urlCount < 2) { issues.push('Doar ' + urlCount + ' link competitori — adaugă mai mulți pentru comparație completă'); pScore += 10; }
+      else { pScore += 20; }
+      // Check MatHaus link
+      if (!p.urls?.mathaus) { issues.push('Fără link MatHaus — prețul va fi luat din Sheet (poate fi vechi)'); }
+      else { pScore += 15; }
+      // Check UM
+      if (!p.um) { issues.push('Fără UM (unitate măsură) — nu poate valida gramajul'); } else { pScore += 10; }
+      
+      scoreTotal += pScore;
+      if (issues.length) warnings.push({ p, issues, score: pScore });
+    });
+
+    const avgScore = all.length ? Math.round(scoreTotal / all.length) : 0;
+    const scoreColor = avgScore >= 80 ? 'var(--green)' : avgScore >= 50 ? 'var(--amber)' : 'var(--red)';
+    const scoreEmoji = avgScore >= 80 ? '✅' : avgScore >= 50 ? '⚠' : '❌';
+
+    let html = '<div class="admin-card" style="margin-bottom:12px;border-left:4px solid ' + scoreColor + '">';
+    html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">';
+    html += '<div style="font-size:11px;font-weight:700;color:' + scoreColor + ';letter-spacing:1px;text-transform:uppercase;font-family:var(--mono)">📋 Diagnostic & Recomandări</div>';
+    html += '<div style="font-size:14px;font-weight:800;color:' + scoreColor + '">' + scoreEmoji + ' Scor mediu: ' + avgScore + '/100</div>';
+    html += '</div>';
+
+    if (avgScore >= 80 && !warnings.length) {
+      html += '<div style="padding:12px;background:var(--green-l);border-radius:8px;color:var(--green);font-size:12px;font-weight:600">✅ Toate produsele sunt bine configurate!</div>';
+    } else {
+      // Group by severity
+      html += '<div style="font-size:10px;color:var(--txt3);margin-bottom:8px">' + warnings.length + ' produse cu recomandări din ' + all.length + ' total</div>';
+      warnings.slice(0, 10).forEach(w => {
+        const pScoreColor = w.score >= 80 ? '#15803d' : w.score >= 50 ? '#92400e' : '#dc2626';
+        html += '<div style="padding:8px 12px;border:1px solid var(--border);border-radius:6px;margin-bottom:6px;background:var(--surface)">';
+        html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">';
+        html += '<span style="font-weight:700;font-size:11px">' + escHtml(w.p.nume) + '</span>';
+        html += '<span style="font-size:10px;font-weight:700;color:' + pScoreColor + '">' + w.score + '/100</span>';
+        html += '</div>';
+        w.issues.forEach(issue => {
+          html += '<div style="font-size:10px;color:var(--amber);margin:2px 0;padding-left:12px">⚠ ' + escHtml(issue) + '</div>';
+        });
+        html += '<button class="btn btn-ghost btn-sm" style="font-size:9px;margin-top:4px;padding:2px 8px" onclick="editTrackedProduct(\'' + w.p.id + '\')">✏ Corectează</button>';
+        html += '</div>';
+      });
+      if (warnings.length > 10) {
+        html += '<div style="font-size:10px;color:var(--txt3);text-align:center;padding:8px">... și încă ' + (warnings.length - 10) + ' produse cu recomandări</div>';
+      }
+    }
+    html += '</div>';
+    return html;
+  })()}
 </div>`;
+      }
+
+      // ══════════ DEBUG: Test potrivire produs urmărit ══════════
+      function tpDebugTest() {
+        const input = ($('tp-debug-input')?.value || '').trim();
+        const resultDiv = $('tp-debug-result');
+        if (!resultDiv || !input) return;
+        
+        const COMPS = ['mathaus','dedeman','leroy','bricodepot','hornbach'];
+        const products = loadTrackedProducts().filter(p => p.status === 'aprobat');
+        
+        // Run scoring on ALL products to show ranking
+        const nameClean = input.toLowerCase();
+        const scores = [];
+        
+        for (const p of products) {
+          let score = 0;
+          const reasons = [];
+          
+          // SAP match
+          const sapInInput = input.match(/\d{7,}/);
+          if (sapInInput && p.sap && p.sap === sapInInput[0]) {
+            score = 200; reasons.push('SAP exact: ' + p.sap);
+          }
+          
+          // Exact name
+          if (p.nume && p.nume.toLowerCase() === nameClean) {
+            score = Math.max(score, 150); reasons.push('Denumire exactă');
+          }
+          
+          // Alternative names
+          if (p.alternativ?.length) {
+            for (const alt of p.alternativ) {
+              const altLow = alt.toLowerCase().trim();
+              if (altLow === nameClean) { score = Math.max(score, 100); reasons.push('Alt exactă: "' + alt + '"'); break; }
+              if (nameClean.includes(altLow)) { const s = 50 + altLow.length; if (s > score) { score = s; reasons.push('Text conține alt: "' + alt + '" (+' + s + ')'); } }
+              if (altLow.includes(nameClean)) { const s = 40 + nameClean.length; if (s > score) { score = s; reasons.push('Alt conține text: "' + alt + '" (+' + s + ')'); } }
+            }
+          }
+          
+          // Product code
+          const codeP = (p.nume || '').match(/[A-Z]{1,4}\s?\d{1,4}/i);
+          const codeN = nameClean.match(/[a-z]{1,4}\s?\d{1,4}/i);
+          if (codeP && codeN && codeP[0].replace(/\s/g,'').toLowerCase() === codeN[0].replace(/\s/g,'').toLowerCase()) {
+            if (score < 30) { score = 30; reasons.push('Cod produs: ' + codeP[0]); } 
+            else { reasons.push('Cod produs confirmat: ' + codeP[0]); }
+          }
+          
+          // Weight bonus/penalty
+          const weightInput = nameClean.match(/\d+\s?kg|\d+\s?cm|\d+\s?mm|\d+\s?l/gi) || [];
+          const weightProd = ((p.nume || '') + ' ' + (p.alternativ || []).join(' ')).match(/\d+\s?kg|\d+\s?cm|\d+\s?mm|\d+\s?l/gi) || [];
+          if (weightInput.length > 0 && weightProd.length > 0) {
+            const wN = weightInput.map(w => w.replace(/\s/g,'').toLowerCase());
+            const wP = weightProd.map(w => w.replace(/\s/g,'').toLowerCase());
+            if (wN.some(w => wP.includes(w))) {
+              score += 25; reasons.push('Gramaj potrivit: ' + weightInput[0] + ' (+25)');
+            } else {
+              score -= 20; reasons.push('Gramaj DIFERIT: input=' + weightInput[0] + ' produs=' + weightProd[0] + ' (−20)');
+            }
+          }
+          
+          if (score > 0) scores.push({ p, score, reasons });
+        }
+        
+        scores.sort((a, b) => b.score - a.score);
+        
+        if (!scores.length) {
+          resultDiv.innerHTML = '<div style="padding:12px;background:var(--amber-l);border-radius:8px;color:var(--amber);font-size:12px;margin-top:8px">❌ Niciun produs urmărit nu se potrivește cu: <strong>"' + escHtml(input) + '"</strong><br>→ Acest material va apărea ca „⚠ Fără link-uri competitori" în ofertă.</div>';
+          return;
+        }
+        
+        const winner = scores[0];
+        const isGoodMatch = winner.score >= 30;
+        
+        let html = '<div style="margin-top:8px">';
+        
+        // Winner
+        html += '<div style="padding:12px;background:' + (isGoodMatch ? 'var(--green-l)' : 'var(--amber-l)') + ';border-radius:8px;margin-bottom:8px;border:1px solid ' + (isGoodMatch ? '#bbf7d0' : '#fde68a') + '">';
+        html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">';
+        html += '<span style="font-weight:800;font-size:13px;color:' + (isGoodMatch ? 'var(--green)' : 'var(--amber)') + '">' + (isGoodMatch ? '✅ POTRIVIRE' : '⚠ POTRIVIRE SLABĂ') + '</span>';
+        html += '<span style="font-size:12px;font-weight:800;font-family:var(--mono)">Scor: ' + winner.score + '</span>';
+        html += '</div>';
+        html += '<div style="font-weight:700;font-size:12px;color:var(--navy)">' + escHtml(winner.p.nume) + '</div>';
+        html += winner.p.sap ? '<div style="font-size:10px;color:var(--txt3);font-family:var(--mono)">SAP: ' + escHtml(winner.p.sap) + '</div>' : '';
+        html += '<div style="margin-top:6px;font-size:10px;color:var(--txt2)">';
+        winner.reasons.forEach(r => { html += '<div style="padding:1px 0">→ ' + escHtml(r) + '</div>'; });
+        html += '</div>';
+        const urlCount = COMPS.filter(c => winner.p.urls?.[c]).length;
+        html += '<div style="margin-top:6px;font-size:10px;font-weight:600;color:' + (urlCount >= 2 ? 'var(--green)' : 'var(--red)') + '">' + urlCount + '/5 link-uri competitori configurate</div>';
+        html += '</div>';
+        
+        // Other candidates
+        if (scores.length > 1) {
+          html += '<div style="font-size:10px;font-weight:700;color:var(--txt3);margin-bottom:4px">Alte potriviri posibile:</div>';
+          scores.slice(1, 4).forEach(s => {
+            html += '<div style="padding:6px 10px;background:var(--surface2);border-radius:6px;margin-bottom:4px;font-size:10px;display:flex;justify-content:space-between;align-items:center">';
+            html += '<span>' + escHtml(s.p.nume) + (s.p.sap ? ' <span style="color:var(--txt3);font-family:var(--mono)">SAP:' + escHtml(s.p.sap) + '</span>' : '') + '</span>';
+            html += '<span style="font-family:var(--mono);color:' + (s.score >= 30 ? 'var(--green)' : 'var(--txt3)') + '">' + s.score + '</span>';
+            html += '</div>';
+          });
+        }
+        
+        html += '</div>';
+        resultDiv.innerHTML = html;
       }
 
       // ══════════ VIEW: Detalii produs urmărit ══════════
@@ -12178,6 +12233,99 @@ PROGRAM MAGAZINE:
         renderAdminAIKB();
       }
 
+      // ══════════ BATCH: Aprobă toate ══════════
+      function tpApproveAll() {
+        const list = loadTrackedProducts();
+        let count = 0;
+        list.forEach(p => {
+          if (p.status === 'in_asteptare') { p.status = 'aprobat'; count++; }
+        });
+        saveTrackedProducts(list);
+        toast(`✅ ${count} produse aprobate`);
+        renderAdminAIKB();
+      }
+
+      // ══════════ EXPORT JSON ══════════
+      function tpExportJSON() {
+        const products = loadTrackedProducts();
+        const data = { version: 1, exported: new Date().toISOString(), products };
+        const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url; a.download = 'mathaus_tracked_products_' + new Date().toISOString().split('T')[0] + '.json';
+        a.click();
+        URL.revokeObjectURL(url);
+        toast('📤 Export complet: ' + products.length + ' produse');
+      }
+
+      // ══════════ IMPORT JSON ══════════
+      function tpImportJSON() { $('tp-import-file')?.click(); }
+
+      function tpHandleImport(input) {
+        const file = input.files?.[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = () => {
+          try {
+            const data = JSON.parse(reader.result);
+            const imported = data.products || data;
+            if (!Array.isArray(imported)) throw new Error('Format invalid');
+            const existing = loadTrackedProducts();
+            const existingSAPs = new Set(existing.map(p => p.sap).filter(Boolean));
+            const existingNames = new Set(existing.map(p => p.nume?.toLowerCase()).filter(Boolean));
+            let added = 0, skipped = 0;
+            imported.forEach(p => {
+              // Skip duplicates by SAP or exact name
+              if (p.sap && existingSAPs.has(p.sap)) { skipped++; return; }
+              if (p.nume && existingNames.has(p.nume.toLowerCase())) { skipped++; return; }
+              p.id = 'tp_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4);
+              p.dataAdaugare = p.dataAdaugare || new Date().toISOString().split('T')[0];
+              p.status = p.status || 'aprobat';
+              existing.push(p);
+              existingSAPs.add(p.sap);
+              existingNames.add(p.nume?.toLowerCase());
+              added++;
+            });
+            saveTrackedProducts(existing);
+            toast(`📥 Import: ${added} adăugate, ${skipped} duplicate ignorate`);
+            renderAdminAIKB();
+          } catch(e) {
+            toast('⚠ Eroare import: ' + e.message);
+          }
+        };
+        reader.readAsText(file);
+        input.value = '';
+      }
+
+      // ══════════ CACHE PREȚURI TRACKED: salvează ultimul preț per produs ══════════
+      function tpSaveLastPrices(trackedProductId, prices) {
+        // prices = { mathaus: 36.76, dedeman: 70.91, leroy: null, ... }
+        const list = loadTrackedProducts();
+        const idx = list.findIndex(p => p.id === trackedProductId);
+        if (idx < 0) return;
+        const now = new Date().toISOString().split('T')[0];
+        if (!list[idx].priceHistory) list[idx].priceHistory = [];
+        // Add current prices to history
+        list[idx].priceHistory.push({ date: now, prices: { ...prices } });
+        // Keep only last 30 entries
+        if (list[idx].priceHistory.length > 30) list[idx].priceHistory = list[idx].priceHistory.slice(-30);
+        // Set lastPrice for quick access
+        list[idx].lastPrices = prices;
+        list[idx].lastPriceDate = now;
+        saveTrackedProducts(list);
+      }
+
+      function tpGetPriceTrend(product, competitor) {
+        const hist = product.priceHistory || [];
+        if (hist.length < 2) return null;
+        const last = hist[hist.length - 1]?.prices?.[competitor];
+        const prev = hist[hist.length - 2]?.prices?.[competitor];
+        if (!last || !prev) return null;
+        if (last < prev) return 'down'; // preț scăzut
+        if (last > prev) return 'up';   // preț crescut
+        return 'same';
+      }
+
       // ══════════ MODAL: Adaugă/Editează produs urmărit ══════════
       function openTrackedProductForm(existingId, prefill) {
         const existing = existingId ? loadTrackedProducts().find(p => p.id === existingId) : null;
@@ -12254,43 +12402,7 @@ PROGRAM MAGAZINE:
       }
 
       // ══════════ POPUP: Urmărește produs din ofertă ══════════
-      function openTrackProductPopup(material, ofertaId) {
-        window._pendingTrackMaterial = material;
-        const modal = document.createElement('div');
-        modal.id = 'track-popup-modal';
-        modal.style.cssText = 'position:fixed;inset:0;background:rgba(28,43,74,0.5);z-index:9999;display:flex;justify-content:center;align-items:center;padding:16px;backdrop-filter:blur(2px)';
-        modal.innerHTML = `<div style="background:var(--surface);border-radius:16px;width:100%;max-width:400px;box-shadow:0 20px 60px rgba(0,0,0,0.3)">
-          <div style="padding:16px 20px;background:var(--amber);color:#fff;border-radius:16px 16px 0 0;text-align:center">
-            <div style="font-size:28px;margin-bottom:6px">🎯</div>
-            <div style="font-size:15px;font-weight:800">Dorești să urmărim acest produs?</div>
-            <div style="font-size:12px;opacity:.8;margin-top:4px">${escHtml(material.nume)}</div>
-          </div>
-          <div style="padding:20px;text-align:center">
-            <div style="font-size:12px;color:var(--txt2);margin-bottom:16px;line-height:1.6">
-              Acest material nu are link-uri salvate pentru competitori.<br>
-              Vrei să-l adaugi la <strong>Produse Urmărite</strong> pentru a monitoriza prețurile?
-            </div>
-            <div style="display:flex;gap:10px;justify-content:center">
-              <button class="btn btn-ghost" style="padding:10px 24px" onclick="document.getElementById('track-popup-modal')?.remove()">Nu, mulțumesc</button>
-              <button class="btn btn-primary" style="padding:10px 24px" onclick="acceptTrackProduct()">Da, urmăresc</button>
-            </div>
-          </div>
-        </div>`;
-        document.body.appendChild(modal);
-        modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
-      }
 
-      function acceptTrackProduct() {
-        document.getElementById('track-popup-modal')?.remove();
-        const m = window._pendingTrackMaterial;
-        if (!m) return;
-        openTrackedProductForm(null, {
-          nume: m.nume, sap: m.sap || '', um: m.um || '',
-          alternativ: [m.mentionat_ca || ''].filter(Boolean),
-          urls: { mathaus: m.mathaus?.link || '' },
-          status: 'in_asteptare', adaugatDe: 'agent'
-        });
-      }
 
       function renderAICatalog() {
         const { sheetUrl, lastSync } = loadCatalogSettings();
@@ -12396,7 +12508,13 @@ PROGRAM MAGAZINE:
       &nbsp;· <code style="background:#fff;padding:1px 4px;border-radius:3px">Denumire Produs</code> sau <code style="background:#fff;padding:1px 4px;border-radius:3px">Name</code>
       &nbsp;· <code style="background:#fff;padding:1px 4px;border-radius:3px">Cod SAP</code> sau <code style="background:#fff;padding:1px 4px;border-radius:3px">SAP</code><br>
       &nbsp;· <code style="background:#fff;padding:1px 4px;border-radius:3px">UM</code>
-      &nbsp;· <code style="background:#fff;padding:1px 4px;border-radius:3px">Pret Lista</code> sau <code style="background:#fff;padding:1px 4px;border-radius:3px">Pret</code>
+      &nbsp;· <code style="background:#fff;padding:1px 4px;border-radius:3px">Pret Lista</code> sau <code style="background:#fff;padding:1px 4px;border-radius:3px">Pret</code><br>
+      <strong style="color:var(--green)">🎯 Opțional — Link-uri competitori</strong> (importă automat în Produse Urmărite):<br>
+      &nbsp;· <code style="background:#e1f5ee;padding:1px 4px;border-radius:3px">URL_Dedeman</code>
+      &nbsp;· <code style="background:#e1f5ee;padding:1px 4px;border-radius:3px">URL_Leroy</code>
+      &nbsp;· <code style="background:#e1f5ee;padding:1px 4px;border-radius:3px">URL_BricoDepot</code>
+      &nbsp;· <code style="background:#e1f5ee;padding:1px 4px;border-radius:3px">URL_Hornbach</code>
+      &nbsp;· <code style="background:#e1f5ee;padding:1px 4px;border-radius:3px">URL_MatHaus</code>
     </div>
 
     <label style="display:inline-block;cursor:pointer">
@@ -12555,20 +12673,13 @@ PROGRAM MAGAZINE:
       <strong style="color:var(--navy)">Cum funcționează:</strong> Definești link-urile directe pentru fiecare material × competitor. La ofertare, în loc să consume tokens pe Google Dorks, aplicația accesează direct pagina produsului și citește prețul real. <strong>Economie ~10x tokens.</strong>
     </div>
     ${(() => {
-      const tp = loadTrackedProducts();
-      const approved = tp.filter(p => p.status === 'aprobat');
-      const pending = tp.filter(p => p.status === 'in_asteptare');
-      if (!tp.length) return '<div style="padding:20px;text-align:center;color:var(--txt3);font-size:12px">Niciun produs urmărit. Adaugă primul produs sau lasă agenții să propună din notițe.</div>';
-      
-      let html = '';
-      if (pending.length) {
-        html += '<div style="font-size:11px;font-weight:700;color:var(--amber);margin-bottom:8px">⏳ În așteptare aprobare (' + pending.length + ')</div>';
-        html += pending.map(p => renderTrackedProductRow(p)).join('');
-        html += '<div style="border-bottom:1px solid var(--border);margin:12px 0"></div>';
-      }
-      html += '<div style="font-size:11px;font-weight:700;color:var(--green);margin-bottom:8px">✅ Aprobate (' + approved.length + ')</div>';
-      html += approved.map(p => renderTrackedProductRow(p)).join('');
-      return html;
+      const _tpStats = getTrackedProductsStats();
+      return '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">' +
+        '<span style="font-size:12px;font-weight:700;color:var(--navy)">✅ ' + _tpStats.aprobat + ' aprobate</span>' +
+        (_tpStats.inAsteptare > 0 ? ' <span style="font-size:12px;color:var(--amber);font-weight:700">⏳ ' + _tpStats.inAsteptare + ' în așteptare</span>' : '') +
+        ' <span style="font-size:11px;color:var(--txt3)">🔗 ' + _tpStats.cuLinkuri + ' cu link-uri</span>' +
+        ' <button class="btn btn-primary btn-sm" style="margin-left:auto" onclick="aiKBTab=\'tracked\';renderAdminAIKB()">🎯 Gestionează produse urmărite</button>' +
+      '</div>';
     })()}
   </div>
 
@@ -12652,7 +12763,7 @@ PROGRAM MAGAZINE:
   <div class="admin-card" style="background:linear-gradient(135deg,var(--navy),var(--navy2));color:#fff">
     <div style="font-size:11px;font-weight:700;opacity:.6;letter-spacing:1px;text-transform:uppercase;margin-bottom:10px;font-family:var(--mono)">📋 Flux Agent Ofertare</div>
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px;font-size:11px">
-      <div style="background:rgba(255,255,255,.1);border-radius:6px;padding:8px 10px">🎤 <strong>1. Input</strong><br>Voce (Whisper) sau text liber</div>
+      <div style="background:rgba(255,255,255,.1);border-radius:6px;padding:8px 10px">🎤 <strong>1. Input</strong><br>Voce sau text liber</div>
       <div style="background:rgba(255,255,255,.1);border-radius:6px;padding:8px 10px">🔍 <strong>2. Identificare</strong><br>Claude găsește materialele</div>
       <div style="background:rgba(255,255,255,.1);border-radius:6px;padding:8px 10px">💰 <strong>3. Prețuri</strong><br>mathaus.ro + ${((kb.ofertaCompetitori||'Dedeman,Leroy,BricoDepot,Hornbach').split(',').length)} competitori</div>
       <div style="background:rgba(255,255,255,.1);border-radius:6px;padding:8px 10px">📍 <strong>4. Depozite</strong><br>MatHaus local din adresă</div>
@@ -12762,7 +12873,7 @@ PROGRAM MAGAZINE:
 
       <div style="background:rgba(255,255,255,.7);border-radius:var(--r-sm);padding:10px 12px;font-size:11px;color:var(--txt2);line-height:1.7">
         <strong style="color:var(--navy)">Flux agent:</strong>
-        Dictare/text → Whisper → Claude citește contextul MatHaus → identifică materiale → caută prețuri pe ${escHtml(kb.ofertaCompetitori || 'Dedeman, Leroy, BricoDepot, Hornbach')} → tabel editabil → PDF ofertă
+        Dictare/text → Claude citește contextul MatHaus → identifică materiale → caută prețuri pe ${escHtml(kb.ofertaCompetitori || 'Dedeman, Leroy, BricoDepot, Hornbach')} → tabel editabil → PDF ofertă
       </div>
     </div>
 
@@ -12965,39 +13076,6 @@ PROGRAM MAGAZINE:
 const SHEET_NAME = 'Feedback';
 const EMAIL_REPORT = '${escHtml(email || 'email@ta.ro')}'; // Schimba cu emailul tău
 
-function doPost(e) {
-  try {
-    const data = JSON.parse(e.postData.contents);
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
-    let sheet = ss.getSheetByName(SHEET_NAME);
-
-    if (!sheet) {
-      sheet = ss.insertSheet(SHEET_NAME);
-      sheet.appendRow(['Data', 'Tip', 'Sursa', 'Intrebare/Input', 'Raspuns/Materiale', 'Motiv', 'Client', 'Metoda', 'Agent']);
-      sheet.getRange(1, 1, 1, 9).setFontWeight('bold').setBackground('#1e3a5f').setFontColor('#ffffff');
-    }
-
-    sheet.appendRow([
-      new Date(data.ts || new Date()),
-      data.type || '',
-      data.source || 'consultant',
-      (data.question || '').substring(0, 500),
-      (data.answer || '').substring(0, 500),
-      (data.reason || ''),
-      (data.client || ''),
-      (data.method || ''),
-      (data.agent || '')
-    ]);
-
-    return ContentService
-      .createTextOutput(JSON.stringify({success: true}))
-      .setMimeType(ContentService.MimeType.JSON);
-  } catch(err) {
-    return ContentService
-      .createTextOutput(JSON.stringify({error: err.message}))
-      .setMimeType(ContentService.MimeType.JSON);
-  }
-}
 
 // RAPORT SAPTAMANAL — Se ruleaza automat in fiecare luni
 // Seteaza trigger: Triggers → Add Trigger → sendWeeklyReport → Time-driven → Week timer → Every Monday → 8-9am
@@ -15713,24 +15791,7 @@ LIMBA: ${lang === 'ro' ? 'Română' : lang === 'en' ? 'English' : 'Auto-detect'}
         scrollChatBottom();
       }
 
-      function showTyping() {
-        const container = document.getElementById('chat-messages');
-        if (!container) return;
-        const div = document.createElement('div');
-        div.className = 'chat-typing';
-        div.id = 'chat-typing-indicator';
-        div.innerHTML = `
-          <div class="chat-msg-avatar">🤖</div>
-          <div class="typing-dots"><span></span><span></span><span></span></div>
-        `;
-        container.appendChild(div);
-        scrollChatBottom();
-      }
 
-      function hideTyping() {
-        const el = document.getElementById('chat-typing-indicator');
-        if (el) el.remove();
-      }
 
       function scrollChatBottom() {
         const container = document.getElementById('chat-messages');
@@ -15999,18 +16060,6 @@ LIMBA: ${lang === 'ro' ? 'Română' : lang === 'en' ? 'English' : 'Auto-detect'}
         } catch(e) {}
       }
 
-      // Add a clear chat function accessible from console or future UI
-      function clearChatHistory() {
-        chatConversation = [];
-        localStorage.removeItem(CHAT_HISTORY_STORE);
-        const container = document.getElementById('chat-messages');
-        if (container) {
-          const msgs = container.querySelectorAll('.chat-msg');
-          msgs.forEach((m, i) => { if (i > 0) m.remove(); });
-        }
-        const sugs = document.getElementById('chat-suggestions');
-        if (sugs) sugs.style.display = 'flex';
-      }
 
 
       // ══════════════════════════════════════════════
@@ -16318,68 +16367,12 @@ LIMBA: ${lang === 'ro' ? 'Română' : lang === 'en' ? 'English' : 'Auto-detect'}
       // ═══════════════════════════════════════════════════
       // SWIPE GESTURES — Mobile Navigation
       // ═══════════════════════════════════════════════════
-      (function initSwipeNav() {
-        const MODES = ['total', 'etapizat'];  // moduri navigabile cu swipe
-        let touchStartX = 0;
-        let touchStartY = 0;
-        let touchStartTime = 0;
-        const MIN_SWIPE_X = 60;   // px minim orizontal
-        const MAX_SWIPE_Y = 80;   // px maxim vertical (sa nu conflicte cu scroll)
-        const MAX_TIME_MS = 400;  // ms maxim pentru un swipe
-
-        document.addEventListener('touchstart', (e) => {
-          if (e.touches.length !== 1) return;
-          // Nu activam swipe daca suntem in chat panel sau admin
-          if (e.target.closest('#chat-panel') || e.target.closest('#screen-admin')) return;
-          touchStartX = e.touches[0].clientX;
-          touchStartY = e.touches[0].clientY;
-          touchStartTime = Date.now();
-        }, { passive: true });
-
-        document.addEventListener('touchend', (e) => {
-          if (e.changedTouches.length !== 1) return;
-          if (e.target.closest('#chat-panel') || e.target.closest('#screen-admin')) return;
-
-          const dx = e.changedTouches[0].clientX - touchStartX;
-          const dy = e.changedTouches[0].clientY - touchStartY;
-          const dt = Date.now() - touchStartTime;
-
-          // Valideaza swipe: orizontal dominant, rapid, suficient de lung
-          if (Math.abs(dx) < MIN_SWIPE_X) return;
-          if (Math.abs(dy) > MAX_SWIPE_Y) return;
-          if (dt > MAX_TIME_MS) return;
-
-          // Navigare intre moduri
-          const cur = MODES.indexOf(currentMode);
-          if (dx < 0 && cur < MODES.length - 1) {
-            // Swipe stanga → modul urmator
-            switchMode(MODES[cur + 1]);
-          } else if (dx > 0 && cur > 0) {
-            // Swipe dreapta → modul anterior
-            switchMode(MODES[cur - 1]);
-          } else if (dx < 0 && currentMode === 'landing') {
-            switchMode('total');
-          } else if (dx > 0 && currentMode === 'total') {
-            showLanding();
-          }
-        }, { passive: true });
-
-        // Swipe intre etape in modul Etapizat
-        document.addEventListener('touchstart', (e) => {
-          if (!e.target.closest('#screen-etapizat')) return;
-          if (e.target.closest('#etapa-detail') || e.target.closest('.mat-table-wrap')) return;
-          touchStartX = e.touches[0].clientX;
-          touchStartY = e.touches[0].clientY;
-          touchStartTime = Date.now();
-        }, { passive: true });
-      })();
 
     
       // ════════════════════════════════════════════════
       // OFERTE AI — Agent Identificare Materiale
       // ════════════════════════════════════════════════
       const OFERTE_STORE = 'mathaus_oferte_ai';
-      const OPENAI_KEY_STORE = 'mathaus_openai_key';
       let _ofertaRecorder = null;
       let _ofertaAudioChunks = [];
       let _ofertaIsRecording = false;
@@ -16428,33 +16421,74 @@ LIMBA: ${lang === 'ro' ? 'Română' : lang === 'en' ? 'English' : 'Auto-detect'}
         const list = loadTrackedProducts().filter(p => p.id !== id);
         saveTrackedProducts(list);
       }
-      // Find tracked product by SAP, name, or alternative names
+      // Find tracked product by SAP, name, or alternative names — with SCORING for best match
       function findTrackedProduct(sap, name) {
         const list = loadTrackedProducts().filter(p => p.status === 'aprobat');
         if (!sap && !name) return null;
         const sapClean = (sap || '').trim().toLowerCase();
         const nameClean = (name || '').trim().toLowerCase();
+        
+        // Priority 1: SAP exact — always wins (unique per variant)
+        if (sapClean) {
+          const sapMatch = list.find(p => p.sap && p.sap.toLowerCase() === sapClean);
+          if (sapMatch) return sapMatch;
+        }
+        
+        if (!nameClean) return null;
+        
+        // Priority 2: Exact name match
+        const exactMatch = list.find(p => p.nume && p.nume.toLowerCase() === nameClean);
+        if (exactMatch) return exactMatch;
+        
+        // Priority 3: Score-based matching — best match wins
+        let bestMatch = null;
+        let bestScore = 0;
+        
         for (const p of list) {
-          // Match by SAP
-          if (sapClean && p.sap && p.sap.toLowerCase() === sapClean) return p;
-          // Match by exact name
-          if (nameClean && p.nume && p.nume.toLowerCase() === nameClean) return p;
-          // Match by alternative names
-          if (nameClean && p.alternativ?.length) {
+          let score = 0;
+          
+          // Check alternative names
+          if (p.alternativ?.length) {
             for (const alt of p.alternativ) {
-              if (alt.toLowerCase() === nameClean) return p;
-              // Fuzzy: check if search term contains alt or alt contains search term
-              if (nameClean.includes(alt.toLowerCase()) || alt.toLowerCase().includes(nameClean)) return p;
+              const altLow = alt.toLowerCase().trim();
+              if (altLow === nameClean) { score = Math.max(score, 100); break; } // exact alt match
+              if (nameClean.includes(altLow)) score = Math.max(score, 50 + altLow.length); // search contains alt
+              if (altLow.includes(nameClean)) score = Math.max(score, 40 + nameClean.length); // alt contains search
             }
           }
-          // Fuzzy name match: both contain the same product code (CM17, CT84, etc.)
-          if (nameClean && p.nume) {
-            const codeP = p.nume.match(/[A-Z]{1,4}\s?\d{1,4}/i);
-            const codeN = nameClean.match(/[a-z]{1,4}\s?\d{1,4}/i);
-            if (codeP && codeN && codeP[0].replace(/\s/g,'').toLowerCase() === codeN[0].replace(/\s/g,'').toLowerCase()) return p;
+          
+          // Check product code match (CM9, CM17, etc.)
+          const codeP = (p.nume || '').match(/[A-Z]{1,4}\s?\d{1,4}/i);
+          const codeN = nameClean.match(/[a-z]{1,4}\s?\d{1,4}/i);
+          if (codeP && codeN && codeP[0].replace(/\s/g,'').toLowerCase() === codeN[0].replace(/\s/g,'').toLowerCase()) {
+            score = Math.max(score, 30);
+          }
+          
+          // BONUS: weight/packaging match (25kg, 5kg, 10cm, etc.)
+          const weightPatterns = nameClean.match(/\d+\s?kg|\d+\s?cm|\d+\s?mm|\d+\s?m[²³]?|\d+\s?l/gi) || [];
+          const prodWeights = ((p.nume || '') + ' ' + (p.alternativ || []).join(' ')).match(/\d+\s?kg|\d+\s?cm|\d+\s?mm|\d+\s?m[²³]?|\d+\s?l/gi) || [];
+          
+          if (weightPatterns.length > 0 && prodWeights.length > 0) {
+            const wNorm = weightPatterns.map(w => w.replace(/\s/g,'').toLowerCase());
+            const pNorm = prodWeights.map(w => w.replace(/\s/g,'').toLowerCase());
+            const hasWeightMatch = wNorm.some(w => pNorm.includes(w));
+            if (hasWeightMatch) {
+              score += 25; // gramaj se potrivește — bonus mare
+            } else if (score > 0) {
+              score -= 20; // cod se potrivește dar gramajul NU — penalizare
+            }
+          }
+          
+          // BONUS: UM match
+          if (p.um && nameClean.includes(p.um.toLowerCase())) score += 5;
+          
+          if (score > bestScore) {
+            bestScore = score;
+            bestMatch = p;
           }
         }
-        return null;
+        
+        return bestScore >= 30 ? bestMatch : null;
       }
       // Get tracked products stats
       function getTrackedProductsStats() {
@@ -16761,21 +16795,6 @@ LIMBA: ${lang === 'ro' ? 'Română' : lang === 'en' ? 'English' : 'Auto-detect'}
         return bestMatch;
       }
 
-      function ofertaGetOpenAIKey() {
-        return localStorage.getItem(OPENAI_KEY_STORE) || '';
-      }
-
-      function ofertaSaveOpenAIKey() {
-        const key = ($('openai-key-input')?.value || '').trim();
-        if (!key.startsWith('sk-')) {
-          toast('⚠ Cheia trebuie să înceapă cu sk-'); return;
-        }
-        localStorage.setItem(OPENAI_KEY_STORE, key);
-        const setup = $('openai-key-setup');
-        if (setup) setup.classList.remove('show');
-        toast('✅ Cheie OpenAI salvată!');
-      }
-
 
       // ══════════════════════════════════════
       // NOTIȚE AGENT — Salvare + Calcul Manual
@@ -16831,14 +16850,6 @@ LIMBA: ${lang === 'ro' ? 'Română' : lang === 'en' ? 'English' : 'Auto-detect'}
         toast('✅ Notiță salvată în Neprocesate');
       }
 
-      function notitaOpenModal() {
-        if ($('notita-client')) $('notita-client').value = '';
-        if ($('notita-adresa')) $('notita-adresa').value = '';
-        if ($('notita-text')) $('notita-text').value = '';
-        if ($('notita-eticheta')) $('notita-eticheta').value = 'nou';
-        const ov = $('notita-new-overlay');
-        if (ov) ov.style.display = 'flex';
-      }
 
       function notitaCloseModal() {
         const ov = $('notita-new-overlay');
@@ -17333,7 +17344,7 @@ LIMBA: ${lang === 'ro' ? 'Română' : lang === 'en' ? 'English' : 'Auto-detect'}
               leroy: { pret: null, link: null, disponibil: false },
               bricodepot: { pret: null, link: null, disponibil: false },
               hornbach: { pret: null, link: null, disponibil: false },
-              pretOferta: _localPret || 0,
+              pretOferta: _localPret || 0, _localPret: _localPret,
               validat: false, sursa: _localPret ? 'local' : 'pending', _status: 'searching'
             };
             materiale.push(matItem);
@@ -17366,10 +17377,11 @@ LIMBA: ${lang === 'ro' ? 'Română' : lang === 'en' ? 'English' : 'Auto-detect'}
             if (_tracked.length > 0) {
               toast(`📊 ${_tracked.length} materiale cu link-uri directe — citesc prețuri de pe pagini...`);
               
-              // Build a single compact prompt with all URLs
+              // Build a single compact prompt with ALL URLs including MatHaus
               const urlList = _tracked.map((m, i) => {
                 const tp = m._tp;
-                const urls = ['dedeman','leroy','bricodepot','hornbach']
+                const allComps = ['mathaus','dedeman','leroy','bricodepot','hornbach'];
+                const urls = allComps
                   .filter(c => tp.urls[c])
                   .map(c => c + ': ' + tp.urls[c])
                   .join('\n   ');
@@ -17377,19 +17389,20 @@ LIMBA: ${lang === 'ro' ? 'Română' : lang === 'en' ? 'English' : 'Auto-detect'}
               }).join('\n');
 
               const directPrompt = `Accesează fiecare URL de mai jos și citește prețul ACTUAL cu TVA de pe pagina produsului.
+IMPORTANT: Citește prețul REAL afișat ACUM pe fiecare pagină — inclusiv MatHaus.
 
 PRODUSE:
 ${urlList}
 
 INSTRUCȚIUNI:
-• Accesează FIECARE URL cu web_search
-• Citește prețul cu TVA AFIȘAT PE PAGINĂ — nu din cache Google
+• Accesează FIECARE URL cu web_search (inclusiv mathaus.ro)
+• Citește prețul cu TVA AFIȘAT PE PAGINĂ — nu din cache Google, nu din baza de date
 • Verifică gramajul (ex: 25kg, nu 5kg)
 • Link-urile sunt directe — nu mai căuta pe Google
 
 JSON STRICT:
-{"r":[{"i":0,"d":{"p":70.91},"le":{"p":null},"b":{"p":null},"h":{"p":null}}]}
-i=index, d=dedeman, le=leroy, b=bricodepot, h=hornbach, p=pret`;
+{"r":[{"i":0,"mh":{"p":36.76},"d":{"p":70.91},"le":{"p":null},"b":{"p":null},"h":{"p":null}}]}
+i=index, mh=mathaus, d=dedeman, le=leroy, b=bricodepot, h=hornbach, p=pret`;
 
               try {
                 const resp = await fetch('https://api.anthropic.com/v1/messages', {
@@ -17413,15 +17426,29 @@ i=index, d=dedeman, le=leroy, b=bricodepot, h=hornbach, p=pret`;
                       if (bIdx >= _tracked.length) return;
                       const matIdx = _tracked[bIdx].idx;
                       const tp = _tracked[bIdx]._tp;
-                      const compMap = {d:'dedeman',de:'dedeman',dedeman:'dedeman',le:'leroy',leroy:'leroy',b:'bricodepot',bricodepot:'bricodepot',h:'hornbach',hornbach:'hornbach'};
+                      const compMap = {mh:'mathaus',mathaus:'mathaus',d:'dedeman',de:'dedeman',dedeman:'dedeman',le:'leroy',leroy:'leroy',b:'bricodepot',bricodepot:'bricodepot',h:'hornbach',hornbach:'hornbach'};
                       Object.entries(pr).forEach(([k, v]) => {
                         const comp = compMap[k];
                         if (comp && (v?.p !== undefined || v?.pret !== undefined)) {
-                          materiale[matIdx][comp] = { pret: v.p || v.pret, link: tp.urls[comp] || v.l || null, disponibil: !!(v.p || v.pret) };
+                          const realPret = v.p || v.pret;
+                          materiale[matIdx][comp] = { pret: realPret, link: tp.urls[comp] || v.l || materiale[matIdx][comp]?.link || null, disponibil: !!realPret };
+                          // Override MatHaus local price with real site price
+                          if (comp === 'mathaus' && realPret) {
+                            materiale[matIdx].pretOferta = realPret;
+                            console.log(`[Tracked] ${materiale[matIdx].nume}: MatHaus local ${materiale[matIdx]._localPret||'?'} → site ${realPret}`);
+                          }
                         }
                       });
-                      materiale[matIdx].sursa = materiale[matIdx].sursa === 'local' ? 'local+tracked' : 'tracked';
+                      materiale[matIdx].sursa = 'tracked';
                       materiale[matIdx]._status = 'done';
+                      // Save prices to tracked product history
+                      const fetchedPrices = {};
+                      ['mathaus','dedeman','leroy','bricodepot','hornbach'].forEach(c => {
+                        if (materiale[matIdx][c]?.pret) fetchedPrices[c] = materiale[matIdx][c].pret;
+                      });
+                      if (Object.keys(fetchedPrices).length > 0) {
+                        tpSaveLastPrices(tp.id, fetchedPrices);
+                      }
                     });
                   }
                 } else if (resp.status === 429) {
@@ -17493,43 +17520,6 @@ i=index, d=dedeman, le=leroy, b=bricodepot, h=hornbach, p=pret`;
       }
 
 
-      function ofertaBuildCatalog() {
-        // Extragem toate materialele din STAGES_DEFAULT + STAGE_MATS_DB
-        const items = [];
-        const seen = new Set();
-
-        function addItem(mat) {
-          if (!mat.name || seen.has(mat.name)) return;
-          seen.add(mat.name);
-          items.push({
-            id: mat.name.toLowerCase().replace(/[^a-z0-9]/g, '_').substring(0, 40),
-            sap: mat.sap || mat.sapKey || '',
-            nume: mat.name,
-            link: mat.link || '',
-            um: mat.um || 'buc',
-            pret: getPret(mat.name) || mat.pretUM || 0,
-            pretLocal: (mat.pretUM > 0) ? mat.pretUM : 0,
-            furnizorLocal: mat.pretUM > 0 ? 'Catalog MatHaus Admin' : ''
-          });
-        }
-
-        // Din STAGE_MATS_DB
-        Object.values(STAGE_MATS_DB || {}).forEach(stage => {
-          (stage || []).forEach(mat => addItem(mat));
-        });
-
-        // Din BCA_DB
-        (BCA_DB || []).forEach(p => {
-          addItem({ name: p.name, link: p.link, um: 'buc' });
-        });
-
-        // Din CAR_DB
-        (CAR_DB || []).forEach(p => {
-          addItem({ name: p.name, link: p.link, um: 'buc' });
-        });
-
-        return items;
-      }
 
       function ofertaNotify(client) {
         const notif = document.createElement('div');
@@ -17543,10 +17533,6 @@ i=index, d=dedeman, le=leroy, b=bricodepot, h=hornbach, p=pret`;
 
 
       // Refresh detaliu fara a re-randa lista (evita recursie infinita)
-      function _refreshDetail(id) {
-        if (!id) return;
-        ofertaShowDetail(id);
-      }
 
       function ofertaRenderList() {
         const list = loadOferte();
@@ -17983,31 +17969,7 @@ i=index, d=dedeman, le=leroy, b=bricodepot, h=hornbach, p=pret`;
         await ofertaProcess();
       }
 
-      function ofertaUpdatePret(ofertaId, matIdx, field, val) {
-        const list = loadOferte();
-        const o = list.find(x => x.id === ofertaId);
-        if (!o) return;
-        const m = o.materiale[matIdx];
-        if (!m) return;
-        m[field] = parseFloat(val) || 0;
-        // Recalculeaza
-        m.pretTotal = m.pretUnitar * m.cantitate;
-        if (field !== 'pretOferta') m.pretOferta = m.pretTotal;
-        saveOferte(list);
-        // Update totalul in DOM
-        const total = o.materiale.reduce((s, x) => s + (x.pretOferta || 0), 0);
-        const totalEl = document.getElementById('oferta-total-' + ofertaId);
-        if (totalEl) totalEl.textContent = fmtP(total);
-      }
 
-      function ofertaRemoveMat(ofertaId, matIdx) {
-        const list = loadOferte();
-        const o = list.find(x => x.id === ofertaId);
-        if (!o) return;
-        o.materiale.splice(matIdx, 1);
-        saveOferte(list);
-        ofertaShowDetail(ofertaId);
-      }
 
 
       // ── Confirm custom (confirm() blocat in unele contexte) ──
