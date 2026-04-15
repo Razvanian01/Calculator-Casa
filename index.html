@@ -11993,50 +11993,68 @@ PROGRAM MAGAZINE:
       }
 
       // ══════════ TAB: PRODUSE URMĂRITE ══════════
+      // ══════════ GLOBAL: search filter for tracked products ══════════
+      let _tpSearchFilter = '';
+
       function renderTrackedProducts() {
         const products = loadTrackedProducts();
         const stats = getTrackedProductsStats();
-        const COMPETITORS = ['mathaus','dedeman','leroy','bricodepot','hornbach'];
-        const COMP_LABELS = {mathaus:'MatHaus',dedeman:'Dedeman',leroy:'Leroy Merlin',bricodepot:'BricoDepot',hornbach:'Hornbach'};
+        const COMPS = ['mathaus','dedeman','leroy','bricodepot','hornbach'];
+        const CL = {mathaus:'MatHaus',dedeman:'Dedeman',leroy:'Leroy Merlin',bricodepot:'BricoDepot',hornbach:'Hornbach'};
 
-        const pendingHtml = products.filter(p => p.status === 'in_asteptare').map(p => `
-          <div style="padding:10px 14px;border:2px solid var(--amber);border-radius:var(--r-sm);background:var(--amber-l);margin-bottom:8px">
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
-              <div>
-                <span style="font-weight:700;font-size:13px">${escHtml(p.nume)}</span>
-                ${p.sap ? '<span style="font-size:10px;color:var(--txt3);font-family:var(--mono);margin-left:6px">SAP: '+escHtml(p.sap)+'</span>' : ''}
-                <span style="font-size:10px;color:var(--amber);margin-left:6px">Propus de agent · ${escHtml(p.dataAdaugare||'')}</span>
-              </div>
-              <div style="display:flex;gap:4px">
-                <button class="btn btn-sm" style="background:var(--green);color:#fff;font-size:10px;padding:3px 10px" onclick="approveTrackedProduct('${p.id}')">Aprobă</button>
-                <button class="btn btn-ghost btn-sm" style="font-size:10px;padding:3px 8px;color:var(--red)" onclick="deleteTrackedProduct('${p.id}');renderAdminAIKB()">Respinge</button>
-              </div>
-            </div>
-            <div style="display:flex;gap:6px;flex-wrap:wrap;font-size:10px">
-              ${COMPETITORS.map(c => p.urls?.[c] ? '<span style="background:#fff;padding:2px 6px;border-radius:3px;border:1px solid var(--border)">'+COMP_LABELS[c]+' ✅</span>' : '<span style="color:var(--txt3)">'+COMP_LABELS[c]+' —</span>').join(' ')}
-            </div>
-          </div>`).join('');
+        // Filter by search
+        const q = _tpSearchFilter.toLowerCase().trim();
+        const filtered = q ? products.filter(p => {
+          return (p.nume||'').toLowerCase().includes(q) 
+            || (p.sap||'').includes(q) 
+            || (p.alternativ||[]).some(a => a.toLowerCase().includes(q));
+        }) : products;
 
-        const approvedHtml = products.filter(p => p.status === 'aprobat').map(p => `
-          <div style="padding:10px 14px;border:1px solid var(--border);border-radius:var(--r-sm);background:var(--surface);margin-bottom:6px">
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
-              <div>
-                <span style="font-weight:700;font-size:12px">${escHtml(p.nume)}</span>
-                ${p.sap ? '<span style="font-size:10px;color:var(--txt3);font-family:var(--mono);margin-left:6px">SAP: '+escHtml(p.sap)+'</span>' : ''}
+        const pending = filtered.filter(p => p.status === 'in_asteptare');
+        const approved = filtered.filter(p => p.status === 'aprobat');
+
+        // Helper: render product card
+        function card(p, isPending) {
+          const urlCount = COMPS.filter(c => p.urls?.[c]).length;
+          const urlBadges = COMPS.map(c => {
+            const url = p.urls?.[c];
+            if (url) return `<a href="${escHtml(url)}" target="_blank" style="display:inline-flex;align-items:center;gap:2px;background:var(--green-l);padding:2px 8px;border-radius:4px;border:1px solid #bbf7d0;color:#15803d;text-decoration:none;font-size:10px;font-weight:600">${CL[c]} ✓</a>`;
+            return `<span style="display:inline-flex;align-items:center;gap:2px;padding:2px 8px;border-radius:4px;color:var(--txt3);font-size:10px;border:1px dashed var(--border)">${CL[c]} —</span>`;
+          }).join(' ');
+
+          const borderColor = isPending ? 'var(--amber)' : (urlCount >= 3 ? '#bbf7d0' : 'var(--border)');
+          const bgColor = isPending ? 'var(--amber-l)' : 'var(--surface)';
+
+          return `<div style="padding:12px 14px;border:${isPending?'2px':'1px'} solid ${borderColor};border-radius:var(--r-sm);background:${bgColor};margin-bottom:8px">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:6px">
+              <div style="flex:1;min-width:0">
+                <div style="font-weight:700;font-size:13px;color:var(--navy)">${escHtml(p.nume)}</div>
+                <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:3px;font-size:10px;color:var(--txt3)">
+                  ${p.sap ? '<span style="font-family:var(--mono);background:var(--surface2);padding:1px 6px;border-radius:3px">SAP: '+escHtml(p.sap)+'</span>' : ''}
+                  ${p.um ? '<span>UM: '+escHtml(p.um)+'</span>' : ''}
+                  <span style="color:${urlCount>=3?'var(--green)':urlCount>0?'var(--amber)':'var(--red)'};font-weight:600">${urlCount}/5 link-uri</span>
+                  ${isPending ? '<span style="color:var(--amber);font-weight:600">Propus de agent · '+escHtml(p.dataAdaugare||'')+'</span>' : ''}
+                  ${!isPending && p.dataAdaugare ? '<span>Adăugat: '+escHtml(p.dataAdaugare)+'</span>' : ''}
+                </div>
+                ${p.alternativ?.length ? '<div style="font-size:10px;color:var(--txt3);margin-top:3px">Alt: '+p.alternativ.map(a=>escHtml(a)).join(', ')+'</div>' : ''}
               </div>
-              <div style="display:flex;gap:4px">
-                <button class="btn btn-ghost btn-sm" style="font-size:10px;padding:3px 8px" onclick="editTrackedProduct('${p.id}')">Editează</button>
-                <button class="btn btn-ghost btn-sm" style="font-size:10px;padding:3px 8px;color:var(--red)" onclick="if(safeConfirm('Ștergi produsul urmărit?')){deleteTrackedProduct('${p.id}');renderAdminAIKB()}">Șterge</button>
+              <div style="display:flex;gap:4px;flex-shrink:0">
+                <button class="btn btn-ghost btn-sm" style="font-size:10px;padding:3px 8px;color:var(--blue)" onclick="viewTrackedProduct('${p.id}')" title="Vizualizează detalii">👁 Vezi</button>
+                ${isPending ? `
+                  <button class="btn btn-sm" style="background:var(--green);color:#fff;font-size:10px;padding:3px 10px" onclick="approveTrackedProduct('${p.id}')">✓ Aprobă</button>
+                  <button class="btn btn-ghost btn-sm" style="font-size:10px;padding:3px 8px;color:var(--red)" onclick="deleteTrackedProduct('${p.id}');renderAdminAIKB()">✕</button>
+                ` : `
+                  <button class="btn btn-ghost btn-sm" style="font-size:10px;padding:3px 8px" onclick="editTrackedProduct('${p.id}')">✏ Editează</button>
+                  <button class="btn btn-ghost btn-sm" style="font-size:10px;padding:3px 8px;color:var(--red)" onclick="if(safeConfirm('Ștergi produsul urmărit?')){deleteTrackedProduct('${p.id}');renderAdminAIKB()}">🗑</button>
+                `}
               </div>
             </div>
-            ${p.alternativ?.length ? '<div style="font-size:10px;color:var(--txt3);margin-bottom:4px">Alternativ: '+p.alternativ.map(a=>escHtml(a)).join(', ')+'</div>' : ''}
-            <div style="display:flex;gap:6px;flex-wrap:wrap;font-size:10px">
-              ${COMPETITORS.map(c => {
-                const url = p.urls?.[c];
-                return url ? '<a href="'+escHtml(url)+'" target="_blank" style="background:var(--green-l);padding:2px 6px;border-radius:3px;border:1px solid #bbf7d0;color:var(--green);text-decoration:none">'+COMP_LABELS[c]+' ✅</a>' : '<span style="color:var(--txt3);padding:2px 6px">'+COMP_LABELS[c]+' —</span>';
-              }).join(' ')}
-            </div>
-          </div>`).join('');
+            <div style="display:flex;gap:4px;flex-wrap:wrap">${urlBadges}</div>
+          </div>`;
+        }
+
+        const pendingHtml = pending.map(p => card(p, true)).join('');
+        const approvedHtml = approved.map(p => card(p, false)).join('');
 
         return `<div>
   <div class="admin-card" style="margin-bottom:12px;background:linear-gradient(135deg,#0f6e56,#1d9e75);color:#fff">
@@ -12049,28 +12067,109 @@ PROGRAM MAGAZINE:
           Prețurile se citesc direct de pe pagina produsului — <strong>fără Google Dorks</strong>, 10x mai ieftin și mai precis.
         </div>
         <div style="display:flex;gap:8px;font-size:11px">
-          <span style="background:rgba(255,255,255,.2);padding:2px 8px;border-radius:4px">${stats.aprobat} aprobate</span>
-          ${stats.inAsteptare > 0 ? '<span style="background:rgba(255,200,0,.3);padding:2px 8px;border-radius:4px">'+stats.inAsteptare+' în așteptare</span>' : ''}
-          <span style="background:rgba(255,255,255,.2);padding:2px 8px;border-radius:4px">${stats.cuLinkuri} cu link-uri</span>
+          <span style="background:rgba(255,255,255,.2);padding:2px 8px;border-radius:4px">✅ ${stats.aprobat} aprobate</span>
+          ${stats.inAsteptare > 0 ? '<span style="background:rgba(255,200,0,.3);padding:2px 8px;border-radius:4px">⏳ '+stats.inAsteptare+' în așteptare</span>' : ''}
+          <span style="background:rgba(255,255,255,.2);padding:2px 8px;border-radius:4px">🔗 ${stats.cuLinkuri} cu link-uri</span>
+          <span style="background:rgba(255,255,255,.2);padding:2px 8px;border-radius:4px">📦 ${stats.total} total</span>
         </div>
       </div>
     </div>
   </div>
 
   <div class="admin-card" style="margin-bottom:12px">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
-      <div style="font-size:11px;font-weight:700;color:var(--txt3);letter-spacing:1px;text-transform:uppercase;font-family:var(--mono)">Adaugă produs nou</div>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+      <button class="btn btn-primary btn-sm" onclick="openTrackedProductForm()">+ Adaugă produs</button>
+      <div style="flex:1;min-width:200px">
+        <input class="input" placeholder="🔍 Caută după denumire, SAP, alternativ..." value="${escHtml(_tpSearchFilter)}" 
+          oninput="_tpSearchFilter=this.value;renderAdminAIKB()" style="font-size:12px;width:100%"/>
+      </div>
+      <span style="font-size:10px;color:var(--txt3)">${filtered.length}/${products.length} afișate</span>
     </div>
-    <button class="btn btn-primary btn-sm" onclick="openTrackedProductForm()">+ Adaugă produs urmărit</button>
   </div>
 
-  ${stats.inAsteptare > 0 ? '<div class="admin-card" style="margin-bottom:12px;border-left:4px solid var(--amber)"><div style="font-size:11px;font-weight:700;color:var(--amber);letter-spacing:1px;text-transform:uppercase;font-family:var(--mono);margin-bottom:10px">⏳ În așteptare aprobare ('+stats.inAsteptare+')</div>' + pendingHtml + '</div>' : ''}
+  ${pending.length > 0 ? `<div class="admin-card" style="margin-bottom:12px;border-left:4px solid var(--amber)">
+    <div style="font-size:11px;font-weight:700;color:var(--amber);letter-spacing:1px;text-transform:uppercase;font-family:var(--mono);margin-bottom:10px">⏳ În așteptare aprobare (${pending.length})</div>
+    ${pendingHtml}
+  </div>` : ''}
 
   <div class="admin-card">
-    <div style="font-size:11px;font-weight:700;color:var(--txt3);letter-spacing:1px;text-transform:uppercase;font-family:var(--mono);margin-bottom:10px">✅ Produse aprobate (${stats.aprobat})</div>
-    ${approvedHtml || '<div style="padding:20px;text-align:center;color:var(--txt3);font-size:12px">Niciun produs urmărit încă. Adaugă primul produs sau procesează o ofertă.</div>'}
+    <div style="font-size:11px;font-weight:700;color:var(--txt3);letter-spacing:1px;text-transform:uppercase;font-family:var(--mono);margin-bottom:10px">✅ Produse aprobate (${approved.length})</div>
+    ${approvedHtml || '<div style="padding:20px;text-align:center;color:var(--txt3);font-size:12px">Niciun produs urmărit încă. Adaugă primul produs sau procesează o ofertă — materialele noi vor apărea automat aici.</div>'}
   </div>
 </div>`;
+      }
+
+      // ══════════ VIEW: Detalii produs urmărit ══════════
+      function viewTrackedProduct(id) {
+        const p = loadTrackedProducts().find(pr => pr.id === id);
+        if (!p) return;
+        const COMPS = ['mathaus','dedeman','leroy','bricodepot','hornbach'];
+        const CL = {mathaus:'MatHaus',dedeman:'Dedeman',leroy:'Leroy Merlin',bricodepot:'BricoDepot',hornbach:'Hornbach'};
+        const CC = {mathaus:'#E2302A',dedeman:'#E63946',leroy:'#00a551',bricodepot:'#0047AB',hornbach:'#FF6600'};
+
+        const urlCount = COMPS.filter(c => p.urls?.[c]).length;
+        const statusColor = p.status === 'aprobat' ? 'var(--green)' : 'var(--amber)';
+        const statusLabel = p.status === 'aprobat' ? '✅ Aprobat' : '⏳ În așteptare';
+
+        const linksHtml = COMPS.map(c => {
+          const url = p.urls?.[c];
+          const color = CC[c];
+          if (url) {
+            return `<div style="padding:10px 12px;border:1px solid #bbf7d0;border-radius:8px;background:var(--green-l);margin-bottom:6px">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+                <span style="font-weight:700;font-size:12px;color:${color}">${CL[c]}</span>
+                <span style="font-size:10px;color:var(--green);font-weight:600">✓ Link configurat</span>
+              </div>
+              <a href="${escHtml(url)}" target="_blank" style="font-size:10px;font-family:var(--mono);color:var(--blue);word-break:break-all;text-decoration:none">${escHtml(url)}</a>
+            </div>`;
+          } else {
+            return `<div style="padding:10px 12px;border:1px dashed var(--border);border-radius:8px;background:var(--surface2);margin-bottom:6px">
+              <div style="display:flex;justify-content:space-between;align-items:center">
+                <span style="font-weight:700;font-size:12px;color:${color}">${CL[c]}</span>
+                <span style="font-size:10px;color:var(--red);font-weight:600">✕ Lipsă link</span>
+              </div>
+              <div style="font-size:10px;color:var(--txt3);margin-top:2px">Fără link — prețul nu va fi comparat pentru acest competitor</div>
+            </div>`;
+          }
+        }).join('');
+
+        const modal = document.createElement('div');
+        modal.id = 'tp-view-modal';
+        modal.style.cssText = 'position:fixed;inset:0;background:rgba(28,43,74,0.5);z-index:9999;display:flex;justify-content:center;align-items:center;padding:16px;backdrop-filter:blur(2px)';
+        modal.innerHTML = `<div style="background:var(--surface);border-radius:16px;width:100%;max-width:560px;max-height:85vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,0.3)">
+          <div style="padding:16px 20px;background:var(--navy);color:#fff;border-radius:16px 16px 0 0">
+            <div style="font-size:15px;font-weight:800">👁 Detalii produs urmărit</div>
+          </div>
+          <div style="padding:16px 20px">
+            <div style="margin-bottom:16px">
+              <div style="font-size:18px;font-weight:800;color:var(--navy);margin-bottom:6px">${escHtml(p.nume)}</div>
+              <div style="display:flex;gap:8px;flex-wrap:wrap;font-size:11px;margin-bottom:8px">
+                <span style="background:${p.status==='aprobat'?'var(--green-l)':'var(--amber-l)'};color:${statusColor};padding:3px 10px;border-radius:4px;font-weight:700">${statusLabel}</span>
+                ${p.sap ? '<span style="font-family:var(--mono);background:var(--surface2);padding:3px 10px;border-radius:4px">SAP: '+escHtml(p.sap)+'</span>' : '<span style="color:var(--red);font-weight:600">⚠ Fără cod SAP</span>'}
+                ${p.um ? '<span style="background:var(--surface2);padding:3px 10px;border-radius:4px">UM: '+escHtml(p.um)+'</span>' : ''}
+              </div>
+              ${p.alternativ?.length ? '<div style="font-size:11px;color:var(--txt2);margin-bottom:6px"><strong>Denumiri alternative:</strong> '+p.alternativ.map(a=>escHtml(a)).join(', ')+'</div>' : '<div style="font-size:10px;color:var(--amber)">⚠ Fără denumiri alternative — poate reduce potrivirea automată</div>'}
+              <div style="font-size:10px;color:var(--txt3)">Adăugat: ${escHtml(p.dataAdaugare||'N/A')} · De: ${p.adaugatDe === 'admin' ? 'Admin' : 'Agent'}</div>
+            </div>
+            
+            <div style="border-top:1px solid var(--border);padding-top:14px;margin-bottom:10px">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+                <span style="font-size:12px;font-weight:700;color:var(--navy)">🔗 Link-uri competitori (${urlCount}/5)</span>
+                <span style="font-size:10px;color:${urlCount>=3?'var(--green)':urlCount>0?'var(--amber)':'var(--red)'};font-weight:600">
+                  ${urlCount >= 4 ? '✅ Complet' : urlCount >= 2 ? '⚠ Parțial' : urlCount > 0 ? '⚠ Incomplet' : '❌ Fără link-uri'}
+                </span>
+              </div>
+              ${linksHtml}
+            </div>
+
+            <div style="display:flex;gap:8px;justify-content:flex-end;border-top:1px solid var(--border);padding-top:14px">
+              <button class="btn btn-ghost" onclick="document.getElementById('tp-view-modal')?.remove()">Închide</button>
+              <button class="btn btn-primary" onclick="document.getElementById('tp-view-modal')?.remove();editTrackedProduct('${p.id}')">✏ Editează</button>
+            </div>
+          </div>
+        </div>`;
+        document.body.appendChild(modal);
+        modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
       }
 
       function approveTrackedProduct(id) {
