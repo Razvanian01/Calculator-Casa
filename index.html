@@ -11028,6 +11028,7 @@
           { id: 'training', icon: '📚', label: 'Consultant — Training' },
           { id: 'custom-answers', icon: '💬', label: 'Consultant — Răspunsuri' },
           { id: 'ofertare', icon: '🗂', label: 'Agent Ofertare' },
+          { id: 'tracked', icon: '🎯', label: 'Produse Urmărite' },
           { id: 'catalog', icon: '📦', label: 'Catalog Produse' },
           { id: 'usage', icon: '📊', label: 'Utilizare' },
         ];
@@ -11041,6 +11042,7 @@
         else if (aiKBTab === 'training') content = renderAITraining(kb);
         else if (aiKBTab === 'custom-answers') content = renderAICustomAnswers(kb);
         else if (aiKBTab === 'ofertare') content = renderAIOfertare(kb);
+        else if (aiKBTab === 'tracked') content = renderTrackedProducts();
         else if (aiKBTab === 'catalog') { content = renderAICatalog(); setTimeout(catalogAutoSync, 500); }
         else if (aiKBTab === 'settings') content = renderAISettings(kb);
         else if (aiKBTab === 'usage') content = renderAIUsageTab();
@@ -11990,6 +11992,207 @@ PROGRAM MAGAZINE:
         ).join('');
       }
 
+      // ══════════ TAB: PRODUSE URMĂRITE ══════════
+      function renderTrackedProducts() {
+        const products = loadTrackedProducts();
+        const stats = getTrackedProductsStats();
+        const COMPETITORS = ['mathaus','dedeman','leroy','bricodepot','hornbach'];
+        const COMP_LABELS = {mathaus:'MatHaus',dedeman:'Dedeman',leroy:'Leroy Merlin',bricodepot:'BricoDepot',hornbach:'Hornbach'};
+
+        const pendingHtml = products.filter(p => p.status === 'in_asteptare').map(p => `
+          <div style="padding:10px 14px;border:2px solid var(--amber);border-radius:var(--r-sm);background:var(--amber-l);margin-bottom:8px">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+              <div>
+                <span style="font-weight:700;font-size:13px">${escHtml(p.nume)}</span>
+                ${p.sap ? '<span style="font-size:10px;color:var(--txt3);font-family:var(--mono);margin-left:6px">SAP: '+escHtml(p.sap)+'</span>' : ''}
+                <span style="font-size:10px;color:var(--amber);margin-left:6px">Propus de agent · ${escHtml(p.dataAdaugare||'')}</span>
+              </div>
+              <div style="display:flex;gap:4px">
+                <button class="btn btn-sm" style="background:var(--green);color:#fff;font-size:10px;padding:3px 10px" onclick="approveTrackedProduct('${p.id}')">Aprobă</button>
+                <button class="btn btn-ghost btn-sm" style="font-size:10px;padding:3px 8px;color:var(--red)" onclick="deleteTrackedProduct('${p.id}');renderAdminAIKB()">Respinge</button>
+              </div>
+            </div>
+            <div style="display:flex;gap:6px;flex-wrap:wrap;font-size:10px">
+              ${COMPETITORS.map(c => p.urls?.[c] ? '<span style="background:#fff;padding:2px 6px;border-radius:3px;border:1px solid var(--border)">'+COMP_LABELS[c]+' ✅</span>' : '<span style="color:var(--txt3)">'+COMP_LABELS[c]+' —</span>').join(' ')}
+            </div>
+          </div>`).join('');
+
+        const approvedHtml = products.filter(p => p.status === 'aprobat').map(p => `
+          <div style="padding:10px 14px;border:1px solid var(--border);border-radius:var(--r-sm);background:var(--surface);margin-bottom:6px">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+              <div>
+                <span style="font-weight:700;font-size:12px">${escHtml(p.nume)}</span>
+                ${p.sap ? '<span style="font-size:10px;color:var(--txt3);font-family:var(--mono);margin-left:6px">SAP: '+escHtml(p.sap)+'</span>' : ''}
+              </div>
+              <div style="display:flex;gap:4px">
+                <button class="btn btn-ghost btn-sm" style="font-size:10px;padding:3px 8px" onclick="editTrackedProduct('${p.id}')">Editează</button>
+                <button class="btn btn-ghost btn-sm" style="font-size:10px;padding:3px 8px;color:var(--red)" onclick="if(safeConfirm('Ștergi produsul urmărit?')){deleteTrackedProduct('${p.id}');renderAdminAIKB()}">Șterge</button>
+              </div>
+            </div>
+            ${p.alternativ?.length ? '<div style="font-size:10px;color:var(--txt3);margin-bottom:4px">Alternativ: '+p.alternativ.map(a=>escHtml(a)).join(', ')+'</div>' : ''}
+            <div style="display:flex;gap:6px;flex-wrap:wrap;font-size:10px">
+              ${COMPETITORS.map(c => {
+                const url = p.urls?.[c];
+                return url ? '<a href="'+escHtml(url)+'" target="_blank" style="background:var(--green-l);padding:2px 6px;border-radius:3px;border:1px solid #bbf7d0;color:var(--green);text-decoration:none">'+COMP_LABELS[c]+' ✅</a>' : '<span style="color:var(--txt3);padding:2px 6px">'+COMP_LABELS[c]+' —</span>';
+              }).join(' ')}
+            </div>
+          </div>`).join('');
+
+        return `<div>
+  <div class="admin-card" style="margin-bottom:12px;background:linear-gradient(135deg,#0f6e56,#1d9e75);color:#fff">
+    <div style="display:flex;align-items:flex-start;gap:14px">
+      <div style="font-size:32px;flex-shrink:0">🎯</div>
+      <div>
+        <div style="font-size:14px;font-weight:800;margin-bottom:4px">Produse Urmărite — Link-uri Directe Competitori</div>
+        <div style="font-size:11px;opacity:.8;line-height:1.6;margin-bottom:6px">
+          Definește produsele pe care vrei să le monitorizezi cu link-uri directe la fiecare competitor.<br>
+          Prețurile se citesc direct de pe pagina produsului — <strong>fără Google Dorks</strong>, 10x mai ieftin și mai precis.
+        </div>
+        <div style="display:flex;gap:8px;font-size:11px">
+          <span style="background:rgba(255,255,255,.2);padding:2px 8px;border-radius:4px">${stats.aprobat} aprobate</span>
+          ${stats.inAsteptare > 0 ? '<span style="background:rgba(255,200,0,.3);padding:2px 8px;border-radius:4px">'+stats.inAsteptare+' în așteptare</span>' : ''}
+          <span style="background:rgba(255,255,255,.2);padding:2px 8px;border-radius:4px">${stats.cuLinkuri} cu link-uri</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="admin-card" style="margin-bottom:12px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+      <div style="font-size:11px;font-weight:700;color:var(--txt3);letter-spacing:1px;text-transform:uppercase;font-family:var(--mono)">Adaugă produs nou</div>
+    </div>
+    <button class="btn btn-primary btn-sm" onclick="openTrackedProductForm()">+ Adaugă produs urmărit</button>
+  </div>
+
+  ${stats.inAsteptare > 0 ? '<div class="admin-card" style="margin-bottom:12px;border-left:4px solid var(--amber)"><div style="font-size:11px;font-weight:700;color:var(--amber);letter-spacing:1px;text-transform:uppercase;font-family:var(--mono);margin-bottom:10px">⏳ În așteptare aprobare ('+stats.inAsteptare+')</div>' + pendingHtml + '</div>' : ''}
+
+  <div class="admin-card">
+    <div style="font-size:11px;font-weight:700;color:var(--txt3);letter-spacing:1px;text-transform:uppercase;font-family:var(--mono);margin-bottom:10px">✅ Produse aprobate (${stats.aprobat})</div>
+    ${approvedHtml || '<div style="padding:20px;text-align:center;color:var(--txt3);font-size:12px">Niciun produs urmărit încă. Adaugă primul produs sau procesează o ofertă.</div>'}
+  </div>
+</div>`;
+      }
+
+      function approveTrackedProduct(id) {
+        updateTrackedProduct(id, { status: 'aprobat' });
+        toast('✅ Produs aprobat');
+        renderAdminAIKB();
+      }
+
+      // ══════════ MODAL: Adaugă/Editează produs urmărit ══════════
+      function openTrackedProductForm(existingId, prefill) {
+        const existing = existingId ? loadTrackedProducts().find(p => p.id === existingId) : null;
+        const p = existing || prefill || {};
+        const COMPETITORS = ['mathaus','dedeman','leroy','bricodepot','hornbach'];
+        const COMP_LABELS = {mathaus:'MatHaus (mathaus.ro)',dedeman:'Dedeman (dedeman.ro)',leroy:'Leroy Merlin (leroymerlin.ro)',bricodepot:'BricoDepot (bricodepot.ro)',hornbach:'Hornbach (hornbach.ro)'};
+
+        const modal = document.createElement('div');
+        modal.id = 'tracked-product-modal';
+        modal.style.cssText = 'position:fixed;inset:0;background:rgba(28,43,74,0.5);z-index:9999;display:flex;justify-content:center;align-items:center;padding:16px;backdrop-filter:blur(2px)';
+        modal.innerHTML = `<div style="background:var(--surface);border-radius:16px;width:100%;max-width:560px;max-height:85vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,0.3)">
+          <div style="padding:16px 20px;background:var(--navy);color:#fff;border-radius:16px 16px 0 0">
+            <div style="font-size:15px;font-weight:800">${existing ? '✏ Editează produs urmărit' : '🎯 Adaugă produs urmărit'}</div>
+            <div style="font-size:10px;opacity:.6;margin-top:2px">Completează link-urile directe la pagina produsului pe fiecare site competitor</div>
+          </div>
+          <div style="padding:16px 20px">
+            <div style="margin-bottom:14px">
+              <label class="label">Denumire produs *</label>
+              <input class="input" id="tp-nume" value="${escHtml(p.nume||'')}" placeholder="ex: Adeziv Ceresit CM17 Flex 25kg" style="font-size:13px"/>
+            </div>
+            <div style="margin-bottom:14px">
+              <label class="label">Denumiri alternative (separate prin virgulă)</label>
+              <input class="input" id="tp-alternativ" value="${escHtml((p.alternativ||[]).join(', '))}" placeholder="ex: CM17, CM 17, Ceresit CM17" style="font-size:12px"/>
+              <div style="font-size:10px;color:var(--txt3);margin-top:2px">Ajută la potrivirea automată când agentul scrie diferit</div>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">
+              <div>
+                <label class="label">Cod SAP</label>
+                <input class="input" id="tp-sap" value="${escHtml(p.sap||'')}" placeholder="ex: 10700878" style="font-size:12px;font-family:var(--mono)"/>
+              </div>
+              <div>
+                <label class="label">UM (unitate măsură)</label>
+                <input class="input" id="tp-um" value="${escHtml(p.um||'')}" placeholder="ex: sac, buc, m²" style="font-size:12px"/>
+              </div>
+            </div>
+            <div style="border-top:1px solid var(--border);padding-top:14px;margin-bottom:10px">
+              <div style="font-size:11px;font-weight:700;color:var(--navy);margin-bottom:10px">🔗 Link-uri directe la pagina produsului</div>
+              ${COMPETITORS.map(c => `<div style="margin-bottom:10px">
+                <label class="label" style="font-size:11px">${COMP_LABELS[c]}</label>
+                <input class="input" id="tp-url-${c}" value="${escHtml(p.urls?.[c]||'')}" placeholder="https://${c === 'leroy' ? 'leroymerlin' : c === 'bricodepot' ? 'bricodepot' : c}.ro/..." style="font-size:11px;font-family:var(--mono)"/>
+              </div>`).join('')}
+            </div>
+            <div style="display:flex;gap:8px;justify-content:flex-end;border-top:1px solid var(--border);padding-top:14px">
+              <button class="btn btn-ghost" onclick="document.getElementById('tracked-product-modal')?.remove()">Anulează</button>
+              <button class="btn btn-primary" onclick="saveTrackedProductForm('${existingId||''}')">💾 ${existing ? 'Salvează modificări' : 'Adaugă produs'}</button>
+            </div>
+          </div>
+        </div>`;
+        document.body.appendChild(modal);
+        modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
+      }
+
+      function editTrackedProduct(id) { openTrackedProductForm(id); }
+
+      function saveTrackedProductForm(existingId) {
+        const nume = ($('tp-nume')?.value||'').trim();
+        if (!nume) { toast('⚠ Denumirea e obligatorie'); return; }
+        const alternativ = ($('tp-alternativ')?.value||'').split(',').map(s=>s.trim()).filter(Boolean);
+        const sap = ($('tp-sap')?.value||'').trim();
+        const um = ($('tp-um')?.value||'').trim();
+        const urls = {};
+        ['mathaus','dedeman','leroy','bricodepot','hornbach'].forEach(c => {
+          urls[c] = ($('tp-url-'+c)?.value||'').trim();
+        });
+        if (existingId) {
+          updateTrackedProduct(existingId, { nume, alternativ, sap, um, urls });
+          toast('✅ Produs actualizat');
+        } else {
+          addTrackedProduct({ nume, alternativ, sap, um, urls, status: 'aprobat', adaugatDe: 'admin' });
+          toast('✅ Produs adăugat');
+        }
+        document.getElementById('tracked-product-modal')?.remove();
+        renderAdminAIKB();
+      }
+
+      // ══════════ POPUP: Urmărește produs din ofertă ══════════
+      function openTrackProductPopup(material, ofertaId) {
+        window._pendingTrackMaterial = material;
+        const modal = document.createElement('div');
+        modal.id = 'track-popup-modal';
+        modal.style.cssText = 'position:fixed;inset:0;background:rgba(28,43,74,0.5);z-index:9999;display:flex;justify-content:center;align-items:center;padding:16px;backdrop-filter:blur(2px)';
+        modal.innerHTML = `<div style="background:var(--surface);border-radius:16px;width:100%;max-width:400px;box-shadow:0 20px 60px rgba(0,0,0,0.3)">
+          <div style="padding:16px 20px;background:var(--amber);color:#fff;border-radius:16px 16px 0 0;text-align:center">
+            <div style="font-size:28px;margin-bottom:6px">🎯</div>
+            <div style="font-size:15px;font-weight:800">Dorești să urmărim acest produs?</div>
+            <div style="font-size:12px;opacity:.8;margin-top:4px">${escHtml(material.nume)}</div>
+          </div>
+          <div style="padding:20px;text-align:center">
+            <div style="font-size:12px;color:var(--txt2);margin-bottom:16px;line-height:1.6">
+              Acest material nu are link-uri salvate pentru competitori.<br>
+              Vrei să-l adaugi la <strong>Produse Urmărite</strong> pentru a monitoriza prețurile?
+            </div>
+            <div style="display:flex;gap:10px;justify-content:center">
+              <button class="btn btn-ghost" style="padding:10px 24px" onclick="document.getElementById('track-popup-modal')?.remove()">Nu, mulțumesc</button>
+              <button class="btn btn-primary" style="padding:10px 24px" onclick="acceptTrackProduct()">Da, urmăresc</button>
+            </div>
+          </div>
+        </div>`;
+        document.body.appendChild(modal);
+        modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
+      }
+
+      function acceptTrackProduct() {
+        document.getElementById('track-popup-modal')?.remove();
+        const m = window._pendingTrackMaterial;
+        if (!m) return;
+        openTrackedProductForm(null, {
+          nume: m.nume, sap: m.sap || '', um: m.um || '',
+          alternativ: [m.mentionat_ca || ''].filter(Boolean),
+          urls: { mathaus: m.mathaus?.link || '' },
+          status: 'in_asteptare', adaugatDe: 'agent'
+        });
+      }
+
       function renderAICatalog() {
         const { sheetUrl, lastSync } = loadCatalogSettings();
         const catalog = loadCatalog();
@@ -12241,6 +12444,33 @@ PROGRAM MAGAZINE:
       </div>
       <button class="btn btn-ghost btn-sm" style="color:var(--red);font-size:11px;white-space:nowrap" onclick="clearPriceCache();renderAdminAIKB()">🗑 Golește cache</button>
     </div>
+  </div>
+
+  <!-- PRODUSE URMĂRITE -->
+  <div class="admin-card" style="margin-bottom:12px;border-left:4px solid var(--blue)">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px">
+      <div style="font-size:11px;font-weight:700;color:var(--txt3);letter-spacing:1px;text-transform:uppercase;font-family:var(--mono)">🎯 Produse Urmărite — Link-uri Directe Competitori</div>
+      <button class="btn btn-primary btn-sm" style="font-size:11px" onclick="trackedProductOpenAdd()">+ Adaugă Produs</button>
+    </div>
+    <div style="background:var(--surface2);border-radius:var(--r-sm);padding:10px 14px;font-size:11px;color:var(--txt2);margin-bottom:12px;line-height:1.6">
+      <strong style="color:var(--navy)">Cum funcționează:</strong> Definești link-urile directe pentru fiecare material × competitor. La ofertare, în loc să consume tokens pe Google Dorks, aplicația accesează direct pagina produsului și citește prețul real. <strong>Economie ~10x tokens.</strong>
+    </div>
+    ${(() => {
+      const tp = loadTrackedProducts();
+      const approved = tp.filter(p => p.status === 'aprobat');
+      const pending = tp.filter(p => p.status === 'in_asteptare');
+      if (!tp.length) return '<div style="padding:20px;text-align:center;color:var(--txt3);font-size:12px">Niciun produs urmărit. Adaugă primul produs sau lasă agenții să propună din notițe.</div>';
+      
+      let html = '';
+      if (pending.length) {
+        html += '<div style="font-size:11px;font-weight:700;color:var(--amber);margin-bottom:8px">⏳ În așteptare aprobare (' + pending.length + ')</div>';
+        html += pending.map(p => renderTrackedProductRow(p)).join('');
+        html += '<div style="border-bottom:1px solid var(--border);margin:12px 0"></div>';
+      }
+      html += '<div style="font-size:11px;font-weight:700;color:var(--green);margin-bottom:8px">✅ Aprobate (' + approved.length + ')</div>';
+      html += approved.map(p => renderTrackedProductRow(p)).join('');
+      return html;
+    })()}
   </div>
 
 
@@ -12764,7 +12994,65 @@ function sendWeeklyReport() {
 </div>`;
       }
 
-      // ══════════ TAB: USAGE ══════════
+      function openTrackProductDefinePopup(material) {
+        const COMPS = ['mathaus','dedeman','leroy','bricodepot','hornbach'];
+        const COMP_LABELS = {mathaus:'MatHaus',dedeman:'Dedeman',leroy:'Leroy Merlin',bricodepot:'BricoDepot',hornbach:'Hornbach'};
+        const html = `<div id="tp-define-overlay" style="position:fixed;inset:0;background:rgba(28,43,74,0.5);z-index:9998;display:flex;justify-content:center;align-items:center;padding:16px;backdrop-filter:blur(2px)">
+          <div style="background:var(--surface);border-radius:16px;width:100%;max-width:520px;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,0.3)">
+            <div style="padding:14px 18px;background:var(--navy);color:#fff;border-radius:16px 16px 0 0">
+              <div style="font-size:14px;font-weight:800">🎯 Definire produs urmărit</div>
+              <div style="font-size:10px;opacity:.6;margin-top:2px">Se va trimite la aprobare admin</div>
+            </div>
+            <div style="padding:16px 18px">
+              <div style="margin-bottom:12px">
+                <label class="label">Denumire produs</label>
+                <input class="input" id="tpd-nume" value="${escHtml(material.nume || '')}" style="font-size:12px"/>
+              </div>
+              <div style="margin-bottom:12px">
+                <label class="label">Denumiri alternative (virgulă)</label>
+                <input class="input" id="tpd-alt" value="${escHtml(material.mentionat_ca || '')}" placeholder="CM17, CM 17" style="font-size:11px"/>
+              </div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">
+                <div><label class="label">SAP</label><input class="input" id="tpd-sap" value="${escHtml(material.sap || '')}" style="font-size:11px;font-family:var(--mono)"/></div>
+                <div><label class="label">UM</label><input class="input" id="tpd-um" value="${escHtml(material.um || 'buc')}" style="font-size:11px"/></div>
+              </div>
+              <div style="font-size:10px;font-weight:700;color:var(--txt3);text-transform:uppercase;margin-bottom:8px;border-top:1px solid var(--border);padding-top:12px">Link-uri pagini produse</div>
+              ${COMPS.map(c => `<div style="margin-bottom:8px">
+                <label class="label" style="font-size:10px">${COMP_LABELS[c]}</label>
+                <input class="input" id="tpd-url-${c}" placeholder="https://${c}.ro/..." style="font-size:10px;font-family:var(--mono)"/>
+              </div>`).join('')}
+              <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:14px;border-top:1px solid var(--border);padding-top:12px">
+                <button class="btn btn-ghost" onclick="document.getElementById('tp-define-overlay').remove();window._tpSkipCallback&&window._tpSkipCallback()">Anulează</button>
+                <button class="btn btn-primary" onclick="saveAgentTrackedProduct()">💾 Trimite la aprobare</button>
+              </div>
+            </div>
+          </div>
+        </div>`;
+        document.body.insertAdjacentHTML('beforeend', html);
+      }
+
+      function saveAgentTrackedProduct() {
+        const nume = ($('tpd-nume')?.value || '').trim();
+        if (!nume) { toast('⚠ Denumirea e obligatorie'); return; }
+        const urls = {};
+        ['mathaus','dedeman','leroy','bricodepot','hornbach'].forEach(c => {
+          urls[c] = ($('tpd-url-' + c)?.value || '').trim();
+        });
+        addTrackedProduct({
+          nume,
+          alternativ: ($('tpd-alt')?.value || '').split(',').map(s => s.trim()).filter(Boolean),
+          sap: ($('tpd-sap')?.value || '').trim(),
+          um: ($('tpd-um')?.value || 'buc').trim(),
+          urls,
+          status: 'in_asteptare',
+          adaugatDe: 'agent'
+        });
+        document.getElementById('tp-define-overlay')?.remove();
+        toast('✅ Produs trimis la aprobare admin');
+        // Continue with skip (no competitor prices for now)
+        if (window._tpSkipCallback) window._tpSkipCallback();
+      }
+
       function renderAIUsageTab() {
         const usage = loadAIUsage();
         const kb = loadAIKB();
@@ -16012,6 +16300,78 @@ LIMBA: ${lang === 'ro' ? 'Română' : lang === 'en' ? 'English' : 'Auto-detect'}
       // ════════════════════════════════════════════════════════
       // #2 — PRICE CACHE: Ofertare → Consultant shared prices
       // ════════════════════════════════════════════════════════
+      // ════════════════════════════════════════════════════════
+      // PRODUSE URMĂRITE — link-uri directe per competitor
+      // ════════════════════════════════════════════════════════
+      const TRACKED_PRODUCTS_KEY = 'mathaus_tracked_products';
+
+      function loadTrackedProducts() {
+        try { return JSON.parse(localStorage.getItem(TRACKED_PRODUCTS_KEY) || '[]'); }
+        catch(e) { return []; }
+      }
+      function saveTrackedProducts(list) {
+        try { localStorage.setItem(TRACKED_PRODUCTS_KEY, JSON.stringify(list)); } catch(e) {}
+      }
+      function addTrackedProduct(product) {
+        const list = loadTrackedProducts();
+        product.id = product.id || 'tp_' + Date.now();
+        product.dataAdaugare = product.dataAdaugare || new Date().toISOString().split('T')[0];
+        list.push(product);
+        saveTrackedProducts(list);
+        return product;
+      }
+      function updateTrackedProduct(id, updates) {
+        const list = loadTrackedProducts();
+        const idx = list.findIndex(p => p.id === id);
+        if (idx >= 0) { Object.assign(list[idx], updates); saveTrackedProducts(list); }
+      }
+      function deleteTrackedProduct(id) {
+        const list = loadTrackedProducts().filter(p => p.id !== id);
+        saveTrackedProducts(list);
+      }
+      // Find tracked product by SAP, name, or alternative names
+      function findTrackedProduct(sap, name) {
+        const list = loadTrackedProducts().filter(p => p.status === 'aprobat');
+        if (!sap && !name) return null;
+        const sapClean = (sap || '').trim().toLowerCase();
+        const nameClean = (name || '').trim().toLowerCase();
+        for (const p of list) {
+          // Match by SAP
+          if (sapClean && p.sap && p.sap.toLowerCase() === sapClean) return p;
+          // Match by exact name
+          if (nameClean && p.nume && p.nume.toLowerCase() === nameClean) return p;
+          // Match by alternative names
+          if (nameClean && p.alternativ?.length) {
+            for (const alt of p.alternativ) {
+              if (alt.toLowerCase() === nameClean) return p;
+              // Fuzzy: check if search term contains alt or alt contains search term
+              if (nameClean.includes(alt.toLowerCase()) || alt.toLowerCase().includes(nameClean)) return p;
+            }
+          }
+          // Fuzzy name match: both contain the same product code (CM17, CT84, etc.)
+          if (nameClean && p.nume) {
+            const codeP = p.nume.match(/[A-Z]{1,4}\s?\d{1,4}/i);
+            const codeN = nameClean.match(/[a-z]{1,4}\s?\d{1,4}/i);
+            if (codeP && codeN && codeP[0].replace(/\s/g,'').toLowerCase() === codeN[0].replace(/\s/g,'').toLowerCase()) return p;
+          }
+        }
+        return null;
+      }
+      // Get tracked products stats
+      function getTrackedProductsStats() {
+        const list = loadTrackedProducts();
+        return {
+          total: list.length,
+          aprobat: list.filter(p => p.status === 'aprobat').length,
+          inAsteptare: list.filter(p => p.status === 'in_asteptare').length,
+          cuLinkuri: list.filter(p => p.urls && Object.values(p.urls).some(u => u)).length
+        };
+      }
+      function hasCompetitorUrls(tp) {
+        if (!tp?.urls) return false;
+        return ['dedeman','leroy','bricodepot','hornbach'].some(c => tp.urls[c]);
+      }
+
       const PRICE_CACHE_KEY = 'mathaus_price_cache';
 
       function loadPriceCache() {
@@ -16101,7 +16461,7 @@ LIMBA: ${lang === 'ro' ? 'Română' : lang === 'en' ? 'English' : 'Auto-detect'}
           const t = cache[k].current?.timestamp;
           return t && t < min ? t : min;
         }, new Date().toISOString());
-        return { total, withMathaus, oldest: oldest.substring(0, 10) };
+        return { total, withMathaus, oldest: oldest.split('T')[0] };
       }
 
       function getPriceCacheForPrompt(keywords) {
@@ -16884,106 +17244,112 @@ LIMBA: ${lang === 'ro' ? 'Română' : lang === 'en' ? 'English' : 'Auto-detect'}
           console.log('[Ofertare] Pas 2 complet:', materiale.length, 'materiale,', _needCompetitors.length, 'pentru competitori,', _cacheHits, 'din cache');
           ofertaUpdateProgress(ofertaId, 'preturi', materiale);
 
-          // ──────── PAS 3: Prețuri competitori — batch de max 2, prompt compact, Haiku ────────
+          // ──────── PAS 3: Prețuri competitori — link-uri directe din Produse Urmărite ────────
           if (_needCompetitors.length > 0) {
-            toast(`🔍 Pas 3/3: Caut prețuri competitori (${_needCompetitors.length} materiale)...`);
-            console.log('[Ofertare] Pas 3: caut competitori pentru:', _needCompetitors.map(m => m.nume).join(', '));
+            toast(`🔍 Pas 3/3: Verific prețuri competitori (${_needCompetitors.length} materiale)...`);
 
-            const compSites = compList.map((c, i) => siteList[i] || c.toLowerCase().replace(/ /g,'') + '.ro');
-            const BATCH_SIZE = 2; // max 2 materiale per apel API
-            const BATCH_DELAY = 3000; // 3s între batch-uri
+            const _tracked = []; // materiale cu link-uri directe
+            const _untracked = []; // materiale fără link-uri
 
-            for (let b = 0; b < _needCompetitors.length; b += BATCH_SIZE) {
-              const batch = _needCompetitors.slice(b, b + BATCH_SIZE);
-              const batchNum = Math.floor(b / BATCH_SIZE) + 1;
-              const totalBatches = Math.ceil(_needCompetitors.length / BATCH_SIZE);
+            // Split: tracked vs untracked
+            for (const m of _needCompetitors) {
+              const tp = findTrackedProduct(m.sap, m.nume) || findTrackedProduct('', m.mentionat_ca);
+              if (tp && hasCompetitorUrls(tp)) {
+                _tracked.push({ ...m, _tp: tp });
+              } else {
+                _untracked.push(m);
+              }
+            }
+
+            console.log(`[Ofertare] Pas 3: ${_tracked.length} cu link-uri directe, ${_untracked.length} fără urmărire`);
+
+            // ── 3A: Materiale CU link-uri → fetch direct pe URLs (super ieftin) ──
+            if (_tracked.length > 0) {
+              toast(`📊 ${_tracked.length} materiale cu link-uri directe — citesc prețuri de pe pagini...`);
               
-              toast(`🔍 Batch ${batchNum}/${totalBatches}: ${batch.map(m => m.nume.substring(0,25)).join(', ')}...`);
-
-              // Build compact material description
-              const matDesc = batch.map((m, i) => {
-                const name = m.mentionat_ca || m.nume;
-                const code = name.match(/[A-Z]{1,4}\s?\d{1,4}/i);
-                const shortCode = code ? code[0].replace(/\s/g, '') : '';
-                const brand = (name.match(/\b([A-Z][a-z]{2,})\b/) || [])[1] || '';
-                const searchTerm = brand && shortCode ? brand + ' ' + shortCode : name.split(/\s+/).slice(0,3).join(' ');
-                return `${i+1}. ${name} (${m.um}${m.localPret ? ', MatHaus:' + m.localPret + 'lei' : ''}) → caută: "${searchTerm}"`;
+              // Build a single compact prompt with all URLs
+              const urlList = _tracked.map((m, i) => {
+                const tp = m._tp;
+                const urls = ['dedeman','leroy','bricodepot','hornbach']
+                  .filter(c => tp.urls[c])
+                  .map(c => c + ': ' + tp.urls[c])
+                  .join('\n   ');
+                return `${i+1}. ${m.nume} (${m.um})\n   ${urls}`;
               }).join('\n');
 
-              // Compact prompt — under 500 tokens
-              const _today = new Date().toISOString().split('T')[0]; // 2025-04-09
-              const _freshDays = kb.priceFreshnessDays || 30;
-              const _afterDate = new Date(Date.now() - _freshDays * 86400000).toISOString().split('T')[0];
-              
-              const compactPrompt = `DATA ACTUALĂ: ${_today}
-Caută prețul ACTUAL (din ultima lună) pe pagina produsului la competitori.
+              const directPrompt = `Accesează fiecare URL de mai jos și citește prețul ACTUAL cu TVA de pe pagina produsului.
 
-IMPORTANT PREȚURI RECENTE:
-• Adaugă "after:${_afterDate}" în fiecare căutare Google pentru a filtra doar rezultate recente
-• Exemplu: site:dedeman.ro "Ceresit CM17" 25kg after:${_afterDate}
-• Dacă nu găsești cu after: → caută fără, DAR accesează pagina și verifică că prețul e cel CURENT afișat
-• NU raporta prețuri din articole/bloguri vechi — doar din pagina oficială a produsului
+PRODUSE:
+${urlList}
 
-MATERIALE:
-${matDesc}
-
-COMPETITORI: ${compList.map((c,i) => c + '(' + compSites[i] + ')').join(', ')}
-${adresa ? 'ZONĂ: ' + adresa + ' (nu pune zona în query)' : ''}
-
-PER MATERIAL × PER COMPETITOR:
-1. web_search: site:${compSites[0]} "${batch[0] ? (batch[0].mentionat_ca||batch[0].nume).match(/[A-Z][a-z]+\s[A-Z]{1,4}\d{1,4}/i)?.[0] || batch[0].nume.split(' ').slice(0,3).join(' ') : ''}" after:${_afterDate}
-2. Găsește link-ul paginii produsului din MAGAZINUL ONLINE (nu blog, nu comparator)
-3. Accesează pagina cu web_search → citește prețul cu TVA AFIȘAT ACUM pe pagină
-4. Verifică gramajul: ${batch[0]?.um || 'sac'} — ignoră alt gramaj
+INSTRUCȚIUNI:
+• Accesează FIECARE URL cu web_search
+• Citește prețul cu TVA AFIȘAT PE PAGINĂ — nu din cache Google
+• Verifică gramajul (ex: 25kg, nu 5kg)
+• Link-urile sunt directe — nu mai căuta pe Google
 
 JSON STRICT:
-{"r":[{"i":0,"d":{"p":70.91,"l":"https://dedeman.ro/..."},"le":{"p":null,"l":null},"b":{"p":null,"l":null},"h":{"p":null,"l":null}}]}
-i=index, d=dedeman, le=leroy, b=bricodepot, h=hornbach, p=pret, l=link`;
+{"r":[{"i":0,"d":{"p":70.91},"le":{"p":null},"b":{"p":null},"h":{"p":null}}]}
+i=index, d=dedeman, le=leroy, b=bricodepot, h=hornbach, p=pret`;
 
               try {
-                // Wait between batches
-                if (b > 0) await new Promise(r => setTimeout(r, BATCH_DELAY));
-
-                const batchResp = await fetch('https://api.anthropic.com/v1/messages', {
+                const resp = await fetch('https://api.anthropic.com/v1/messages', {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true', 'anthropic-beta': 'web-search-2025-03-05' },
                   body: JSON.stringify({
-                    model, // Folosește modelul selectat în Admin → Agent Ofertare
-                    max_tokens: 2000,
+                    model, max_tokens: 2000,
                     tools: [{ type: 'web_search_20250305', name: 'web_search' }],
-                    messages: [{ role: 'user', content: compactPrompt }]
+                    messages: [{ role: 'user', content: directPrompt }]
                   })
                 });
-
-                // Handle rate limit
-                if (batchResp.status === 429) {
-                  console.warn(`[Dorks Batch ${batchNum}] Rate limited, waiting 30s...`);
-                  toast('⏳ Rate limit — aștept 30s...');
-                  await new Promise(r => setTimeout(r, 30000));
-                  // Retry once
-                  const retryResp = await fetch('https://api.anthropic.com/v1/messages', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true', 'anthropic-beta': 'web-search-2025-03-05' },
-                    body: JSON.stringify({
-                      model, max_tokens: 2000,
-                      tools: [{ type: 'web_search_20250305', name: 'web_search' }],
-                      messages: [{ role: 'user', content: compactPrompt }]
-                    })
-                  });
-                  if (retryResp.ok) {
-                    const retryData = await retryResp.json();
-                    _parseBatchResult(retryData, batch, materiale, _needCompetitors);
+                if (resp.ok) {
+                  const data = await resp.json();
+                  trackAIUsage('message', 'oferte');
+                  const text = (data.content || []).filter(b => b.type === 'text').map(b => b.text).join('');
+                  const jm = text.match(/\{[\s\S]*\}/);
+                  if (jm) {
+                    const result = JSON.parse(jm[0]);
+                    (result.r || result.materiale || []).forEach(pr => {
+                      const bIdx = pr.i !== undefined ? pr.i : 0;
+                      if (bIdx >= _tracked.length) return;
+                      const matIdx = _tracked[bIdx].idx;
+                      const tp = _tracked[bIdx]._tp;
+                      const compMap = {d:'dedeman',de:'dedeman',dedeman:'dedeman',le:'leroy',leroy:'leroy',b:'bricodepot',bricodepot:'bricodepot',h:'hornbach',hornbach:'hornbach'};
+                      Object.entries(pr).forEach(([k, v]) => {
+                        const comp = compMap[k];
+                        if (comp && (v?.p !== undefined || v?.pret !== undefined)) {
+                          materiale[matIdx][comp] = { pret: v.p || v.pret, link: tp.urls[comp] || v.l || null, disponibil: !!(v.p || v.pret) };
+                        }
+                      });
+                      materiale[matIdx].sursa = materiale[matIdx].sursa === 'local' ? 'local+tracked' : 'tracked';
+                      materiale[matIdx]._status = 'done';
+                    });
                   }
-                } else if (batchResp.ok) {
-                  const batchData = await batchResp.json();
-                  _parseBatchResult(batchData, batch, materiale, _needCompetitors);
+                } else if (resp.status === 429) {
+                  toast('⏳ Rate limit — reîncerc în 20s...');
+                  await new Promise(r => setTimeout(r, 20000));
+                  // Simplified retry
+                  try {
+                    const r2 = await fetch('https://api.anthropic.com/v1/messages', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true', 'anthropic-beta': 'web-search-2025-03-05' },
+                      body: JSON.stringify({ model, max_tokens: 2000, tools: [{ type: 'web_search_20250305', name: 'web_search' }], messages: [{ role: 'user', content: directPrompt }] })
+                    });
+                    if (r2.ok) { const d2 = await r2.json(); _parseBatchResult(d2, _tracked, materiale, _needCompetitors); }
+                  } catch(e2) {}
                 }
-                trackAIUsage('message', 'oferte');
-              } catch(batchErr) {
-                console.warn(`[Dorks Batch ${batchNum}] Error:`, batchErr.message);
-              }
+              } catch(e) { console.warn('[Tracked Fetch] Error:', e.message); }
+              ofertaUpdateProgress(ofertaId, 'preturi', materiale);
+            }
 
-              // Update progress after each batch
+            // ── 3B: Materiale FĂRĂ link-uri → marcate pentru urmărire ulterioară ──
+            if (_untracked.length > 0) {
+              console.log(`[Ofertare] ${_untracked.length} materiale fără link-uri — marcate neUrmarit`);
+              _untracked.forEach(m => {
+                materiale[m.idx]._status = 'done';
+                materiale[m.idx].sursa = materiale[m.idx].sursa === 'local' ? 'local' : 'neUrmarit';
+                materiale[m.idx]._neUrmarit = true;
+              });
               ofertaUpdateProgress(ofertaId, 'preturi', materiale);
             }
 
@@ -17337,18 +17703,26 @@ i=index, d=dedeman, le=leroy, b=bricodepot, h=hornbach, p=pret, l=link`;
               ${m.mathaus?.link ? `<a href="${escHtml(m.mathaus.link)}" target="_blank" class="mat-link" style="font-size:10px;display:block;margin-top:2px">→ mathaus.ro</a>` : ''}
               ${(() => {
                 const badges = {
+                  'tracked': ['🎯 Link direct competitori', '#0f6e56', '#e1f5ee'],
+                  'local+tracked': ['📊 Intern + 🎯 Link direct', '#0f6e56', '#e1f5ee'],
                   'dorks': ['🔍 Google Dorks', '#1a73e8', '#e8f0fe'],
-                  'local+dorks': ['📊 Intern + 🔍 Competitori web', '#0f6e56', '#e1f5ee'],
-                  'claude-web': ['🤖 Claude Web Search', '#6b21a8', '#f3e8ff'],
-                  'claude-fallback': ['🤖 Claude fallback', '#6b21a8', '#f3e8ff'],
+                  'local+dorks': ['📊 Intern + 🔍 Dorks', '#0f6e56', '#e1f5ee'],
+                  'claude-web': ['🤖 Claude', '#6b21a8', '#f3e8ff'],
+                  'claude-fallback': ['🤖 Claude', '#6b21a8', '#f3e8ff'],
                   'local+claude': ['📊 Intern + 🤖 Claude', '#0f6e56', '#e1f5ee'],
                   'local': ['📊 Preț intern MatHaus', '#0f6e56', '#e1f5ee'],
-                  'cache': ['📦 Din cache' + (m._cacheDate ? ' (' + m._cacheDate + ')' : ''), '#0f6e56', '#e1f5ee'],
-                  'error': ['❌ Eroare — preț negăsit', '#dc2626', '#fef2f2'],
+                  'cache': ['📦 Cache' + (m._cacheDate ? ' (' + m._cacheDate + ')' : ''), '#0f6e56', '#e1f5ee'],
+                  'neUrmarit': ['⚠ Fără link-uri competitori', '#92400e', '#fef3c7'],
+                  'error': ['❌ Eroare', '#dc2626', '#fef2f2'],
                   'pending': ['⏳ Se caută...', '#92400e', '#fef3c7'],
                 };
                 const b = badges[m.sursa];
-                return b ? `<div style="display:inline-flex;align-items:center;gap:3px;margin-top:3px;background:${b[2]};border:1px solid ${b[1]}33;border-radius:4px;padding:2px 6px;font-size:9px;font-weight:600;color:${b[1]}">${b[0]}</div>` : '';
+                let html = b ? `<div style="display:inline-flex;align-items:center;gap:3px;margin-top:3px;background:${b[2]};border:1px solid ${b[1]}33;border-radius:4px;padding:2px 6px;font-size:9px;font-weight:600;color:${b[1]}">${b[0]}</div>` : '';
+                // Add "Track" button for untracked materials
+                if (m._neUrmarit || m.sursa === 'neUrmarit') {
+                  html += ` <button onclick="openTrackProductDefinePopup({nume:'${escHtml(m.nume).replace(/'/g,"\\'")}',sap:'${escHtml(m.sap||'')}',um:'${escHtml(m.um||'buc')}',mentionat_ca:'${escHtml(m.mentionat_ca||'').replace(/'/g,"\\'")}'})" style="margin-top:3px;background:var(--blue-l);border:1px solid #bfdbfe;border-radius:4px;padding:2px 8px;font-size:9px;font-weight:600;color:var(--blue);cursor:pointer;display:inline-flex;align-items:center;gap:3px">🎯 Adaugă la urmărire</button>`;
+                }
+                return html;
               })()}
             </td>
             <td style="text-align:center;white-space:nowrap">
