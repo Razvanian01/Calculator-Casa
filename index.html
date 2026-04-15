@@ -10604,6 +10604,14 @@
         toast('✅ Cache prețuri valabil: ' + (labels[val] || val + ' zile'));
       }
 
+      function savePriceFreshnessDays(val) {
+        const ofKb = loadOfertareKB();
+        ofKb.priceFreshnessDays = parseInt(val) || 30;
+        saveOfertareKB(ofKb);
+        const labels = {'7':'ultima săptămână','14':'ultimele 2 săptămâni','30':'ultima lună','60':'ultimele 2 luni','90':'ultimele 3 luni'};
+        toast('✅ Prospețime prețuri: ' + (labels[val] || val + ' zile'));
+      }
+
       // ── CSV Parser ──
       function parseCSVLine(line) {
         const result = [];
@@ -10862,6 +10870,7 @@
         serpApiKey: '',
         serpApiLimit: 250,
         priceCacheMaxDays: 7,
+        priceFreshnessDays: 30,
       };
 
       // ── LOAD / SAVE per KB ──
@@ -12207,17 +12216,28 @@ PROGRAM MAGAZINE:
     <div style="background:var(--surface2);border-radius:var(--r-sm);padding:10px 14px;font-size:11px;color:var(--txt2);margin-bottom:12px;line-height:1.6">
       <strong style="color:var(--navy)">Cum funcționează:</strong> Prețurile găsite prin Google Dorks se salvează automat. La următoarea ofertă, dacă un material are deja prețuri recente → se folosesc din cache, fără a mai consuma tokens sau căutări. Fiecare preț afișează data când a fost găsit.
     </div>
-    <div style="display:grid;grid-template-columns:1fr auto;gap:12px;align-items:end">
+    <div style="display:grid;grid-template-columns:1fr 1fr auto;gap:12px;align-items:end">
       <div>
         <label class="label">Valabilitate cache (zile)</label>
         <select class="input" style="max-width:200px;font-size:12px" onchange="savePriceCacheMaxDays(this.value)">
-          <option value="1" ${(kb.priceCacheMaxDays||7)==1?'selected':''}>1 zi (recăutare zilnică)</option>
+          <option value="1" ${(kb.priceCacheMaxDays||7)==1?'selected':''}>1 zi</option>
           <option value="3" ${(kb.priceCacheMaxDays||7)==3?'selected':''}>3 zile</option>
           <option value="7" ${(kb.priceCacheMaxDays||7)==7?'selected':''}>7 zile (recomandat)</option>
           <option value="14" ${(kb.priceCacheMaxDays||7)==14?'selected':''}>14 zile</option>
           <option value="30" ${(kb.priceCacheMaxDays||7)==30?'selected':''}>30 zile</option>
         </select>
-        <div style="font-size:10px;color:var(--txt3);margin-top:3px">Prețurile mai vechi de acest interval sunt recăutate automat. Checkbox-ul „Forțează recăutare" din modal ignoră cache-ul complet.</div>
+        <div style="font-size:10px;color:var(--txt3);margin-top:3px">Prețurile din cache mai vechi se recaută automat.</div>
+      </div>
+      <div>
+        <label class="label">🕐 Prospețime prețuri căutate</label>
+        <select class="input" style="max-width:200px;font-size:12px" onchange="savePriceFreshnessDays(this.value)">
+          <option value="7" ${(kb.priceFreshnessDays||30)==7?'selected':''}>Ultima săptămână</option>
+          <option value="14" ${(kb.priceFreshnessDays||30)==14?'selected':''}>Ultimele 2 săptămâni</option>
+          <option value="30" ${(kb.priceFreshnessDays||30)==30?'selected':''}>Ultima lună (recomandat)</option>
+          <option value="60" ${(kb.priceFreshnessDays||30)==60?'selected':''}>Ultimele 2 luni</option>
+          <option value="90" ${(kb.priceFreshnessDays||30)==90?'selected':''}>Ultimele 3 luni</option>
+        </select>
+        <div style="font-size:10px;color:var(--txt3);margin-top:3px">Filtrează rezultatele Google doar din această perioadă (after:dată).</div>
       </div>
       <button class="btn btn-ghost btn-sm" style="color:var(--red);font-size:11px;white-space:nowrap" onclick="clearPriceCache();renderAdminAIKB()">🗑 Golește cache</button>
     </div>
@@ -16891,7 +16911,18 @@ LIMBA: ${lang === 'ro' ? 'Română' : lang === 'en' ? 'English' : 'Auto-detect'}
               }).join('\n');
 
               // Compact prompt — under 500 tokens
-              const compactPrompt = `Caută prețul REAL pe pagina produsului la competitori. NU folosi prețul din snippet Google.
+              const _today = new Date().toISOString().split('T')[0]; // 2025-04-09
+              const _freshDays = kb.priceFreshnessDays || 30;
+              const _afterDate = new Date(Date.now() - _freshDays * 86400000).toISOString().split('T')[0];
+              
+              const compactPrompt = `DATA ACTUALĂ: ${_today}
+Caută prețul ACTUAL (din ultima lună) pe pagina produsului la competitori.
+
+IMPORTANT PREȚURI RECENTE:
+• Adaugă "after:${_afterDate}" în fiecare căutare Google pentru a filtra doar rezultate recente
+• Exemplu: site:dedeman.ro "Ceresit CM17" 25kg after:${_afterDate}
+• Dacă nu găsești cu after: → caută fără, DAR accesează pagina și verifică că prețul e cel CURENT afișat
+• NU raporta prețuri din articole/bloguri vechi — doar din pagina oficială a produsului
 
 MATERIALE:
 ${matDesc}
@@ -16900,9 +16931,9 @@ COMPETITORI: ${compList.map((c,i) => c + '(' + compSites[i] + ')').join(', ')}
 ${adresa ? 'ZONĂ: ' + adresa + ' (nu pune zona în query)' : ''}
 
 PER MATERIAL × PER COMPETITOR:
-1. web_search: site:${compSites[0]} "${batch[0] ? (batch[0].mentionat_ca||batch[0].nume).match(/[A-Z][a-z]+\s[A-Z]{1,4}\d{1,4}/i)?.[0] || batch[0].nume.split(' ').slice(0,3).join(' ') : ''}"
-2. Găsește link-ul paginii produsului → accesează-l cu web_search
-3. Citește prețul cu TVA de pe PAGINA REALĂ (nu din snippet)
+1. web_search: site:${compSites[0]} "${batch[0] ? (batch[0].mentionat_ca||batch[0].nume).match(/[A-Z][a-z]+\s[A-Z]{1,4}\d{1,4}/i)?.[0] || batch[0].nume.split(' ').slice(0,3).join(' ') : ''}" after:${_afterDate}
+2. Găsește link-ul paginii produsului din MAGAZINUL ONLINE (nu blog, nu comparator)
+3. Accesează pagina cu web_search → citește prețul cu TVA AFIȘAT ACUM pe pagină
 4. Verifică gramajul: ${batch[0]?.um || 'sac'} — ignoră alt gramaj
 
 JSON STRICT:
@@ -16917,7 +16948,7 @@ i=index, d=dedeman, le=leroy, b=bricodepot, h=hornbach, p=pret, l=link`;
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true', 'anthropic-beta': 'web-search-2025-03-05' },
                   body: JSON.stringify({
-                    model: 'claude-haiku-4-5-20251001', // Haiku: rapid, ieftin, rate limit mare
+                    model, // Folosește modelul selectat în Admin → Agent Ofertare
                     max_tokens: 2000,
                     tools: [{ type: 'web_search_20250305', name: 'web_search' }],
                     messages: [{ role: 'user', content: compactPrompt }]
@@ -16934,7 +16965,7 @@ i=index, d=dedeman, le=leroy, b=bricodepot, h=hornbach, p=pret, l=link`;
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true', 'anthropic-beta': 'web-search-2025-03-05' },
                     body: JSON.stringify({
-                      model: 'claude-haiku-4-5-20251001', max_tokens: 2000,
+                      model, max_tokens: 2000,
                       tools: [{ type: 'web_search_20250305', name: 'web_search' }],
                       messages: [{ role: 'user', content: compactPrompt }]
                     })
