@@ -12454,7 +12454,8 @@ PROGRAM MAGAZINE:
         const kb = loadOfertareKB();
         const model = kb.aiModelOferte || 'claude-sonnet-4-5-20250929';
         const urlInstructions = urlEntries.map((e, i) => (i+1) + '. ' + e.comp.toUpperCase() + ': ' + e.url).join('\n');
-        const fetchPrompt = 'Citește prețul REAL al produsului "' + tp.nume + '" (' + (tp.um||'buc') + ') de pe fiecare site.\n\nPentru FIECARE URL, fă web_search cu URL-ul EXACT ca query.\n\nURL-URI:\n' + urlInstructions + '\n\nCitește prețul cu TVA inclus. JSON STRICT:\n{"' + urlEntries.map(e => e.key).join('":{"p":0},"') + '":{"p":0}}';
+        const _today = new Date().toISOString().split('T')[0];
+        const fetchPrompt = 'DATA: ' + _today + '. Citește prețul ACTUAL al produsului "' + tp.nume + '" (' + (tp.um||'buc') + ') de pe fiecare site.\n\nPentru FIECARE URL, fă web_search cu URL-ul EXACT ca query pentru a accesa pagina reală.\n\nURL-URI:\n' + urlInstructions + '\n\nCitește prețul cu TVA inclus AFIȘAT ACUM PE PAGINĂ (nu din cache Google). JSON STRICT:\n{"' + urlEntries.map(e => e.key).join('":{"p":0},"') + '":{"p":0}}';
         try {
           const resp = await fetch('https://api.anthropic.com/v1/messages', {
             method: 'POST',
@@ -17777,9 +17778,10 @@ LIMBA: ${lang === 'ro' ? 'Română' : lang === 'en' ? 'English' : 'Auto-detect'}
             for (const m of _stillNeedComp) {
               const tp = findTrackedProduct(m.sap, m.nume) || findTrackedProduct('', m.mentionat_ca);
               if (tp && hasCompetitorUrls(tp)) {
-                // Check if tracked product has recent lastPrices (< 7 days) — use cache
+                // Check if tracked product has recent lastPrices — use cache
                 const lastDate = tp.lastPriceDate ? new Date(tp.lastPriceDate) : null;
-                const isRecent = lastDate && (Date.now() - lastDate.getTime()) < 7 * 86400000;
+                const _cacheDays = kb.priceCacheMaxDays || 7;
+                const isRecent = lastDate && (Date.now() - lastDate.getTime()) < _cacheDays * 86400000;
                 if (isRecent && tp.lastPrices && Object.values(tp.lastPrices).some(p => p > 0)) {
                   // Use cached tracked prices — zero AI cost
                   const matIdx = m.idx;
@@ -17830,16 +17832,18 @@ LIMBA: ${lang === 'ro' ? 'Română' : lang === 'en' ? 'English' : 'Auto-detect'}
                   `${i+1}. ${e.comp.toUpperCase()}: ${e.url}`
                 ).join('\n');
 
-                const fetchPrompt = `Trebuie să citesc prețul real al produsului "${m.nume}" de pe site-urile competitorilor.
+                const _todayDate = new Date().toISOString().split('T')[0];
+                const fetchPrompt = `DATA ACTUALĂ: ${_todayDate}
+Trebuie să citesc prețul ACTUAL al produsului "${m.nume}" de pe site-urile competitorilor.
 
-IMPORTANT: Pentru FIECARE URL de mai jos, fă câte un web_search cu URL-ul EXACT ca query (nu cu cuvinte cheie). Astfel vei accesa pagina reală și vei putea citi prețul.
+IMPORTANT: Pentru FIECARE URL de mai jos, fă câte un web_search cu URL-ul EXACT ca query (nu cu cuvinte cheie). Astfel vei accesa pagina reală și vei putea citi prețul CURENT afișat.
 
 URL-URI DE ACCESAT:
 ${urlInstructions}
 
 PAȘI PENTRU FIECARE URL:
 1. Fă web_search cu URL-ul complet: de exemplu caută "${urlEntries[0].url}"
-2. Din rezultat, citește prețul cu TVA inclus afișat pe pagină
+2. Din rezultat, citește prețul cu TVA inclus AFIȘAT ACUM pe pagină (nu din cache)
 3. Verifică că e produsul corect (${m.um}, gramaj potrivit)
 4. Dacă pagina nu afișează preț sau e alt produs → null
 
