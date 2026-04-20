@@ -8044,7 +8044,7 @@
       const PROD_KEY = "mathausProdV2";
       const PRICE_KEY = "mathausPretV2";
       const SETTINGS_KEY = "mathausSettingsV1";
-      let appSettings = { showPrices: false, cloudUrl: '', adminPass: '', cloudAutoSave: true, sheetsWebhookUrl: '', sheetsEmail: '', catalogSheetUrl: '', catalogLastSync: '', syncIntervalHours: 24 };
+      let appSettings = { showPrices: false, cloudUrl: '', adminPass: '', cloudAutoSave: true, sheetsWebhookUrl: '', sheetsEmail: '', catalogSheetUrl: '', catalogLastSync: '', syncIntervalHours: 24, priceWritebackUrl: '' };
       let _isAdmin = false; // session-only, not persisted
       let _cloudSaveTimer = null;
 
@@ -11657,6 +11657,14 @@ PROGRAM MAGAZINE:
           if (/url.?leroy|link.?leroy|leroy.?url|leroy.?link/i.test(s)) return 'url_leroy';
           if (/url.?brico|link.?brico|brico.?url|brico.?link/i.test(s)) return 'url_bricodepot';
           if (/url.?hornbach|link.?hornbach|hornbach.?url|hornbach.?link/i.test(s)) return 'url_hornbach';
+          // Competitor price columns (from Apps Script scraper)
+          if (/pret.?dedeman|dedeman.?pret|price.?dedeman/i.test(s)) return 'pret_dedeman';
+          if (/pret.?leroy|leroy.?pret|price.?leroy/i.test(s)) return 'pret_leroy';
+          if (/pret.?brico|brico.?pret|price.?brico/i.test(s)) return 'pret_bricodepot';
+          if (/pret.?hornbach|hornbach.?pret|price.?hornbach/i.test(s)) return 'pret_hornbach';
+          if (/pret.?mathaus.?real|mathaus.?pret.?real|pret.?site/i.test(s)) return 'pret_mathaus_real';
+          // Date column for price freshness
+          if (/data.?pret|date.?price|actualizat|updated/i.test(s)) return 'pret_date';
           return s;
         }
 
@@ -11735,19 +11743,25 @@ PROGRAM MAGAZINE:
       }
 
       function finalizeCatalogImport(rows, fileName) {
-        // Normalizam rows sa avem mereu name, sap, um, price
         const normalized = rows.map(r => ({
           name: r.name || r.denumire || r.produs || '',
           sap: (r.sap || r['cod sap'] || r['sap cod'] || '').replace(/\s/g, ''),
           um: r.um || r['u.m.'] || r.unitate || '',
           price: typeof r.price === 'number' ? r.price
                  : parseFloat((r.price || r.pret || r['pret lista'] || '0').toString().replace(',','.')) || 0,
-          // URL columns for tracked products
+          // URL columns
           url_mathaus: r.url_mathaus || '',
           url_dedeman: r.url_dedeman || '',
           url_leroy: r.url_leroy || '',
           url_bricodepot: r.url_bricodepot || '',
-          url_hornbach: r.url_hornbach || ''
+          url_hornbach: r.url_hornbach || '',
+          // Competitor price columns (from Apps Script)
+          pret_dedeman: parseFloat((r.pret_dedeman || '').toString().replace(',','.')) || 0,
+          pret_leroy: parseFloat((r.pret_leroy || '').toString().replace(',','.')) || 0,
+          pret_bricodepot: parseFloat((r.pret_bricodepot || '').toString().replace(',','.')) || 0,
+          pret_hornbach: parseFloat((r.pret_hornbach || '').toString().replace(',','.')) || 0,
+          pret_mathaus_real: parseFloat((r.pret_mathaus_real || '').toString().replace(',','.')) || 0,
+          pret_date: r.pret_date || ''
         })).filter(r => r.name);
 
         const ok = saveCatalog(normalized);
@@ -11766,24 +11780,41 @@ PROGRAM MAGAZINE:
               bricodepot: r.url_bricodepot || '',
               hornbach: r.url_hornbach || ''
             };
+            // Build prices from Sheet columns
+            const sheetPrices = {};
+            if (r.pret_dedeman) sheetPrices.dedeman = r.pret_dedeman;
+            if (r.pret_leroy) sheetPrices.leroy = r.pret_leroy;
+            if (r.pret_bricodepot) sheetPrices.bricodepot = r.pret_bricodepot;
+            if (r.pret_hornbach) sheetPrices.hornbach = r.pret_hornbach;
+            if (r.pret_mathaus_real) sheetPrices.mathaus = r.pret_mathaus_real;
+
             if (r.sap && existingSAPs.has(r.sap)) {
-              // Update existing tracked product URLs
               const ep = existing.find(p => p.sap === r.sap);
               if (ep) {
                 ['mathaus','dedeman','leroy','bricodepot','hornbach'].forEach(c => {
-                  if (urls[c] && !ep.urls?.[c]) { if (!ep.urls) ep.urls = {}; ep.urls[c] = urls[c]; }
+                  if (urls[c]) { if (!ep.urls) ep.urls = {}; ep.urls[c] = urls[c]; }
                 });
+                // Update prices from Sheet
+                if (Object.keys(sheetPrices).length > 0) {
+                  ep.lastPrices = { ...(ep.lastPrices || {}), ...sheetPrices };
+                  ep.lastPriceDate = r.pret_date || new Date().toISOString().split('T')[0];
+                  ep.priceSource = 'sheet';
+                }
                 updated++;
               }
             } else {
-              // Create new tracked product
-              existing.push({
+              const newTp = {
                 id: 'tp_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4),
                 nume: r.name, sap: r.sap, um: r.um,
-                alternativ: [],
-                urls, status: 'aprobat', adaugatDe: 'sheet',
+                alternativ: [], urls, status: 'aprobat', adaugatDe: 'sheet',
                 dataAdaugare: new Date().toISOString().split('T')[0]
-              });
+              };
+              if (Object.keys(sheetPrices).length > 0) {
+                newTp.lastPrices = sheetPrices;
+                newTp.lastPriceDate = r.pret_date || new Date().toISOString().split('T')[0];
+                newTp.priceSource = 'sheet';
+              }
+              existing.push(newTp);
               existingSAPs.add(r.sap);
               added++;
             }
@@ -11794,9 +11825,28 @@ PROGRAM MAGAZINE:
           }
         }
 
+        // Store competitor prices in a separate lookup table for fast access during ofertare
+        const compPriceRows = normalized.filter(r => r.sap && (r.pret_dedeman || r.pret_leroy || r.pret_bricodepot || r.pret_hornbach || r.pret_mathaus_real));
+        if (compPriceRows.length > 0) {
+          const priceTable = {};
+          compPriceRows.forEach(r => {
+            priceTable[r.sap] = {
+              mathaus: r.pret_mathaus_real || r.price || 0,
+              dedeman: r.pret_dedeman || 0,
+              leroy: r.pret_leroy || 0,
+              bricodepot: r.pret_bricodepot || 0,
+              hornbach: r.pret_hornbach || 0,
+              date: r.pret_date || new Date().toISOString().split('T')[0]
+            };
+          });
+          try { localStorage.setItem('mathaus_sheet_comp_prices', JSON.stringify(priceTable)); } catch(e) {}
+          console.log(`[Sheet Import] ${compPriceRows.length} competitor prices saved from Sheet columns`);
+        }
+
         if (ok) {
-          const urlMsg = urlRows.length > 0 ? ` + ${urlRows.length} produse urmărite din link-uri` : '';
-          toast(`✅ ${normalized.length} produse importate din ${fileName}${urlMsg}`);
+          const urlMsg = urlRows.length > 0 ? ` + ${urlRows.length} tracked` : '';
+          const priceMsg = compPriceRows.length > 0 ? ` + ${compPriceRows.length} prețuri competitori` : '';
+          toast(`✅ ${normalized.length} produse din ${fileName}${urlMsg}${priceMsg}`);
           renderAdminAIKB();
         }
       }
@@ -11883,7 +11933,8 @@ PROGRAM MAGAZINE:
                   <button class="btn btn-sm" style="background:var(--green);color:#fff;font-size:10px;padding:3px 10px" onclick="approveTrackedProduct('${p.id}')">✓ Aprobă</button>
                   <button class="btn btn-ghost btn-sm" style="font-size:10px;padding:3px 8px;color:var(--red)" onclick="deleteTrackedProduct('${p.id}');renderAdminAIKB()">✕</button>
                 ` : `
-                  <button class="btn btn-ghost btn-sm" style="font-size:10px;padding:3px 8px" onclick="editTrackedProduct('${p.id}')">✏ Editează</button>
+                  <button class="btn btn-ghost btn-sm" style="font-size:10px;padding:3px 8px;color:var(--green)" onclick="tpRefreshPrices('${p.id}',()=>renderAdminAIKB())" title="Actualizează prețuri de pe site">🔄</button>
+                  <button class="btn btn-ghost btn-sm" style="font-size:10px;padding:3px 8px" onclick="editTrackedProduct('${p.id}')">✏</button>
                   <button class="btn btn-ghost btn-sm" style="font-size:10px;padding:3px 8px;color:var(--red)" onclick="if(safeConfirm('Ștergi produsul urmărit?')){deleteTrackedProduct('${p.id}');renderAdminAIKB()}">🗑</button>
                 `}
               </div>
@@ -11943,6 +11994,7 @@ PROGRAM MAGAZINE:
     <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap">
       <button class="btn btn-ghost btn-sm" style="font-size:10px" onclick="tpExportJSON()">📤 Export JSON</button>
       <button class="btn btn-ghost btn-sm" style="font-size:10px" onclick="tpImportJSON()">📥 Import JSON</button>
+      <button class="btn btn-ghost btn-sm" style="font-size:10px;color:var(--green)" onclick="tpWriteAllPricesToSheet()">📋 Trimite prețuri → Sheet</button>
       <input type="file" id="tp-import-file" accept=".json" style="display:none" onchange="tpHandleImport(this)"/>
     </div>
   </div>
@@ -12219,6 +12271,7 @@ PROGRAM MAGAZINE:
 
             <div style="display:flex;gap:8px;justify-content:flex-end;border-top:1px solid var(--border);padding-top:14px">
               <button class="btn btn-ghost" onclick="document.getElementById('tp-view-modal')?.remove()">Închide</button>
+              <button class="btn btn-ghost" style="color:var(--green)" onclick="document.getElementById('tp-view-modal')?.remove();tpRefreshPrices('${p.id}',()=>{renderAdminAIKB();toast('Prețuri actualizate — deschide produsul din nou pentru a le vedea')})">🔄 Refresh prețuri</button>
               <button class="btn btn-primary" onclick="document.getElementById('tp-view-modal')?.remove();editTrackedProduct('${p.id}')">✏ Editează</button>
             </div>
           </div>
@@ -12299,20 +12352,78 @@ PROGRAM MAGAZINE:
 
       // ══════════ CACHE PREȚURI TRACKED: salvează ultimul preț per produs ══════════
       function tpSaveLastPrices(trackedProductId, prices) {
-        // prices = { mathaus: 36.76, dedeman: 70.91, leroy: null, ... }
         const list = loadTrackedProducts();
         const idx = list.findIndex(p => p.id === trackedProductId);
         if (idx < 0) return;
         const now = new Date().toISOString().split('T')[0];
         if (!list[idx].priceHistory) list[idx].priceHistory = [];
-        // Add current prices to history
         list[idx].priceHistory.push({ date: now, prices: { ...prices } });
-        // Keep only last 30 entries
         if (list[idx].priceHistory.length > 30) list[idx].priceHistory = list[idx].priceHistory.slice(-30);
-        // Set lastPrice for quick access
         list[idx].lastPrices = prices;
         list[idx].lastPriceDate = now;
         saveTrackedProducts(list);
+        // Write back to Google Sheet
+        tpWritePricesToSheet(list[idx].sap, list[idx].nume, prices);
+      }
+
+      // ══════════ WRITEBACK: Salvează prețuri în Google Sheet ══════════
+      function tpWritePricesToSheet(sap, name, prices) {
+        const url = appSettings.priceWritebackUrl;
+        if (!url || !sap) return;
+        try {
+          const payload = {
+            action: 'updatePrices',
+            sap: sap,
+            name: name,
+            prices: {
+              dedeman: prices.dedeman || null,
+              leroy: prices.leroy || null,
+              bricodepot: prices.bricodepot || null,
+              hornbach: prices.hornbach || null,
+              mathaus_real: prices.mathaus || null
+            },
+            date: new Date().toISOString().split('T')[0]
+          };
+          // Fire-and-forget POST (no CORS issues with Apps Script deployed as web app)
+          fetch(url, {
+            method: 'POST',
+            mode: 'no-cors',
+            headers: { 'Content-Type': 'text/plain' },
+            body: JSON.stringify(payload)
+          }).then(() => {
+            console.log(`[Sheet Writeback] ${sap} ${name}: prices sent to Sheet`);
+          }).catch(e => {
+            console.warn('[Sheet Writeback] Error:', e.message);
+          });
+        } catch(e) { console.warn('[Sheet Writeback] Error:', e.message); }
+      }
+
+      // Batch writeback: send all tracked product prices at once
+      function tpWriteAllPricesToSheet() {
+        const url = appSettings.priceWritebackUrl;
+        if (!url) { toast('⚠ Configurează URL-ul Apps Script pentru writeback în Admin → Agent Ofertare'); return; }
+        const products = loadTrackedProducts().filter(p => p.status === 'aprobat' && p.lastPrices && p.sap);
+        if (!products.length) { toast('⚠ Niciun produs cu prețuri de trimis'); return; }
+        toast(`📤 Trimit ${products.length} prețuri la Google Sheet...`);
+        const payload = {
+          action: 'batchUpdatePrices',
+          products: products.map(p => ({
+            sap: p.sap,
+            name: p.nume,
+            prices: p.lastPrices,
+            date: p.lastPriceDate || new Date().toISOString().split('T')[0]
+          }))
+        };
+        fetch(url, {
+          method: 'POST',
+          mode: 'no-cors',
+          headers: { 'Content-Type': 'text/plain' },
+          body: JSON.stringify(payload)
+        }).then(() => {
+          toast(`✅ ${products.length} prețuri trimise la Google Sheet`);
+        }).catch(e => {
+          toast('⚠ Eroare writeback: ' + e.message);
+        });
       }
 
       function tpGetPriceTrend(product, competitor) {
@@ -12324,6 +12435,76 @@ PROGRAM MAGAZINE:
         if (last < prev) return 'down'; // preț scăzut
         if (last > prev) return 'up';   // preț crescut
         return 'same';
+      }
+
+      // ══════════ REFRESH: Actualizare prețuri de pe site (Claude API) ══════════
+      async function tpRefreshPrices(trackedProductId, callback) {
+        const tp = loadTrackedProducts().find(p => p.id === trackedProductId);
+        if (!tp) { toast('⚠ Produs negăsit'); return; }
+        const apiKey = getChatApiKey();
+        if (!apiKey) { toast('⚠ Cheie API Anthropic necesară'); return; }
+        const urls = tp.urls || {};
+        const urlEntries = [];
+        const COMP_MAP = {mathaus:'mh',dedeman:'d',leroy:'le',bricodepot:'b',hornbach:'h'};
+        ['mathaus','dedeman','leroy','bricodepot','hornbach'].forEach(c => {
+          if (urls[c]) urlEntries.push({ comp: c, key: COMP_MAP[c], url: urls[c] });
+        });
+        if (!urlEntries.length) { toast('⚠ Niciun link configurat'); return; }
+        toast('🔄 Actualizez prețuri: ' + tp.nume + '...');
+        const kb = loadOfertareKB();
+        const model = kb.aiModelOferte || 'claude-sonnet-4-5-20250929';
+        const urlInstructions = urlEntries.map((e, i) => (i+1) + '. ' + e.comp.toUpperCase() + ': ' + e.url).join('\n');
+        const fetchPrompt = 'Citește prețul REAL al produsului "' + tp.nume + '" (' + (tp.um||'buc') + ') de pe fiecare site.\n\nPentru FIECARE URL, fă web_search cu URL-ul EXACT ca query.\n\nURL-URI:\n' + urlInstructions + '\n\nCitește prețul cu TVA inclus. JSON STRICT:\n{"' + urlEntries.map(e => e.key).join('":{"p":0},"') + '":{"p":0}}';
+        try {
+          const resp = await fetch('https://api.anthropic.com/v1/messages', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true', 'anthropic-beta': 'web-search-2025-03-05' },
+            body: JSON.stringify({ model, max_tokens: 1500, tools: [{ type: 'web_search_20250305', name: 'web_search' }], messages: [{ role: 'user', content: fetchPrompt }] })
+          });
+          if (!resp.ok) { toast('⚠ Eroare API: ' + resp.status); return; }
+          const data = await resp.json();
+          trackAIUsage('message', 'oferte');
+          const text = (data.content || []).filter(b => b.type === 'text').map(b => b.text).join('');
+          const jm = text.match(/\{[\s\S]*\}/);
+          if (jm) {
+            const prices = JSON.parse(jm[0]);
+            const reverseMap = {mh:'mathaus',d:'dedeman',le:'leroy',b:'bricodepot',h:'hornbach',mathaus:'mathaus',dedeman:'dedeman',leroy:'leroy',bricodepot:'bricodepot',hornbach:'hornbach'};
+            const fetchedPrices = {};
+            const results = [];
+            Object.entries(prices).forEach(([k, v]) => {
+              const comp = reverseMap[k];
+              if (comp && v?.p > 0) { fetchedPrices[comp] = v.p; results.push(comp + ': ' + v.p + ' lei'); }
+            });
+            if (Object.keys(fetchedPrices).length > 0) {
+              tpSaveLastPrices(trackedProductId, fetchedPrices);
+              toast('✅ ' + tp.nume + ': ' + results.join(', '));
+              if (callback) callback(fetchedPrices);
+            } else { toast('⚠ Nu am putut extrage prețuri'); }
+          } else { toast('⚠ Răspuns invalid'); }
+        } catch(e) { toast('⚠ Eroare: ' + e.message); }
+      }
+
+      async function ofertaRefreshMaterialPrices(ofertaId, matIdx) {
+        const list = loadOferte();
+        const oferta = list.find(o => o.id === ofertaId);
+        if (!oferta?.materiale?.[matIdx]) return;
+        const m = oferta.materiale[matIdx];
+        const tp = findTrackedProduct(m.sap, m.nume) || findTrackedProduct('', m.mentionat_ca);
+        if (!tp || !hasCompetitorUrls(tp)) { toast('⚠ Adaugă produsul la Urmărite mai întâi'); return; }
+        await tpRefreshPrices(tp.id, (fetchedPrices) => {
+          const list2 = loadOferte();
+          const of2 = list2.find(o => o.id === ofertaId);
+          if (!of2?.materiale?.[matIdx]) return;
+          ['mathaus','dedeman','leroy','bricodepot','hornbach'].forEach(c => {
+            if (fetchedPrices[c]) {
+              of2.materiale[matIdx][c] = { pret: fetchedPrices[c], link: tp.urls?.[c] || null, disponibil: true };
+              if (c === 'mathaus') of2.materiale[matIdx].pretOferta = fetchedPrices[c];
+            }
+          });
+          of2.materiale[matIdx].sursa = 'tracked';
+          saveOferte(list2);
+          ofertaShowDetail(ofertaId);
+        });
       }
 
       // ══════════ MODAL: Adaugă/Editează produs urmărit ══════════
@@ -13165,6 +13346,199 @@ function sendWeeklyReport() {
       <div style="font-size:11px;color:var(--txt3);margin-top:8px">
         💡 Click pe cod pentru copiere. După Deploy, setează triggerul pentru raportul săptămânal:<br>
         <strong>Apps Script → Triggers → Add Trigger → sendWeeklyReport → Time-driven → Week timer → Every Monday → 8-9am</strong>
+      </div>
+    </div>
+  </details>
+
+  <!-- APPS SCRIPT: PRICE SCRAPER -->
+  <details style="margin-top:12px">
+    <summary style="cursor:pointer;font-size:12px;font-weight:700;color:var(--navy);padding:8px 0">
+      💰 Google Apps Script — Scraper Prețuri Competitori (opțional)
+    </summary>
+    <div style="margin-top:8px;background:var(--surface2);padding:12px;border-radius:8px">
+      <div style="font-size:11px;color:var(--txt2);margin-bottom:8px;line-height:1.7">
+        <strong>Cum funcționează:</strong> Acest script citește URL-urile din coloanele URL_Dedeman, URL_Leroy etc. și extrage prețul real de pe fiecare pagină. Scrie rezultatele în coloanele Pret_Dedeman, Pret_Leroy etc. Rulează automat zilnic/săptămânal.<br>
+        <strong>Pași:</strong> 1) Adaugă coloane URL + Pret în Sheet → 2) Extensions → Apps Script → lipește codul → 3) Run → 4) Add Trigger (zilnic)
+      </div>
+      <pre style="background:#1e293b;color:#e2e8f0;padding:14px;border-radius:8px;font-size:10px;overflow-x:auto;max-height:400px;overflow-y:auto;line-height:1.6;cursor:pointer" onclick="navigator.clipboard.writeText(this.textContent);toast('📋 Cod copiat!')">
+// MatHaus Price Scraper — Google Apps Script
+// Citește prețuri reale de pe site-urile competitorilor
+// Coloane necesare: URL_Dedeman, URL_Leroy, URL_BricoDepot, URL_Hornbach, URL_MatHaus
+// Coloane output: Pret_Dedeman, Pret_Leroy, Pret_BricoDepot, Pret_Hornbach, Pret_MatHaus_Real, Data_Pret
+
+function scrapePrices() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss.getActiveSheet();
+  const data = sheet.getDataRange().getValues();
+  const headers = data[0].map(h => h.toString().trim().toLowerCase());
+  
+  // Find column indices
+  const findCol = (patterns) => headers.findIndex(h => patterns.some(p => h.includes(p)));
+  const urlCols = {
+    dedeman: findCol(['url_dedeman', 'link_dedeman']),
+    leroy: findCol(['url_leroy', 'link_leroy']),
+    bricodepot: findCol(['url_brico', 'link_brico']),
+    hornbach: findCol(['url_hornbach', 'link_hornbach']),
+    mathaus: findCol(['url_mathaus', 'link_mathaus'])
+  };
+  
+  // Find or create price columns
+  const competitors = ['dedeman', 'leroy', 'bricodepot', 'hornbach', 'mathaus'];
+  const priceCols = {};
+  competitors.forEach(c => {
+    const label = c === 'mathaus' ? 'Pret_MatHaus_Real' : 'Pret_' + c.charAt(0).toUpperCase() + c.slice(1);
+    let col = headers.findIndex(h => h.includes('pret_' + c) || h.includes(label.toLowerCase()));
+    if (col === -1) {
+      col = headers.length;
+      sheet.getRange(1, col + 1).setValue(label);
+      headers.push(label.toLowerCase());
+    }
+    priceCols[c] = col;
+  });
+  
+  // Date column
+  let dateCol = findCol(['data_pret', 'date_price', 'actualizat']);
+  if (dateCol === -1) {
+    dateCol = headers.length;
+    sheet.getRange(1, dateCol + 1).setValue('Data_Pret');
+  }
+  
+  const today = Utilities.formatDate(new Date(), 'Europe/Bucharest', 'yyyy-MM-dd');
+  let updated = 0;
+  
+  for (let i = 1; i &lt; data.length; i++) {
+    let rowUpdated = false;
+    
+    competitors.forEach(comp => {
+      const urlCol = urlCols[comp];
+      const priceCol = priceCols[comp];
+      if (urlCol === -1 || !data[i][urlCol]) return;
+      
+      const url = data[i][urlCol].toString().trim();
+      if (!url.startsWith('http')) return;
+      
+      try {
+        Utilities.sleep(1000); // Rate limit: 1s between requests
+        const response = UrlFetchApp.fetch(url, {
+          muteHttpExceptions: true,
+          followRedirects: true,
+          headers: { 'User-Agent': 'Mozilla/5.0 (compatible; MatHaus Price Bot)' }
+        });
+        
+        if (response.getResponseCode() !== 200) return;
+        const html = response.getContentText();
+        
+        // Extract price — multiple patterns for Romanian e-commerce
+        let price = null;
+        
+        // Dedeman: class="product-price" or "product-new-price"
+        let m = html.match(/class="product-(?:new-)?price"[^>]*>[\s]*([0-9]+[.,][0-9]+)/);
+        if (!m) m = html.match(/itemprop="price"[^>]*content="([0-9]+\.?[0-9]*)"/);
+        if (!m) m = html.match(/"price":\s*"?([0-9]+\.?[0-9]*)"?/);
+        // Leroy: class="price" data-price
+        if (!m) m = html.match(/data-price="([0-9]+\.?[0-9]*)"/);
+        // Generic: large price display
+        if (!m) m = html.match(/(\d{1,4})[.,](\d{2})\s*(?:lei|RON|Lei)/);
+        if (!m) m = html.match(/"offers".*?"price"\s*:\s*"?(\d+\.?\d*)/);
+        
+        if (m) {
+          if (m[2]) {
+            price = parseFloat(m[1] + '.' + m[2]);
+          } else {
+            price = parseFloat(m[1]);
+          }
+        }
+        
+        if (price && price > 0 && price &lt; 50000) {
+          sheet.getRange(i + 1, priceCol + 1).setValue(price);
+          rowUpdated = true;
+        }
+      } catch(e) {
+        Logger.log('Error scraping ' + comp + ' row ' + (i+1) + ': ' + e.message);
+      }
+    });
+    
+    if (rowUpdated) {
+      sheet.getRange(i + 1, dateCol + 1).setValue(today);
+      updated++;
+    }
+  }
+  
+  Logger.log('Price scrape complete: ' + updated + ' rows updated');
+  SpreadsheetApp.getUi().alert('Prețuri actualizate: ' + updated + ' rânduri');
+}
+
+// ══════════ RECEIVERE: Primește prețuri de la aplicație ══════════
+// Deploy: Deploy → New deployment → Web app → Execute as: Me → Anyone
+// Copiază URL-ul și pune-l în Admin → Agent Ofertare → URL Writeback
+
+function doPost(e) {
+  try {
+    const data = JSON.parse(e.postData.contents);
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const sheet = ss.getActiveSheet();
+    const allData = sheet.getDataRange().getValues();
+    const headers = allData[0].map(h => h.toString().trim().toLowerCase());
+    
+    const findCol = (patterns) => headers.findIndex(h => patterns.some(p => h.includes(p)));
+    const sapCol = findCol(['sap', 'cod']);
+    if (sapCol === -1) return ContentService.createTextOutput('SAP column not found');
+    
+    const ensureCol = (label) => {
+      let col = headers.findIndex(h => h.includes(label.toLowerCase()));
+      if (col === -1) { col = headers.length; sheet.getRange(1, col+1).setValue(label); headers.push(label.toLowerCase()); }
+      return col;
+    };
+    
+    if (data.action === 'updatePrices') {
+      const row = allData.findIndex((r,i) => i > 0 &amp;&amp; r[sapCol].toString().trim() === data.sap);
+      if (row > 0) writePriceRow(sheet, row, data.prices, data.date, ensureCol);
+      return ContentService.createTextOutput('OK:1');
+    }
+    
+    if (data.action === 'batchUpdatePrices') {
+      let count = 0;
+      (data.products || []).forEach(p => {
+        const row = allData.findIndex((r,i) => i > 0 &amp;&amp; r[sapCol].toString().trim() === p.sap);
+        if (row > 0) { writePriceRow(sheet, row, p.prices, p.date, ensureCol); count++; }
+      });
+      return ContentService.createTextOutput('OK:' + count);
+    }
+    
+    return ContentService.createTextOutput('Unknown action');
+  } catch(err) {
+    return ContentService.createTextOutput('Error: ' + err.message);
+  }
+}
+
+function writePriceRow(sheet, row, prices, date, ensureCol) {
+  if (prices.dedeman) sheet.getRange(row+1, ensureCol('Pret_Dedeman')+1).setValue(prices.dedeman);
+  if (prices.leroy) sheet.getRange(row+1, ensureCol('Pret_Leroy')+1).setValue(prices.leroy);
+  if (prices.bricodepot) sheet.getRange(row+1, ensureCol('Pret_BricoDepot')+1).setValue(prices.bricodepot);
+  if (prices.hornbach) sheet.getRange(row+1, ensureCol('Pret_Hornbach')+1).setValue(prices.hornbach);
+  if (prices.mathaus_real) sheet.getRange(row+1, ensureCol('Pret_MatHaus_Real')+1).setValue(prices.mathaus_real);
+  sheet.getRange(row+1, ensureCol('Data_Pret')+1).setValue(date || new Date().toISOString().split('T')[0]);
+}
+
+// Seteaza trigger: Extensions → Apps Script → Triggers → Add Trigger
+// → scrapePrices → Time-driven → Day timer → 6am-7am
+</pre>
+      <div style="font-size:11px;color:var(--txt3);margin-top:8px">
+        💡 Click pe cod pentru copiere. Acest script face 2 lucruri:<br>
+        <strong>1. Scraper (scrapePrices)</strong> — citește prețuri de pe site-uri → scrie în Sheet. Trigger zilnic.<br>
+        <strong>2. Receiver (doPost)</strong> — primește prețuri de la aplicație → scrie în Sheet. Funcționează automat.
+      </div>
+      <div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border)">
+        <label class="label">URL Apps Script Web App (pentru writeback prețuri)</label>
+        <div style="display:flex;gap:8px;align-items:center">
+          <input class="input" id="price-writeback-url" value="${escHtml(appSettings.priceWritebackUrl || '')}" 
+            placeholder="https://script.google.com/macros/s/.../exec" style="flex:1;font-size:11px;font-family:var(--mono)"
+            onchange="appSettings.priceWritebackUrl=this.value;saveSettings();toast('✅ URL writeback salvat')"/>
+          <button class="btn btn-ghost btn-sm" style="font-size:10px;white-space:nowrap" onclick="tpWriteAllPricesToSheet()">📤 Trimite toate prețurile la Sheet</button>
+        </div>
+        <div style="font-size:10px;color:var(--txt3);margin-top:4px">
+          Deploy script-ul ca Web App → copiază URL-ul aici. Prețurile se trimit automat la fiecare ofertă + buton manual.
+        </div>
       </div>
     </div>
   </details>
@@ -17354,118 +17728,184 @@ LIMBA: ${lang === 'ro' ? 'Română' : lang === 'en' ? 'English' : 'Auto-detect'}
           console.log('[Ofertare] Pas 2 complet:', materiale.length, 'materiale,', _needCompetitors.length, 'pentru competitori,', _cacheHits, 'din cache');
           ofertaUpdateProgress(ofertaId, 'preturi', materiale);
 
-          // ──────── PAS 3: Prețuri competitori — link-uri directe din Produse Urmărite ────────
+          // ──────── PAS 3: Prețuri competitori ────────
+          // Prioritate: 1) Sheet prices (gratuit) → 2) Tracked URLs (Claude) → 3) Untracked (skip)
           if (_needCompetitors.length > 0) {
             toast(`🔍 Pas 3/3: Verific prețuri competitori (${_needCompetitors.length} materiale)...`);
 
-            const _tracked = []; // materiale cu link-uri directe
-            const _untracked = []; // materiale fără link-uri
+            // ── 3.0: Verifică prețuri din Sheet (coloane Pret_Dedeman etc.) — GRATUIT ──
+            let sheetCompPrices = {};
+            try { sheetCompPrices = JSON.parse(localStorage.getItem('mathaus_sheet_comp_prices') || '{}'); } catch(e) {}
+            
+            let _sheetHits = 0;
+            const _stillNeedComp = [];
 
-            // Split: tracked vs untracked
             for (const m of _needCompetitors) {
+              const sp = m.sap ? sheetCompPrices[m.sap] : null;
+              if (sp && (sp.dedeman || sp.leroy || sp.bricodepot || sp.hornbach)) {
+                // Use Sheet prices directly — zero AI cost
+                const matIdx = m.idx;
+                ['dedeman','leroy','bricodepot','hornbach'].forEach(c => {
+                  if (sp[c]) {
+                    materiale[matIdx][c] = { pret: sp[c], link: null, disponibil: true };
+                  }
+                });
+                // Override MatHaus with real site price from Sheet
+                if (sp.mathaus && sp.mathaus > 0) {
+                  materiale[matIdx].mathaus = { pret: sp.mathaus, link: materiale[matIdx].mathaus?.link || null, disponibil: true };
+                  materiale[matIdx].pretOferta = sp.mathaus;
+                }
+                materiale[matIdx].sursa = materiale[matIdx].mathaus?.pret ? 'sheet' : 'sheet';
+                materiale[matIdx]._status = 'done';
+                materiale[matIdx]._priceDate = sp.date || '';
+                _sheetHits++;
+              } else {
+                _stillNeedComp.push(m);
+              }
+            }
+
+            if (_sheetHits > 0) {
+              toast(`📋 ${_sheetHits} prețuri din Google Sheet (gratuit)`);
+              console.log(`[Ofertare] Sheet prices: ${_sheetHits} materiale cu prețuri din Sheet`);
+              ofertaUpdateProgress(ofertaId, 'preturi', materiale);
+            }
+
+            // ── 3.1: Split remaining: tracked vs untracked ──
+            const _tracked = [];
+            const _untracked = [];
+
+            for (const m of _stillNeedComp) {
               const tp = findTrackedProduct(m.sap, m.nume) || findTrackedProduct('', m.mentionat_ca);
               if (tp && hasCompetitorUrls(tp)) {
-                _tracked.push({ ...m, _tp: tp });
+                // Check if tracked product has recent lastPrices (< 7 days) — use cache
+                const lastDate = tp.lastPriceDate ? new Date(tp.lastPriceDate) : null;
+                const isRecent = lastDate && (Date.now() - lastDate.getTime()) < 7 * 86400000;
+                if (isRecent && tp.lastPrices && Object.values(tp.lastPrices).some(p => p > 0)) {
+                  // Use cached tracked prices — zero AI cost
+                  const matIdx = m.idx;
+                  ['mathaus','dedeman','leroy','bricodepot','hornbach'].forEach(c => {
+                    if (tp.lastPrices[c]) {
+                      materiale[matIdx][c] = { pret: tp.lastPrices[c], link: tp.urls?.[c] || null, disponibil: true };
+                    }
+                  });
+                  if (tp.lastPrices.mathaus) materiale[matIdx].pretOferta = tp.lastPrices.mathaus;
+                  materiale[matIdx].sursa = 'tracked-cache';
+                  materiale[matIdx]._status = 'done';
+                  console.log(`[Ofertare] ${m.nume}: folosesc prețuri cache tracked (${tp.lastPriceDate})`);
+                } else {
+                  _tracked.push({ ...m, _tp: tp });
+                }
               } else {
                 _untracked.push(m);
               }
             }
 
-            console.log(`[Ofertare] Pas 3: ${_tracked.length} cu link-uri directe, ${_untracked.length} fără urmărire`);
+            console.log(`[Ofertare] Pas 3: ${_sheetHits} sheet, ${_needCompetitors.length - _stillNeedComp.length - _sheetHits} tracked-cache, ${_tracked.length} tracked-fetch, ${_untracked.length} untracked`);
 
-            // ── 3A: Materiale CU link-uri → fetch direct pe URLs (super ieftin) ──
+            // ── 3A: Materiale CU link-uri → fetch direct pe URLs ──
             if (_tracked.length > 0) {
-              toast(`📊 ${_tracked.length} materiale cu link-uri directe — citesc prețuri de pe pagini...`);
+              toast(`🎯 ${_tracked.length} produse urmărite — citesc prețuri reale de pe site-uri...`);
               
-              // Build a single compact prompt with ALL URLs including MatHaus
-              const urlList = _tracked.map((m, i) => {
+              // Process ONE material at a time for maximum accuracy
+              for (let ti = 0; ti < _tracked.length; ti++) {
+                const m = _tracked[ti];
                 const tp = m._tp;
-                const allComps = ['mathaus','dedeman','leroy','bricodepot','hornbach'];
-                const urls = allComps
-                  .filter(c => tp.urls[c])
-                  .map(c => c + ': ' + tp.urls[c])
-                  .join('\n   ');
-                return `${i+1}. ${m.nume} (${m.um})\n   ${urls}`;
-              }).join('\n');
-
-              const directPrompt = `Accesează fiecare URL de mai jos și citește prețul ACTUAL cu TVA de pe pagina produsului.
-IMPORTANT: Citește prețul REAL afișat ACUM pe fiecare pagină — inclusiv MatHaus.
-
-PRODUSE:
-${urlList}
-
-INSTRUCȚIUNI:
-• Accesează FIECARE URL cu web_search (inclusiv mathaus.ro)
-• Citește prețul cu TVA AFIȘAT PE PAGINĂ — nu din cache Google, nu din baza de date
-• Verifică gramajul (ex: 25kg, nu 5kg)
-• Link-urile sunt directe — nu mai căuta pe Google
-
-JSON STRICT:
-{"r":[{"i":0,"mh":{"p":36.76},"d":{"p":70.91},"le":{"p":null},"b":{"p":null},"h":{"p":null}}]}
-i=index, mh=mathaus, d=dedeman, le=leroy, b=bricodepot, h=hornbach, p=pret`;
-
-              try {
-                const resp = await fetch('https://api.anthropic.com/v1/messages', {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true', 'anthropic-beta': 'web-search-2025-03-05' },
-                  body: JSON.stringify({
-                    model, max_tokens: 2000,
-                    tools: [{ type: 'web_search_20250305', name: 'web_search' }],
-                    messages: [{ role: 'user', content: directPrompt }]
-                  })
+                const matIdx = m.idx;
+                
+                toast(`🎯 ${ti+1}/${_tracked.length}: ${m.nume.substring(0,30)}...`);
+                
+                // Build URL list for this material
+                const urlEntries = [];
+                const COMP_MAP = {mathaus:'mh',dedeman:'d',leroy:'le',bricodepot:'b',hornbach:'h'};
+                ['mathaus','dedeman','leroy','bricodepot','hornbach'].forEach(c => {
+                  if (tp.urls[c]) urlEntries.push({ comp: c, key: COMP_MAP[c], url: tp.urls[c] });
                 });
-                if (resp.ok) {
-                  const data = await resp.json();
-                  trackAIUsage('message', 'oferte');
-                  const text = (data.content || []).filter(b => b.type === 'text').map(b => b.text).join('');
-                  const jm = text.match(/\{[\s\S]*\}/);
-                  if (jm) {
-                    const result = JSON.parse(jm[0]);
-                    (result.r || result.materiale || []).forEach(pr => {
-                      const bIdx = pr.i !== undefined ? pr.i : 0;
-                      if (bIdx >= _tracked.length) return;
-                      const matIdx = _tracked[bIdx].idx;
-                      const tp = _tracked[bIdx]._tp;
-                      const compMap = {mh:'mathaus',mathaus:'mathaus',d:'dedeman',de:'dedeman',dedeman:'dedeman',le:'leroy',leroy:'leroy',b:'bricodepot',bricodepot:'bricodepot',h:'hornbach',hornbach:'hornbach'};
-                      Object.entries(pr).forEach(([k, v]) => {
-                        const comp = compMap[k];
-                        if (comp && (v?.p !== undefined || v?.pret !== undefined)) {
-                          const realPret = v.p || v.pret;
-                          materiale[matIdx][comp] = { pret: realPret, link: tp.urls[comp] || v.l || materiale[matIdx][comp]?.link || null, disponibil: !!realPret };
-                          // Override MatHaus local price with real site price
-                          if (comp === 'mathaus' && realPret) {
-                            materiale[matIdx].pretOferta = realPret;
-                            console.log(`[Tracked] ${materiale[matIdx].nume}: MatHaus local ${materiale[matIdx]._localPret||'?'} → site ${realPret}`);
+                
+                if (urlEntries.length === 0) continue;
+                
+                // Wait between calls
+                if (ti > 0) await new Promise(r => setTimeout(r, 2000));
+
+                const urlInstructions = urlEntries.map((e, i) => 
+                  `${i+1}. ${e.comp.toUpperCase()}: ${e.url}`
+                ).join('\n');
+
+                const fetchPrompt = `Trebuie să citesc prețul real al produsului "${m.nume}" de pe site-urile competitorilor.
+
+IMPORTANT: Pentru FIECARE URL de mai jos, fă câte un web_search cu URL-ul EXACT ca query (nu cu cuvinte cheie). Astfel vei accesa pagina reală și vei putea citi prețul.
+
+URL-URI DE ACCESAT:
+${urlInstructions}
+
+PAȘI PENTRU FIECARE URL:
+1. Fă web_search cu URL-ul complet: de exemplu caută "${urlEntries[0].url}"
+2. Din rezultat, citește prețul cu TVA inclus afișat pe pagină
+3. Verifică că e produsul corect (${m.um}, gramaj potrivit)
+4. Dacă pagina nu afișează preț sau e alt produs → null
+
+Răspunde DOAR cu JSON:
+{"${urlEntries.map(e => e.key).join('":{"p":0},"')}":{"p":0}}
+Unde p = prețul cu TVA (număr, ex: 55.89). null dacă nu găsești.`;
+
+                try {
+                  const resp = await fetch('https://api.anthropic.com/v1/messages', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true', 'anthropic-beta': 'web-search-2025-03-05' },
+                    body: JSON.stringify({
+                      model, max_tokens: 1500,
+                      tools: [{ type: 'web_search_20250305', name: 'web_search' }],
+                      messages: [{ role: 'user', content: fetchPrompt }]
+                    })
+                  });
+                  
+                  if (resp.status === 429) {
+                    toast('⏳ Rate limit — aștept 20s...');
+                    await new Promise(r => setTimeout(r, 20000));
+                    ti--; // retry this material
+                    continue;
+                  }
+                  
+                  if (resp.ok) {
+                    const data = await resp.json();
+                    trackAIUsage('message', 'oferte');
+                    const text = (data.content || []).filter(b => b.type === 'text').map(b => b.text).join('');
+                    const jm = text.match(/\{[\s\S]*\}/);
+                    
+                    console.log(`[Tracked ${ti+1}] ${m.nume}: response ${text.length} chars, JSON: ${!!jm}`);
+                    
+                    if (jm) {
+                      const prices = JSON.parse(jm[0]);
+                      const reverseMap = {mh:'mathaus',d:'dedeman',de:'dedeman',le:'leroy',b:'bricodepot',h:'hornbach',
+                                          mathaus:'mathaus',dedeman:'dedeman',leroy:'leroy',bricodepot:'bricodepot',hornbach:'hornbach'};
+                      const fetchedPrices = {};
+                      
+                      Object.entries(prices).forEach(([k, v]) => {
+                        const comp = reverseMap[k];
+                        if (comp && v?.p !== undefined && v.p !== null && v.p > 0) {
+                          materiale[matIdx][comp] = { pret: v.p, link: tp.urls[comp] || null, disponibil: true };
+                          fetchedPrices[comp] = v.p;
+                          if (comp === 'mathaus') {
+                            materiale[matIdx].pretOferta = v.p;
                           }
+                          console.log(`  ${comp}: ${v.p} lei`);
                         }
                       });
+                      
                       materiale[matIdx].sursa = 'tracked';
                       materiale[matIdx]._status = 'done';
-                      // Save prices to tracked product history
-                      const fetchedPrices = {};
-                      ['mathaus','dedeman','leroy','bricodepot','hornbach'].forEach(c => {
-                        if (materiale[matIdx][c]?.pret) fetchedPrices[c] = materiale[matIdx][c].pret;
-                      });
+                      
+                      // Save to price history
                       if (Object.keys(fetchedPrices).length > 0) {
                         tpSaveLastPrices(tp.id, fetchedPrices);
                       }
-                    });
+                    }
                   }
-                } else if (resp.status === 429) {
-                  toast('⏳ Rate limit — reîncerc în 20s...');
-                  await new Promise(r => setTimeout(r, 20000));
-                  // Simplified retry
-                  try {
-                    const r2 = await fetch('https://api.anthropic.com/v1/messages', {
-                      method: 'POST',
-                      headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true', 'anthropic-beta': 'web-search-2025-03-05' },
-                      body: JSON.stringify({ model, max_tokens: 2000, tools: [{ type: 'web_search_20250305', name: 'web_search' }], messages: [{ role: 'user', content: directPrompt }] })
-                    });
-                    if (r2.ok) { const d2 = await r2.json(); _parseBatchResult(d2, _tracked, materiale, _needCompetitors); }
-                  } catch(e2) {}
+                } catch(e) {
+                  console.warn(`[Tracked ${ti+1}] Error:`, e.message);
                 }
-              } catch(e) { console.warn('[Tracked Fetch] Error:', e.message); }
-              ofertaUpdateProgress(ofertaId, 'preturi', materiale);
+                
+                ofertaUpdateProgress(ofertaId, 'preturi', materiale);
+              }
             }
 
             // ── 3B: Materiale FĂRĂ link-uri → marcate pentru urmărire ulterioară ──
@@ -17767,9 +18207,10 @@ i=index, mh=mathaus, d=dedeman, le=leroy, b=bricodepot, h=hornbach, p=pret`;
               : isExpensive
                 ? 'color:#dc2626;font-size:11px'
                 : 'font-size:12px';
-            // MatHaus = preț exact din baza internă. Competitori = aproximativ (web search)
-            const prefix = isMathaus ? '' : '~';
-            const tooltip = isMathaus ? '' : ' title="Preț aproximativ — click pentru a verifica pe site"';
+            // Preț exact (tracked/sheet) vs aproximativ (dorks/cache)
+            const isExactSource = isMathaus || ['tracked','sheet','tracked-cache','local+tracked'].includes(m.sursa);
+            const prefix = isExactSource ? '' : '~';
+            const tooltip = isExactSource ? '' : ' title="Preț aproximativ — click pentru a verifica pe site"';
             const pVal = link
               ? `<a href="${escHtml(link)}" target="_blank" style="${style};text-decoration:none"${tooltip}>${prefix}${fmtP(p)}</a>`
               : `<span style="${style}"${tooltip}>${prefix}${fmtP(p)}</span>`;
@@ -17788,7 +18229,9 @@ i=index, mh=mathaus, d=dedeman, le=leroy, b=bricodepot, h=hornbach, p=pret`;
               ${m.mathaus?.link ? `<a href="${escHtml(m.mathaus.link)}" target="_blank" class="mat-link" style="font-size:10px;display:block;margin-top:2px">→ mathaus.ro</a>` : ''}
               ${(() => {
                 const badges = {
+                  'sheet': ['📋 Preț din Google Sheet (real)', '#15803d', '#dcfce7'],
                   'tracked': ['🎯 Link direct competitori', '#0f6e56', '#e1f5ee'],
+                  'tracked-cache': ['🎯 Cache tracked (recent)', '#0f6e56', '#e1f5ee'],
                   'local+tracked': ['📊 Intern + 🎯 Link direct', '#0f6e56', '#e1f5ee'],
                   'dorks': ['🔍 Google Dorks', '#1a73e8', '#e8f0fe'],
                   'local+dorks': ['📊 Intern + 🔍 Dorks', '#0f6e56', '#e1f5ee'],
@@ -17806,6 +18249,10 @@ i=index, mh=mathaus, d=dedeman, le=leroy, b=bricodepot, h=hornbach, p=pret`;
                 // Add "Track" button for untracked materials
                 if (m._neUrmarit || m.sursa === 'neUrmarit') {
                   html += ` <button onclick="openTrackProductDefinePopup({nume:'${escHtml(m.nume).replace(/'/g,"\\'")}',sap:'${escHtml(m.sap||'')}',um:'${escHtml(m.um||'buc')}',mentionat_ca:'${escHtml(m.mentionat_ca||'').replace(/'/g,"\\'")}'})" style="margin-top:3px;background:var(--blue-l);border:1px solid #bfdbfe;border-radius:4px;padding:2px 8px;font-size:9px;font-weight:600;color:var(--blue);cursor:pointer;display:inline-flex;align-items:center;gap:3px">🎯 Adaugă la urmărire</button>`;
+                }
+                // Refresh button — always show for tracked or if has SAP
+                if (m.sursa !== 'neUrmarit' && m.sursa !== 'pending') {
+                  html += ` <button onclick="ofertaRefreshMaterialPrices('${id}',${i})" style="margin-top:3px;background:none;border:1px solid var(--border);border-radius:4px;padding:2px 8px;font-size:9px;font-weight:600;color:var(--blue);cursor:pointer;display:inline-flex;align-items:center;gap:3px" title="Recitește prețurile de pe site-urile competitorilor">🔄 Refresh prețuri</button>`;
                 }
                 return html;
               })()}
