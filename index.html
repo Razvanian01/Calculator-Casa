@@ -2688,7 +2688,7 @@
         grid-template-rows: auto 1fr;
         grid-template-columns: 300px 1fr;
         grid-template-areas: "header header" "list detail";
-        max-width: 1280px;
+        max-width: 1440px;
         margin: 0 auto;
         padding: 20px 20px 0;
         gap: 0 16px;
@@ -2811,29 +2811,34 @@
 
       /* Tabel materiale oferta */
       .oferta-table {
-        width: 100%; border-collapse: collapse; font-size: 12px;
+        width: 100%; border-collapse: collapse; font-size: 11px;
+        table-layout: auto;
       }
       .oferta-table thead { background: var(--surface2); }
       .oferta-table th {
-        padding: 9px 12px; text-align: left;
-        font-size: 10px; font-weight: 700; color: var(--txt3);
+        padding: 6px 6px; text-align: left;
+        font-size: 9px; font-weight: 700; color: var(--txt3);
         letter-spacing: .04em; text-transform: uppercase;
         border-bottom: 1px solid var(--border2);
         white-space: nowrap;
       }
       .oferta-table td {
-        padding: 10px 12px; border-bottom: 1px solid var(--border2);
-        vertical-align: middle;
+        padding: 8px 6px; border-bottom: 1px solid var(--border2);
+        vertical-align: middle; font-size: 11px;
       }
       .oferta-table tr:last-child td { border-bottom: none; }
       .oferta-price-input {
-        width: 90px; padding: 4px 8px;
+        width: 72px; padding: 3px 5px;
         border: 1.5px solid var(--border2); border-radius: 6px;
-        font: inherit; font-size: 12px; font-weight: 700;
+        font: inherit; font-size: 11px; font-weight: 700;
         color: var(--navy); background: var(--surface);
         text-align: right;
       }
       .oferta-price-input:focus { outline: none; border-color: var(--orange); background: var(--orange-l); }
+      @media (max-width: 900px) {
+        .oferta-table th, .oferta-table td { padding: 5px 4px; font-size: 10px; }
+        .oferta-price-input { width: 60px; font-size: 10px; padding: 2px 4px; }
+      }
       .oferta-total-row td { font-weight: 800; background: var(--navy); color: #fff; font-size: 13px; }
       .oferta-unidentified {
         padding: 14px 18px;
@@ -3023,7 +3028,7 @@
         <div id="notita-new-modal">
           <div class="onm-header">
             <div>
-              <div style="font-size:15px;font-weight:800">📝 Notiță Rapidă</div>
+              <div style="font-size:15px;font-weight:800">📝 Ofertă Rapidă</div>
               <div style="font-size:11px;opacity:.65;margin-top:2px">Salvezi acum, calculezi sau ceri AI mai târziu</div>
             </div>
             <button class="tcm-close" onclick="notitaCloseModal()">×</button>
@@ -3079,7 +3084,7 @@
         <div style="background:var(--surface);border-radius:var(--r);width:100%;max-width:520px;box-shadow:0 20px 60px rgba(0,0,0,.25);display:flex;flex-direction:column;max-height:90vh">
           <div style="padding:16px 18px 14px;border-bottom:1px solid var(--border2);display:flex;align-items:center;justify-content:space-between;background:var(--navy);border-radius:var(--r) var(--r) 0 0">
             <div>
-              <div style="font-size:15px;font-weight:800;color:#fff">✏ Editează Notiță</div>
+              <div style="font-size:15px;font-weight:800;color:#fff">✏ Editează Ofertă</div>
               <div style="font-size:11px;color:rgba(255,255,255,.6);margin-top:2px" id="notita-edit-subtitle">Modifică și salvează</div>
             </div>
             <button onclick="notitaEditClose()" style="background:rgba(255,255,255,.15);border:none;color:#fff;width:28px;height:28px;border-radius:50%;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center">×</button>
@@ -3123,7 +3128,7 @@
         <div id="oferta-new-modal">
           <div class="onm-header">
             <div>
-              <div style="font-size:15px;font-weight:800">📋 Notiță Nouă</div>
+              <div style="font-size:15px;font-weight:800">📋 Ofertă Nouă</div>
               <div style="font-size:11px;opacity:.65;margin-top:2px">Salvezi rapid sau trimiți la AI — audio disponibil în ambele cazuri</div>
             </div>
             <button class="tcm-close" onclick="ofertaCloseModal()">×</button>
@@ -3203,12 +3208,12 @@
       <div class="oferte-layout">
         <div class="oferte-header">
           <div>
-            <div class="oferte-title">📋 Notițe Agent</div>
-            <div class="oferte-sub">Salvezi rapid → procesezi manual sau cu AI → finalizezi</div>
+            <div class="oferte-title">📋 Oferte Agent</div>
+            <div class="oferte-sub">Salvezi rapid → procesezi cu AI → finalizezi oferta</div>
           </div>
           <div style="display:flex;gap:8px;flex-wrap:wrap">
             <button class="btn btn-ghost btn-sm" onclick="showLanding()">← Înapoi</button>
-            <button class="btn btn-primary" onclick="ofertaOpenModal()">+ Notiță Nouă</button>
+            <button class="btn btn-primary" onclick="ofertaOpenModal()">+ Ofertă Nouă</button>
           </div>
         </div>
 
@@ -3280,7 +3285,7 @@
         <div class="mode-card chat-card" style="border-color:#BFDBFE;background:linear-gradient(135deg,var(--surface) 0%,var(--blue-l) 100%);grid-column:1/-1" onclick="switchMode('oferte')">
           <div class="mode-icon blue" style="background:var(--blue-l)">📋</div>
           <div class="chat-card-text">
-            <h2>Notițe Agent</h2>
+            <h2>Oferte Agent</h2>
             <p>Dictează sau scrie materialele necesare — AI-ul le identifică automat din catalog, generează oferta cu prețuri și o pregătești pentru client.</p>
           </div>
         </div>
@@ -3659,7 +3664,7 @@
         const u = entry.url.toLowerCase();
         if (u.includes('anthropic.com')) entry.type = 'anthropic';
         else if (u.includes('openai.com')) entry.type = 'whisper';
-        else if (u.includes('serpapi.com')) entry.type = 'serpapi';
+        else if (u.includes('tracked-product')) entry.type = 'tracked';
         else if (u.includes('allorigins') || u.includes('corsproxy')) entry.type = 'proxy';
         else if (u.includes('google.com/spreadsheets') || u.includes('docs.google.com')) entry.type = 'sheets';
         else entry.type = 'other';
@@ -3738,8 +3743,8 @@
 
         if (!_debugLog.length) { cont.innerHTML = '<div style="padding:20px;text-align:center;color:var(--txt3);font-size:12px">Niciun request încă. Fă o acțiune (chat, ofertă, sincronizare) și vezi aici rezultatele.</div>'; return; }
 
-        const typeIcons = { anthropic:'🤖', whisper:'🎤', serpapi:'🔍', proxy:'🔄', sheets:'📊', other:'🌐' };
-        const typeColors = { anthropic:'#6b21a8', whisper:'#0f6e56', serpapi:'#1a73e8', proxy:'#92400e', sheets:'#15803d', other:'#555' };
+        const typeIcons = { anthropic:'🤖', whisper:'🎤', tracked:'🎯', proxy:'🔄', sheets:'📊', other:'🌐' };
+        const typeColors = { anthropic:'#6b21a8', whisper:'#0f6e56', tracked:'#1a73e8', proxy:'#92400e', sheets:'#15803d', other:'#555' };
 
         cont.innerHTML = _debugLog.map(e => {
           const icon = typeIcons[e.type] || '🌐';
@@ -6674,7 +6679,7 @@
         currentMode = mode;
         syncMobileNav(mode);
         if (mode === "total") { renderStageCards(); totalCalc(); }
-        if (mode === "etapizat") { renderEtapizatGrid(); }
+        if (mode === "etapizat") { renderStageCards(); }
         if (mode === "admin") { renderAdmin(); }
       }
 
@@ -10187,10 +10192,8 @@
     </div>
   </div>
 
+
   <div class="admin-card" style="margin-top:16px">
-    <div class="settings-item">
-      <div>
-        <div class="settings-item-title">🔒 Parolă Administrator</div>
         <div class="settings-item-desc">Protejează accesul la panoul Admin. Consilierii vor vedea doar etapele și calculatoarele.</div>
       </div>
     </div>
@@ -10399,13 +10402,6 @@
         toast('✅ Cache prețuri valabil: ' + (labels[val] || val + ' zile'));
       }
 
-      function savePriceFreshnessDays(val) {
-        const ofKb = loadOfertareKB();
-        ofKb.priceFreshnessDays = parseInt(val) || 30;
-        saveOfertareKB(ofKb);
-        const labels = {'7':'ultima săptămână','14':'ultimele 2 săptămâni','30':'ultima lună','60':'ultimele 2 luni','90':'ultimele 3 luni'};
-        toast('✅ Prospețime prețuri: ' + (labels[val] || val + ' zile'));
-      }
 
       // ── CSV Parser ──
       function parseCSVLine(line) {
@@ -11431,7 +11427,6 @@ PROGRAM MAGAZINE:
       function catalogAutoSync() {
         const { sheetUrl } = loadCatalogSettings();
         if (!sheetUrl) return;
-        // Time gate: check if enough time passed since last sync
         const interval = (appSettings.syncIntervalHours || 24) * 3600000;
         const lastSync = appSettings.catalogLastSyncMs || 0;
         if (Date.now() - lastSync < interval) {
@@ -11440,6 +11435,8 @@ PROGRAM MAGAZINE:
         }
         syncCatalogFromDrive(true);
       }
+
+
 
       // ── Catalog Storage: memory cache + compact format + chunked storage ──
       let _catalogCache = null; // in-memory cache to avoid repeated JSON.parse
@@ -11844,9 +11841,29 @@ PROGRAM MAGAZINE:
         }
 
         if (ok) {
+          // ══════ SINGURA SURSĂ DE ADEVĂR: Sheet → PRICE_TABLE → pretUM ══════
+          // Sync prices from catalog to PRICE_TABLE (used in ofertare + calcul total)
+          let priceCount = 0;
+          const sapPrices = {};
+          normalized.forEach(r => {
+            if (r.price > 0) {
+              if (r.name) { PRICE_TABLE[r.name] = r.price; priceCount++; }
+              if (r.sap) { sapPrices[r.sap] = r.price; }
+            }
+          });
+          if (priceCount > 0) {
+            savePrices();
+            // Sync to stage materials pretUM (match by SAP then name)
+            window._lastSyncSapMap = sapPrices;
+            const matCount = syncPricesToMats();
+            console.log(`[Sheet→App] ${priceCount} prețuri → PRICE_TABLE → ${matCount} materiale etape actualizate`);
+          }
+
           const urlMsg = urlRows.length > 0 ? ` + ${urlRows.length} tracked` : '';
           const priceMsg = compPriceRows.length > 0 ? ` + ${compPriceRows.length} prețuri competitori` : '';
-          toast(`✅ ${normalized.length} produse din ${fileName}${urlMsg}${priceMsg}`);
+          const matMsg = priceCount > 0 ? ` → ${priceCount} prețuri sincronizate` : '';
+          toast(`✅ ${normalized.length} produse din ${fileName}${urlMsg}${priceMsg}${matMsg}`);
+          if (currentMode === 'total') totalCalc();
           renderAdminAIKB();
         }
       }
@@ -11970,7 +11987,7 @@ PROGRAM MAGAZINE:
         <div style="font-size:14px;font-weight:800;margin-bottom:4px">Produse Urmărite — Link-uri Directe Competitori</div>
         <div style="font-size:11px;opacity:.8;line-height:1.6;margin-bottom:6px">
           Definește produsele pe care vrei să le monitorizezi cu link-uri directe la fiecare competitor.<br>
-          Prețurile se citesc direct de pe pagina produsului — <strong>fără Google Dorks</strong>, 10x mai ieftin și mai precis.
+          Prețurile se citesc direct de pe pagina produsului — <strong>direct de pe pagină</strong>, 10x mai ieftin și mai precis.
         </div>
         <div style="display:flex;gap:8px;font-size:11px">
           <span style="background:rgba(255,255,255,.2);padding:2px 8px;border-radius:4px">✅ ${stats.aprobat} aprobate</span>
@@ -12545,9 +12562,15 @@ PROGRAM MAGAZINE:
             </div>
             <div style="border-top:1px solid var(--border);padding-top:14px;margin-bottom:10px">
               <div style="font-size:11px;font-weight:700;color:var(--navy);margin-bottom:10px">🔗 Link-uri directe la pagina produsului</div>
-              ${COMPETITORS.map(c => `<div style="margin-bottom:10px">
-                <label class="label" style="font-size:11px">${COMP_LABELS[c]}</label>
-                <input class="input" id="tp-url-${c}" value="${escHtml(p.urls?.[c]||'')}" placeholder="https://${c === 'leroy' ? 'leroymerlin' : c === 'bricodepot' ? 'bricodepot' : c}.ro/..." style="font-size:11px;font-family:var(--mono)"/>
+              ${COMPETITORS.map(c => `<div style="margin-bottom:10px;display:grid;grid-template-columns:1fr 90px;gap:6px;align-items:end">
+                <div>
+                  <label class="label" style="font-size:11px">${COMP_LABELS[c]}</label>
+                  <input class="input" id="tp-url-${c}" value="${escHtml(p.urls?.[c]||'')}" placeholder="https://${c === 'leroy' ? 'leroymerlin' : c === 'bricodepot' ? 'bricodepot' : c}.ro/..." style="font-size:11px;font-family:var(--mono)"/>
+                </div>
+                <div>
+                  <label class="label" style="font-size:10px">Preț (lei)</label>
+                  <input class="input" type="number" step="0.01" id="tp-pret-${c}" value="${p.lastPrices?.[c] || ''}" placeholder="—" style="font-size:11px;text-align:right;font-weight:700"/>
+                </div>
               </div>`).join('')}
             </div>
             <div style="display:flex;gap:8px;justify-content:flex-end;border-top:1px solid var(--border);padding-top:14px">
@@ -12569,16 +12592,34 @@ PROGRAM MAGAZINE:
         const sap = ($('tp-sap')?.value||'').trim();
         const um = ($('tp-um')?.value||'').trim();
         const urls = {};
+        const manualPrices = {};
+        let hasPrices = false;
         ['mathaus','dedeman','leroy','bricodepot','hornbach'].forEach(c => {
           urls[c] = ($('tp-url-'+c)?.value||'').trim();
+          const pVal = parseFloat($('tp-pret-'+c)?.value) || 0;
+          if (pVal > 0) { manualPrices[c] = pVal; hasPrices = true; }
         });
+        const updateData = { nume, alternativ, sap, um, urls };
+        if (hasPrices) {
+          updateData.lastPrices = manualPrices;
+          updateData.lastPriceDate = new Date().toISOString().split('T')[0];
+        }
         if (existingId) {
-          updateTrackedProduct(existingId, { nume, alternativ, sap, um, urls });
+          // Merge manual prices with existing (don't overwrite with empty)
+          if (hasPrices) {
+            const existing = loadTrackedProducts().find(p => p.id === existingId);
+            if (existing?.lastPrices) {
+              updateData.lastPrices = { ...existing.lastPrices, ...manualPrices };
+            }
+          }
+          updateTrackedProduct(existingId, updateData);
           toast('✅ Produs actualizat');
         } else {
-          addTrackedProduct({ nume, alternativ, sap, um, urls, status: 'aprobat', adaugatDe: 'admin' });
+          addTrackedProduct({ ...updateData, status: 'aprobat', adaugatDe: 'admin' });
           toast('✅ Produs adăugat');
         }
+        // Write prices to Sheet if configured
+        if (hasPrices && sap) tpWritePricesToSheet(sap, nume, manualPrices);
         document.getElementById('tracked-product-modal')?.remove();
         renderAdminAIKB();
       }
@@ -12801,7 +12842,7 @@ PROGRAM MAGAZINE:
       <div style="background:var(--surface2);border-radius:var(--r-sm);padding:12px">
         <div style="font-size:11px;font-weight:700;color:var(--navy);margin-bottom:6px">📊 Baza de date Ofertare</div>
         <div style="font-size:11px;color:var(--txt2);line-height:1.6">
-          <strong>Surse date proprii:</strong> Reguli identificare, competitori, Google Dorks, context MatHaus<br>
+          <strong>Surse date proprii:</strong> Reguli identificare, competitori, link-uri tracked, context MatHaus<br>
           <strong>Date comune:</strong> Catalog produse, limba<br>
           <strong>Izolat de:</strong> Consultant (prompt, training, răspunsuri predefinite)
         </div>
@@ -12809,39 +12850,21 @@ PROGRAM MAGAZINE:
     </div>
   </div>
 
-  <!-- PRICE CACHE -->
+  <!-- CACHE PREȚURI TRACKED -->
   <div class="admin-card" style="margin-bottom:12px;border-left:4px solid var(--green)">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:8px">
-      <div style="font-size:11px;font-weight:700;color:var(--txt3);letter-spacing:1px;text-transform:uppercase;font-family:var(--mono)">📦 Cache Prețuri Competitori</div>
-      ${(() => { const s = getPriceCacheStats(); return s.total > 0 ? '<span style="font-size:11px;background:#dcfce7;color:#15803d;padding:2px 8px;border-radius:4px;font-weight:700">' + s.total + ' prețuri · din ' + s.oldest + '</span>' : '<span style="font-size:11px;color:var(--txt3)">Gol</span>'; })()}
-    </div>
+    <div style="font-size:11px;font-weight:700;color:var(--txt3);letter-spacing:1px;text-transform:uppercase;font-family:var(--mono);margin-bottom:10px">📦 Cache Prețuri — Produse Urmărite</div>
     <div style="background:var(--surface2);border-radius:var(--r-sm);padding:10px 14px;font-size:11px;color:var(--txt2);margin-bottom:12px;line-height:1.6">
-      <strong style="color:var(--navy)">Cum funcționează:</strong> Prețurile găsite prin Google Dorks se salvează automat. La următoarea ofertă, dacă un material are deja prețuri recente → se folosesc din cache, fără a mai consuma tokens sau căutări. Fiecare preț afișează data când a fost găsit.
+      <strong style="color:var(--navy)">Cum funcționează:</strong> Prețurile citite de pe site-uri se salvează automat în Produse Urmărite. La următoarea ofertă, dacă prețurile sunt recente → se refolosesc gratuit (0 tokens). Apasă 🔄 Refresh pe orice produs pentru a reciti prețurile de pe site.
     </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr auto;gap:12px;align-items:end">
-      <div>
-        <label class="label">Valabilitate cache (zile)</label>
-        <select class="input" style="max-width:200px;font-size:12px" onchange="savePriceCacheMaxDays(this.value)">
-          <option value="1" ${(kb.priceCacheMaxDays||7)==1?'selected':''}>1 zi</option>
-          <option value="3" ${(kb.priceCacheMaxDays||7)==3?'selected':''}>3 zile</option>
-          <option value="7" ${(kb.priceCacheMaxDays||7)==7?'selected':''}>7 zile (recomandat)</option>
-          <option value="14" ${(kb.priceCacheMaxDays||7)==14?'selected':''}>14 zile</option>
-          <option value="30" ${(kb.priceCacheMaxDays||7)==30?'selected':''}>30 zile</option>
-        </select>
-        <div style="font-size:10px;color:var(--txt3);margin-top:3px">Prețurile din cache mai vechi se recaută automat.</div>
-      </div>
-      <div>
-        <label class="label">🕐 Prospețime prețuri căutate</label>
-        <select class="input" style="max-width:200px;font-size:12px" onchange="savePriceFreshnessDays(this.value)">
-          <option value="7" ${(kb.priceFreshnessDays||30)==7?'selected':''}>Ultima săptămână</option>
-          <option value="14" ${(kb.priceFreshnessDays||30)==14?'selected':''}>Ultimele 2 săptămâni</option>
-          <option value="30" ${(kb.priceFreshnessDays||30)==30?'selected':''}>Ultima lună (recomandat)</option>
-          <option value="60" ${(kb.priceFreshnessDays||30)==60?'selected':''}>Ultimele 2 luni</option>
-          <option value="90" ${(kb.priceFreshnessDays||30)==90?'selected':''}>Ultimele 3 luni</option>
-        </select>
-        <div style="font-size:10px;color:var(--txt3);margin-top:3px">Filtrează rezultatele Google doar din această perioadă (after:dată).</div>
-      </div>
-      <button class="btn btn-ghost btn-sm" style="color:var(--red);font-size:11px;white-space:nowrap" onclick="clearPriceCache();renderAdminAIKB()">🗑 Golește cache</button>
+    <div>
+      <label class="label">Valabilitate cache (zile) — prețuri mai vechi se recitesc automat</label>
+      <select class="input" style="max-width:200px;font-size:12px" onchange="savePriceCacheMaxDays(this.value)">
+        <option value="1" ${(kb.priceCacheMaxDays||7)==1?'selected':''}>1 zi</option>
+        <option value="3" ${(kb.priceCacheMaxDays||7)==3?'selected':''}>3 zile</option>
+        <option value="7" ${(kb.priceCacheMaxDays||7)==7?'selected':''}>7 zile (recomandat)</option>
+        <option value="14" ${(kb.priceCacheMaxDays||7)==14?'selected':''}>14 zile</option>
+        <option value="30" ${(kb.priceCacheMaxDays||7)==30?'selected':''}>30 zile</option>
+      </select>
     </div>
   </div>
 
@@ -12849,10 +12872,10 @@ PROGRAM MAGAZINE:
   <div class="admin-card" style="margin-bottom:12px;border-left:4px solid var(--blue)">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px">
       <div style="font-size:11px;font-weight:700;color:var(--txt3);letter-spacing:1px;text-transform:uppercase;font-family:var(--mono)">🎯 Produse Urmărite — Link-uri Directe Competitori</div>
-      <button class="btn btn-primary btn-sm" style="font-size:11px" onclick="trackedProductOpenAdd()">+ Adaugă Produs</button>
+      <button class="btn btn-primary btn-sm" style="font-size:11px" onclick="openTrackedProductForm()">+ Adaugă Produs</button>
     </div>
     <div style="background:var(--surface2);border-radius:var(--r-sm);padding:10px 14px;font-size:11px;color:var(--txt2);margin-bottom:12px;line-height:1.6">
-      <strong style="color:var(--navy)">Cum funcționează:</strong> Definești link-urile directe pentru fiecare material × competitor. La ofertare, în loc să consume tokens pe Google Dorks, aplicația accesează direct pagina produsului și citește prețul real. <strong>Economie ~10x tokens.</strong>
+      <strong style="color:var(--navy)">Cum funcționează:</strong> Definești link-urile directe pentru fiecare material × competitor. La ofertare, aplicația accesează direct pagina produsului și citește prețul real. <strong>Economie ~10x tokens.</strong>
     </div>
     ${(() => {
       const _tpStats = getTrackedProductsStats();
@@ -13644,7 +13667,7 @@ function writePriceRow(sheet, row, prices, date, ensureCol) {
 
     <!-- OFERTARE -->
     <div style="background:linear-gradient(135deg,#1e40af,#1d4ed8);border-radius:var(--r);padding:14px 16px;color:#fff">
-      <div style="font-size:10px;font-weight:700;opacity:.6;letter-spacing:.08em;text-transform:uppercase;margin-bottom:10px">🗂 Notițe Agent AI</div>
+      <div style="font-size:10px;font-weight:700;opacity:.6;letter-spacing:.08em;text-transform:uppercase;margin-bottom:10px">🗂 Oferte Agent AI</div>
       <div style="font-size:10px;opacity:.55;margin-bottom:6px;font-family:var(--mono)">${modelNames[modelOferte] || modelOferte}</div>
       <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">
         <div><div style="font-size:22px;font-weight:900">${o.sessions}</div><div style="font-size:9px;opacity:.6;font-weight:700;text-transform:uppercase">Oferte</div></div>
@@ -15774,6 +15797,9 @@ function writePriceRow(sheet, row, prices, date, ensureCol) {
         }
         populateTotalSidebar();
         totalSidebarSwap();
+
+        // ── Auto-sync catalog + prețuri din Google Sheet (singura sursă de adevăr) ──
+        setTimeout(catalogAutoSync, 2000);
         [
           "t-amprenta",
           "t-regim",
@@ -16041,11 +16067,15 @@ LIMBA: ${lang === 'ro' ? 'Română' : lang === 'en' ? 'English' : 'Auto-detect'}
           }
         } catch(e) {}
 
-        // #2 Price cache: inject known market prices from Ofertare
+        // #2 Tracked prices: inject known competitor prices from Produse Urmărite
         try {
-          const _priceCSV = getPriceCacheForPrompt(userMessage ? extractKeywords(userMessage) : '');
-          if (_priceCSV && _priceCSV.includes('\n')) {
-            sp += `\n\nPREȚURI PIAȚĂ (din oferte recente — folosește-le ca referință orientativă):\n${_priceCSV}`;
+          const _tpAll = loadTrackedProducts().filter(p => p.status === 'aprobat' && p.lastPrices);
+          if (_tpAll.length > 0) {
+            const _tpCSV = 'Produs|MH|DED|LER|BRICO|HORN|Data\n' + _tpAll.slice(0, 30).map(p => {
+              const lp = p.lastPrices || {};
+              return `${p.nume}|${lp.mathaus||'-'}|${lp.dedeman||'-'}|${lp.leroy||'-'}|${lp.bricodepot||'-'}|${lp.hornbach||'-'}|${p.lastPriceDate||'?'}`;
+            }).join('\n');
+            sp += `\n\nPREȚURI COMPETITORI (din Produse Urmărite — referință orientativă):\n${_tpCSV}`;
           }
         } catch(e) {}
 
@@ -16880,130 +16910,6 @@ LIMBA: ${lang === 'ro' ? 'Română' : lang === 'en' ? 'English' : 'Auto-detect'}
         return ['dedeman','leroy','bricodepot','hornbach'].some(c => tp.urls[c]);
       }
 
-      const PRICE_CACHE_KEY = 'mathaus_price_cache';
-
-      function loadPriceCache() {
-        try { return JSON.parse(localStorage.getItem(PRICE_CACHE_KEY) || '{}'); }
-        catch(e) { return {}; }
-      }
-      function savePriceCache(cache) {
-        try { localStorage.setItem(PRICE_CACHE_KEY, JSON.stringify(cache)); } catch(e) {}
-      }
-
-      // Store FULL price data from an oferta (with links, disponibil, etc.)
-      function cachePricesFromOferta(materiale) {
-        if (!materiale || !materiale.length) return;
-        const cache = loadPriceCache();
-        const now = new Date().toISOString();
-        materiale.forEach(m => {
-          if (!m.nume) return;
-          const key = (m.sap || m.nume).toLowerCase().trim();
-          const entry = { 
-            nume: m.nume, sap: m.sap || '', um: m.um || '',
-            timestamp: now,
-            sursa: m.sursa || 'unknown',
-            // Full price objects with pret + link + disponibil
-            mathaus: m.mathaus || null,
-            dedeman: m.dedeman || null,
-            leroy: m.leroy || null,
-            bricodepot: m.bricodepot || null,
-            hornbach: m.hornbach || null,
-          };
-          // Price history: keep last 5 points
-          if (!cache[key]) cache[key] = { current: entry, history: [] };
-          else {
-            if (cache[key].current) cache[key].history.push(cache[key].current);
-            cache[key].history = cache[key].history.slice(-4);
-            cache[key].current = entry;
-          }
-        });
-        savePriceCache(cache);
-      }
-
-      // Lookup cached price for a specific material — returns full matItem or null
-      function getCachedPrice(name, sap, maxAgeDays) {
-        maxAgeDays = maxAgeDays || 7; // default 7 days
-        const cache = loadPriceCache();
-        const key = (sap || name).toLowerCase().trim();
-        const entry = cache[key];
-        if (!entry?.current) return null;
-        const c = entry.current;
-        // Check age
-        if (!c.timestamp) return null;
-        const ageMs = Date.now() - new Date(c.timestamp).getTime();
-        const ageDays = ageMs / 86400000;
-        if (ageDays > maxAgeDays) return null; // too old
-        // Must have at least mathaus price
-        if (!c.mathaus?.pret) return null;
-        // Return full material item compatible with oferta format
-        return {
-          sap: c.sap || '',
-          inCatalog: !!c.sap,
-          nume: c.nume,
-          um: c.um || '',
-          mathaus: c.mathaus || { pret: null, link: '', disponibil: false },
-          dedeman: c.dedeman || { pret: null, link: null, disponibil: false },
-          leroy: c.leroy || { pret: null, link: null, disponibil: false },
-          bricodepot: c.bricodepot || { pret: null, link: null, disponibil: false },
-          hornbach: c.hornbach || { pret: null, link: null, disponibil: false },
-          pretOferta: c.mathaus?.pret || 0,
-          sursa: 'cache',
-          _cacheDate: c.timestamp.substring(0, 10),
-          _cacheAgeDays: Math.round(ageDays * 10) / 10,
-        };
-      }
-
-      // Clear all cached prices
-      function clearPriceCache() {
-        localStorage.removeItem(PRICE_CACHE_KEY);
-        toast('✅ Cache prețuri șters — următoarea ofertă va căuta toate prețurile din nou');
-      }
-
-      // Get cache stats
-      function getPriceCacheStats() {
-        const cache = loadPriceCache();
-        const keys = Object.keys(cache);
-        const total = keys.length;
-        const withMathaus = keys.filter(k => cache[k].current?.mathaus?.pret).length;
-        const oldest = keys.reduce((min, k) => {
-          const t = cache[k].current?.timestamp;
-          return t && t < min ? t : min;
-        }, new Date().toISOString());
-        return { total, withMathaus, oldest: oldest.split('T')[0] };
-      }
-
-      function getPriceCacheForPrompt(keywords) {
-        const cache = loadPriceCache();
-        const entries = Object.values(cache);
-        if (!entries.length) return '';
-        let relevant = entries;
-        if (keywords) {
-          const tokens = keywords.toLowerCase().split(/\s+/).filter(t => t.length > 2);
-          if (tokens.length) {
-            relevant = entries.filter(e => {
-              const hay = ((e.current?.nume || '') + ' ' + (e.current?.sap || '')).toLowerCase();
-              return tokens.some(t => hay.includes(t));
-            });
-          }
-        }
-        if (!relevant.length) relevant = entries.slice(0, 20);
-        relevant = relevant.slice(0, 30);
-        let csv = 'Produs|MatHaus|Dedeman|Leroy|BricoDepot|Hornbach|Data';
-        relevant.forEach(e => {
-          const c = e.current;
-          if (!c) return;
-          const d = c.timestamp ? c.timestamp.substring(0, 10) : '?';
-          csv += `\n${c.nume}|${c.mathaus?.pret||'?'}|${c.dedeman?.pret||'-'}|${c.leroy?.pret||'-'}|${c.bricodepot?.pret||'-'}|${c.hornbach?.pret||'-'}|${d}`;
-          if (e.history?.length >= 2) {
-            const prev = e.history[e.history.length - 1];
-            if (prev.mathaus?.pret && c.mathaus?.pret) {
-              const diff = ((c.mathaus.pret - prev.mathaus.pret) / prev.mathaus.pret * 100).toFixed(0);
-              if (Math.abs(diff) >= 3) csv += ` (${diff > 0 ? '+' : ''}${diff}%)`;
-            }
-          }
-        });
-        return csv;
-      }
 
       // ════════════════════════════════════════════════════════
       // #5 — TEMPLATE SYSTEM: Oferte pre-populate
@@ -17222,7 +17128,7 @@ LIMBA: ${lang === 'ro' ? 'Română' : lang === 'en' ? 'English' : 'Auto-detect'}
         _ofertaSelectedId = id;
         ofertaRenderList();
         ofertaShowDetail(id);
-        toast('✅ Notiță salvată în Neprocesate');
+        toast('✅ Ofertă salvată în Neprocesate');
       }
 
 
@@ -17257,7 +17163,7 @@ LIMBA: ${lang === 'ro' ? 'Română' : lang === 'en' ? 'English' : 'Auto-detect'}
         _ofertaSelectedId = id;
         ofertaRenderList();
         ofertaShowDetail(id);
-        toast('✅ Notiță salvată!');
+        toast('✅ Ofertă salvată!');
       }
 
       function notitaSaveAndAI() {
@@ -17332,7 +17238,7 @@ LIMBA: ${lang === 'ro' ? 'Română' : lang === 'en' ? 'English' : 'Auto-detect'}
         notitaEditClose();
         ofertaRenderList();
         ofertaShowDetail(_notitaEditId || list[idx].id);
-        toast('✅ Notiță actualizată!');
+        toast('✅ Ofertă actualizată!');
       }
 
       // Schimba eticheta direct din lista
@@ -17355,10 +17261,10 @@ LIMBA: ${lang === 'ro' ? 'Română' : lang === 'en' ? 'English' : 'Auto-detect'}
         if ($('oferta-adresa')) $('oferta-adresa').value = '';
         if ($('oferta-voice-status')) $('oferta-voice-status').textContent = 'Apasă pentru a dicta materialele';
         if ($('oferta-force-refresh')) $('oferta-force-refresh').checked = false;
-        // Show cache stats
-        const _cs = getPriceCacheStats();
+        // Show tracked products stats
+        const _tpList = loadTrackedProducts().filter(p => p.status === 'aprobat' && p.lastPrices);
         const _cInfo = $('oferta-cache-info');
-        if (_cInfo) _cInfo.textContent = _cs.total > 0 ? `📦 ${_cs.total} prețuri în cache (din ${_cs.oldest})` : '';
+        if (_cInfo) _cInfo.textContent = _tpList.length > 0 ? `🎯 ${_tpList.length} produse cu prețuri salvate` : '';
         // #5 Render template list
         setTimeout(renderTemplateList, 50);
       }
@@ -17517,9 +17423,6 @@ LIMBA: ${lang === 'ro' ? 'Română' : lang === 'en' ? 'English' : 'Auto-detect'}
         list[idx].progressStep = step;
         if (materiale) {
           list[idx].progressMateriale = materiale;
-          // #2 Price cache: save found prices for Consultant
-          const withPrices = materiale.filter(m => m.mathaus?.pret || m.dedeman?.pret);
-          if (withPrices.length) cachePricesFromOferta(withPrices);
         }
         saveOferte(list);
         // Re-randam detaliul daca e selectat
@@ -17554,8 +17457,8 @@ LIMBA: ${lang === 'ro' ? 'Română' : lang === 'en' ? 'English' : 'Auto-detect'}
         const competitori = compList.join(',');
         const siteuri = siteList.join(',');
 
-        // Determinam metoda de cautare preturi — Claude Google Dorks (singura metodă)
-        const method = 'google-dorks';
+        // Determinam metoda de cautare preturi — tracked URLs
+        const method = 'tracked-urls';
 
         const ofertaId = 'of_' + Date.now();
         const oferta = {
@@ -17580,7 +17483,7 @@ LIMBA: ${lang === 'ro' ? 'Română' : lang === 'en' ? 'English' : 'Auto-detect'}
         ofertaShowDetail(ofertaId);
         trackAIUsage('session', 'oferte');
 
-        await ofertaProcessGoogleDorks(ofertaId, text, client, adresa, kb, compList, siteList, apiKey, model, _forceRefresh);
+        await ofertaProcessPrices(ofertaId, text, client, adresa, kb, compList, siteList, apiKey, model, _forceRefresh);
 
         } catch(globalErr) {
           console.error('[Ofertare] Eroare globală:', globalErr);
@@ -17596,37 +17499,9 @@ LIMBA: ${lang === 'ro' ? 'Română' : lang === 'en' ? 'English' : 'Auto-detect'}
 
 
       // Helper: parse batch competitor price results
-      function _parseBatchResult(apiData, batch, materiale, needCompetitors) {
-        try {
-          const text = (apiData.content || []).filter(b => b.type === 'text').map(b => b.text).join('');
-          const jm = text.match(/\{[\s\S]*\}/);
-          console.log(`[Dorks Batch] Response ${text.length} chars, JSON found: ${!!jm}`);
-          if (!jm) return;
-          const result = JSON.parse(jm[0]);
-          const items = result.r || result.materiale || [];
-          items.forEach(pr => {
-            const batchIdx = pr.i !== undefined ? pr.i : (pr.idx !== undefined ? pr.idx : 0);
-            if (batchIdx >= batch.length) return;
-            const globalIdx = batch[batchIdx].idx;
-            if (globalIdx >= materiale.length) return;
-            // Map compact keys to full keys
-            const compMap = { d: 'dedeman', de: 'dedeman', dedeman: 'dedeman', le: 'leroy', leroy: 'leroy', b: 'bricodepot', bricodepot: 'bricodepot', h: 'hornbach', hornbach: 'hornbach' };
-            Object.entries(pr).forEach(([key, val]) => {
-              const comp = compMap[key];
-              if (comp && val?.p !== undefined) {
-                materiale[globalIdx][comp] = { pret: val.p, link: val.l || null, disponibil: !!val.p };
-              } else if (comp && val?.pret !== undefined) {
-                materiale[globalIdx][comp] = val;
-              }
-            });
-            materiale[globalIdx].sursa = materiale[globalIdx].sursa === 'local' ? 'local+dorks' : 'dorks';
-            materiale[globalIdx]._status = 'done';
-          });
-        } catch(e) { console.warn('[Dorks Batch] Parse error:', e.message); }
-      }
 
-      // ═══ METODA UNICĂ: Claude Google Dorks — identificare + prețuri competitori ═══
-      async function ofertaProcessGoogleDorks(ofertaId, text, client, adresa, kb, compList, siteList, apiKey, model, forceRefresh) {
+      // ═══ METODA UNICĂ: Identificare + prețuri competitori (tracked URLs) ═══
+      async function ofertaProcessPrices(ofertaId, text, client, adresa, kb, compList, siteList, apiKey, model, forceRefresh) {
         try {
           // ──────── PAS 1: Claude identifică materialele din text ────────
           toast('🤖 Pas 1/3: Identificare materiale...');
@@ -17682,30 +17557,13 @@ LIMBA: ${lang === 'ro' ? 'Română' : lang === 'en' ? 'English' : 'Auto-detect'}
           // ──────── PAS 2: Preț local MatHaus (catalog + PRICE_TABLE) ────────
           toast('📊 Pas 2/3: Verific prețuri locale MatHaus...');
           const materiale = [];
-          const _cacheMaxDays = kb.priceCacheMaxDays || 7;
-          let _cacheHits = 0;
-          const _needCompetitors = []; // materiale ce necesita cautare competitori
+          const _needCompetitors = [];
 
           for (const m of (parsed.materiale || [])) {
             const _sap = (m.sap || '').trim();
             const _mhUrl = _sap ? getMathausLink(_sap) : 'https://mathaus.ro/search?text=' + encodeURIComponent(m.mentionat_ca || m.nume);
 
-            // Check cache first — but ONLY if cache has competitor prices too
-            if (!forceRefresh) {
-              const cached = getCachedPrice(m.nume, _sap, _cacheMaxDays);
-              if (cached) {
-                // Check if cache has at least 1 competitor price — otherwise re-search
-                const hasCompetitorPrice = cached.dedeman?.pret || cached.leroy?.pret || cached.bricodepot?.pret || cached.hornbach?.pret;
-                if (hasCompetitorPrice) {
-                  materiale.push({ ...cached, cantitate: m.cantitate || 1, um: m.um || cached.um || 'buc', mentionat_ca: m.mentionat_ca || '', validat: false, _status: 'done' });
-                  _cacheHits++;
-                  continue;
-                }
-                // Cache exists but no competitor prices — use local price, search competitors
-              }
-            }
-
-            // Local price lookup: Catalog → PRICE_TABLE
+            // Preț MatHaus: Catalog (Sheet) → PRICE_TABLE (fallback manual)
             let _localPret = null;
             if (_sap) { const cat = getCatalogBySap(_sap); if (cat?.price) _localPret = cat.price; }
             if (!_localPret) { _localPret = PRICE_TABLE[m.nume] || PRICE_TABLE[m.mentionat_ca] || null; }
@@ -17725,8 +17583,7 @@ LIMBA: ${lang === 'ro' ? 'Română' : lang === 'en' ? 'English' : 'Auto-detect'}
             materiale.push(matItem);
             _needCompetitors.push({ idx: materiale.length - 1, ...m, sap: _sap, um: m.um || 'buc', localPret: _localPret });
           }
-          if (_cacheHits > 0) toast(`📦 ${_cacheHits} materiale din cache`);
-          console.log('[Ofertare] Pas 2 complet:', materiale.length, 'materiale,', _needCompetitors.length, 'pentru competitori,', _cacheHits, 'din cache');
+          console.log('[Ofertare] Pas 2 complet:', materiale.length, 'materiale,', _needCompetitors.length, 'pentru competitori');
           ofertaUpdateProgress(ofertaId, 'preturi', materiale);
 
           // ──────── PAS 3: Prețuri competitori ────────
@@ -18211,7 +18068,7 @@ Unde p = prețul cu TVA (număr, ex: 55.89). null dacă nu găsești.`;
               : isExpensive
                 ? 'color:#dc2626;font-size:11px'
                 : 'font-size:12px';
-            // Preț exact (tracked/sheet) vs aproximativ (dorks/cache)
+            // Preț exact (tracked/sheet) vs aproximativ (alte surse)
             const isExactSource = isMathaus || ['tracked','sheet','tracked-cache','local+tracked'].includes(m.sursa);
             const prefix = isExactSource ? '' : '~';
             const tooltip = isExactSource ? '' : ' title="Preț aproximativ — click pentru a verifica pe site"';
@@ -18237,8 +18094,8 @@ Unde p = prețul cu TVA (număr, ex: 55.89). null dacă nu găsești.`;
                   'tracked': ['🎯 Link direct competitori', '#0f6e56', '#e1f5ee'],
                   'tracked-cache': ['🎯 Cache tracked (recent)', '#0f6e56', '#e1f5ee'],
                   'local+tracked': ['📊 Intern + 🎯 Link direct', '#0f6e56', '#e1f5ee'],
-                  'dorks': ['🔍 Google Dorks', '#1a73e8', '#e8f0fe'],
-                  'local+dorks': ['📊 Intern + 🔍 Dorks', '#0f6e56', '#e1f5ee'],
+                  'dorks': ['🔍 Căutare web', '#1a73e8', '#e8f0fe'],
+                  'local+dorks': ['📊 Intern + 🔍 Web', '#0f6e56', '#e1f5ee'],
                   'claude-web': ['🤖 Claude', '#6b21a8', '#f3e8ff'],
                   'claude-fallback': ['🤖 Claude', '#6b21a8', '#f3e8ff'],
                   'local+claude': ['📊 Intern + 🤖 Claude', '#0f6e56', '#e1f5ee'],
@@ -18263,14 +18120,14 @@ Unde p = prețul cu TVA (număr, ex: 55.89). null dacă nu găsești.`;
             </td>
             <td style="text-align:center;white-space:nowrap">
               <input type="number" class="oferta-price-input" value="${m.cantitate || 0}"
-                onchange="ofertaUpdateMat('${id}',${i},'cantitate',this.value)" style="width:70px;text-align:center"/>
+                onchange="ofertaUpdateMat('${id}',${i},'cantitate',this.value)" style="width:55px;text-align:center;font-size:11px;padding:3px 4px"/>
               <span style="font-size:11px;color:var(--txt3)">${escHtml(m.um || '')}</span>
             </td>
             ${pretCells}
             <td style="text-align:right;white-space:nowrap">
               <input type="number" class="oferta-price-input" value="${(m.pretOferta || 0).toFixed(2)}"
                 onchange="ofertaUpdateMat('${id}',${i},'pretOferta',this.value)"
-                style="width:85px;text-align:right;border-color:var(--orange);font-weight:700"/> lei
+                style="width:68px;text-align:right;border-color:var(--orange);font-weight:700"/> lei
             </td>
             <td style="text-align:right;font-weight:700;white-space:nowrap">${fmtP((m.pretOferta || 0) * (m.cantitate || 0))}</td>
             <td style="text-align:center">
@@ -18292,12 +18149,12 @@ Unde p = prețul cu TVA (număr, ex: 55.89). null dacă nu găsești.`;
               </div>
               <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:4px">
                 ${(()=>{
-                  const nDorks = oferta.materiale.filter(m => m.sursa === 'dorks' || m.sursa === 'local+dorks' || m.sursa === 'google-dorks').length;
+                  const nWeb = oferta.materiale.filter(m => m.sursa === 'dorks' || m.sursa === 'local+dorks' || m.sursa === 'google-dorks').length;
                   const nLocal = oferta.materiale.filter(m => m.sursa === 'local' || m.sursa === 'cache').length;
                   const nClaude = oferta.materiale.filter(m => m.sursa === 'claude-web' || m.sursa === 'claude-fallback' || m.sursa === 'local+claude').length;
                   const nErr = oferta.materiale.filter(m => !m.mathaus?.pret && !m.dedeman?.pret).length;
                   const parts = [];
-                  if (nDorks > 0) parts.push('<span style="font-size:10px;background:rgba(26,115,232,.15);color:#1a73e8;padding:1px 6px;border-radius:3px">🔍 ' + nDorks + ' Google Dorks</span>');
+                  if (nWeb > 0) parts.push('<span style="font-size:10px;background:rgba(26,115,232,.15);color:#1a73e8;padding:1px 6px;border-radius:3px">🔍 ' + nWeb + ' Căutare web</span>');
                   if (nLocal > 0) parts.push('<span style="font-size:10px;background:rgba(15,110,86,.15);color:#0f6e56;padding:1px 6px;border-radius:3px">📊 ' + nLocal + ' Preț local</span>');
                   if (nClaude > 0) parts.push('<span style="font-size:10px;background:rgba(107,33,168,.15);color:#6b21a8;padding:1px 6px;border-radius:3px">🤖 ' + nClaude + ' Claude</span>');
                   if (nErr > 0) parts.push('<span style="font-size:10px;background:rgba(220,38,38,.15);color:#dc2626;padding:1px 6px;border-radius:3px">⚠ ' + nErr + ' fără preț</span>');
@@ -18321,20 +18178,20 @@ Unde p = prețul cu TVA (număr, ex: 55.89). null dacă nu găsești.`;
             <div style="margin-top:8px;background:var(--surface2);border-radius:var(--r-sm);padding:12px 14px;font-size:12px;line-height:1.7;white-space:pre-wrap;color:var(--txt2);font-style:italic;border-left:3px solid var(--amber)">${escHtml(oferta.inputOriginal)}</div>
           </details>` : ''}
 
-          <div style="overflow-x:auto;padding:0 0 8px">
-            <table class="oferta-table" style="min-width:900px">
+          <div style="padding:0 0 8px">
+            <table class="oferta-table">
               <thead><tr>
-                <th style="width:70px">SAP</th>
-                <th style="min-width:200px">Produs</th>
-                <th style="text-align:center">Cantitate</th>
-                <th style="text-align:right;color:#E2302A">MatHaus</th>
-                <th style="text-align:right;color:#E63946" title="Preț aproximativ — verifică pe site">≈ Dedeman</th>
-                <th style="text-align:right;color:#00a551" title="Preț aproximativ — verifică pe site">≈ Leroy</th>
-                <th style="text-align:right;color:#0047AB" title="Preț aproximativ — verifică pe site">≈ BricoDepot</th>
-                <th style="text-align:right;color:#FF6600" title="Preț aproximativ — verifică pe site">≈ Hornbach</th>
-                <th style="text-align:right;color:var(--orange)">Preț Ofertă ✏</th>
+                <th style="width:60px">SAP</th>
+                <th>Produs</th>
+                <th style="text-align:center">Cant.</th>
+                <th style="text-align:right;color:#E2302A">MH</th>
+                <th style="text-align:right;color:#E63946" title="Dedeman">DED</th>
+                <th style="text-align:right;color:#00a551" title="Leroy Merlin">LER</th>
+                <th style="text-align:right;color:#0047AB" title="BricoDepot">BRICO</th>
+                <th style="text-align:right;color:#FF6600" title="Hornbach">HORN</th>
+                <th style="text-align:right;color:var(--orange)">Ofertă ✏</th>
                 <th style="text-align:right">Total</th>
-                <th style="text-align:center;width:60px">✓ Valid</th>
+                <th style="text-align:center;width:40px">✓</th>
               </tr></thead>
               <tbody>${rows}
                 <tr class="oferta-total-row">
@@ -18478,7 +18335,7 @@ Unde p = prețul cu TVA (număr, ex: 55.89). null dacă nu găsești.`;
           ? 'Notiță: ' + (item?.client || '') + ' — ' + (item?.data || '')
           : 'Ofertă: ' + (item?.client || '') + ' — ' + (item?.materiale?.length || 0) + ' materiale';
         const ok = await showConfirm(msg,
-          isNotita ? 'Ștergi notiță?' : 'Ștergi ofertă?',
+          isNotita ? 'Ștergi ofertă?' : 'Ștergi ofertă?',
           isNotita ? '📝' : '🗂',
           'Da, șterge',
           'var(--red)');
@@ -18491,7 +18348,7 @@ Unde p = prețul cu TVA (număr, ex: 55.89). null dacă nu găsești.`;
           if (cont) cont.innerHTML = '';
         }
         ofertaRenderList();
-        toast(isNotita ? '✅ Notiță ștearsă' : '✅ Ofertă ștearsă');
+        toast(isNotita ? '✅ Ofertă ștearsă' : '✅ Ofertă ștearsă');
       }
 
       function ofertaDuplicate(id) {
