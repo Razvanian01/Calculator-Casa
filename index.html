@@ -10669,7 +10669,7 @@
       function budgetSetLimit(val) {
         const b = loadBudget();
         b.monthlyLimit = parseFloat(val) || 5.00;
-        b.blocked = b.spent < b.monthlyLimit;
+        b.blocked = b.spent >= b.monthlyLimit;
         saveBudget(b);
         toast(`✅ Buget lunar setat la $${b.monthlyLimit.toFixed(2)}`);
         renderAdminAIKB();
@@ -11729,8 +11729,11 @@ PROGRAM MAGAZINE:
         if (lines.length < 2) return { rows: [], error: 'Fișier prea mic sau gol' };
 
         // Detectam separatorul: tab, ; sau ,
+        // Google Sheets cu locale RO exporta cu ; ca separator si , ca decimal
         const firstLine = lines[0];
-        const sep = firstLine.includes('\t') ? '\t' : firstLine.includes(';') ? ';' : ',';
+        const tabCount = (firstLine.match(/\t/g) || []).length;
+        const semiCount = (firstLine.match(/;/g) || []).length;
+        const sep = tabCount >= 2 ? '\t' : semiCount >= 2 ? ';' : ',';
 
         // Normalizam headerele — suportam exact formatul MatHaus SAP
         function normalizeHeader(h) {
@@ -11784,10 +11787,30 @@ PROGRAM MAGAZINE:
           return result;
         }
 
+        const headerCount = headers.length;
         const rows = [];
         for (let i = 1; i < lines.length; i++) {
-          const cols = parseCsvLine(lines[i], sep);
+          let cols = parseCsvLine(lines[i], sep);
           if (cols.every(c => !c.trim())) continue;
+          
+          // Fix comma-decimal: daca linia are mai multe coloane decat headerele
+          // → unele numere ca "102,39" s-au spart in "102" si "39"
+          // Merge-uim inapoi: daca col[n] e numar si col[n+1] e numar scurt (1-2 cifre) → "col[n].col[n+1]"
+          if (sep === ',' && cols.length > headerCount) {
+            const fixed = [];
+            for (let j = 0; j < cols.length; j++) {
+              if (fixed.length < headerCount && j < cols.length - 1 &&
+                  /^\d+$/.test(cols[j].trim()) && /^\d{1,2}$/.test(cols[j+1].trim()) &&
+                  cols.length - 1 > headerCount) {
+                fixed.push(cols[j].trim() + '.' + cols[j+1].trim());
+                j++; // skip next
+              } else {
+                fixed.push(cols[j]);
+              }
+            }
+            cols = fixed;
+          }
+          
           const row = {};
           headers.forEach((h, idx) => {
             row[h] = (cols[idx] || '').trim().replace(/^["""'']+|["""'']+$/g, '');
@@ -13792,10 +13815,20 @@ function writePriceRow(sheet, row, prices, urls, date, ensureCol) {
       <div>
         <label class="label">Limită lunară ($)</label>
         <select class="input" style="max-width:160px;font-size:12px" onchange="budgetSetLimit(this.value)">
-          ${[1,2,3,5,10,15,20,50].map(v => `<option value="${v}" ${budget.monthlyLimit == v ? 'selected' : ''}>$${v}.00</option>`).join('')}
+          ${[1,2,3,5,10,15,20,30,50,100].map(v => `<option value="${v}" ${budget.monthlyLimit == v ? 'selected' : ''}>$${v}.00</option>`).join('')}
         </select>
       </div>
-      <button class="btn btn-ghost btn-sm" style="font-size:11px;color:var(--red,#ef4444)" onclick="if(confirm('Resetezi contorul lunar?'))budgetReset()">🗑 Resetează contor</button>
+      <div>
+        <label class="label">Sincronizare cost real ($)</label>
+        <div style="display:flex;gap:4px">
+          <input class="input" type="number" step="0.01" id="budget-manual-cost" value="${budget.spent.toFixed(2)}" style="max-width:100px;font-size:12px;text-align:right" placeholder="17.21"/>
+          <button class="btn btn-ghost btn-sm" style="font-size:11px" onclick="const v=parseFloat(document.getElementById('budget-manual-cost').value)||0;const b=loadBudget();b.spent=v;b.blocked=v>=b.monthlyLimit;saveBudget(b);toast('✅ Cost sincronizat: $'+v.toFixed(2));renderAdminAIKB()">Aplică</button>
+        </div>
+      </div>
+      <button class="btn btn-ghost btn-sm" style="font-size:11px;color:var(--red,#ef4444)" onclick="if(confirm('Resetezi contorul lunar la $0?'))budgetReset()">🗑 Resetează</button>
+    </div>
+    <div style="margin-top:8px;font-size:10px;color:var(--txt3);line-height:1.5">
+      Costul din aplicație este <strong>estimativ</strong> (bazat pe tokens). Pentru costul exact, verifică <a href="https://console.anthropic.com" target="_blank" style="color:var(--blue)">console.anthropic.com</a> → API Keys → Cost. Poți sincroniza manual costul real în câmpul de mai sus.
     </div>
   </div>
 
