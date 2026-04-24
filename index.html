@@ -10607,7 +10607,95 @@
       const KB_CONSULTANT_STORE = 'mathaus_kb_consultant';
       const KB_OFERTARE_STORE = 'mathaus_kb_ofertare';
       const AI_USAGE_STORE = 'mathaus_ai_usage';
+      const AI_BUDGET_STORE = 'mathaus_ai_budget';
       let aiKBTab = 'persona';
+
+      // ══════ BUDGET TRACKING SYSTEM ══════
+      function loadBudget() {
+        try {
+          const raw = localStorage.getItem(AI_BUDGET_STORE);
+          const b = raw ? JSON.parse(raw) : {};
+          // Auto-reset monthly
+          const now = new Date();
+          const currentMonth = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
+          if (b.month !== currentMonth) {
+            b.month = currentMonth;
+            b.spent = 0;
+            b.calls = 0;
+            b.tokensIn = 0;
+            b.tokensOut = 0;
+            saveBudget(b);
+          }
+          return {
+            monthlyLimit: b.monthlyLimit ?? 5.00,
+            month: b.month || currentMonth,
+            spent: b.spent || 0,
+            calls: b.calls || 0,
+            tokensIn: b.tokensIn || 0,
+            tokensOut: b.tokensOut || 0,
+            blocked: b.blocked || false
+          };
+        } catch(e) { return { monthlyLimit: 5.00, month: '', spent: 0, calls: 0, tokensIn: 0, tokensOut: 0, blocked: false }; }
+      }
+      function saveBudget(b) {
+        try { localStorage.setItem(AI_BUDGET_STORE, JSON.stringify(b)); } catch(e) {}
+      }
+      function budgetTrackCall(inputTokens, outputTokens, model) {
+        const b = loadBudget();
+        // Cost calculation per model
+        const costs = {
+          'claude-haiku-4-5-20251001': { input: 1.00, output: 5.00 },
+          'claude-sonnet-4-5-20250929': { input: 3.00, output: 15.00 },
+        };
+        const modelKey = Object.keys(costs).find(k => (model || '').includes(k.split('-').slice(0,3).join('-'))) || '';
+        const rate = costs[modelKey] || costs['claude-haiku-4-5-20251001'];
+        const callCost = (inputTokens * rate.input / 1000000) + (outputTokens * rate.output / 1000000);
+        b.spent = Math.round((b.spent + callCost) * 10000) / 10000;
+        b.calls++;
+        b.tokensIn += inputTokens;
+        b.tokensOut += outputTokens;
+        if (b.spent >= b.monthlyLimit) b.blocked = true;
+        saveBudget(b);
+        return { cost: callCost, total: b.spent, limit: b.monthlyLimit, blocked: b.blocked };
+      }
+      function budgetCanCall() {
+        const b = loadBudget();
+        if (b.spent >= b.monthlyLimit) {
+          toast(`⛔ Buget lunar atins: $${b.spent.toFixed(2)} / $${b.monthlyLimit.toFixed(2)}. Modifică limita din Admin → Utilizare.`);
+          return false;
+        }
+        return true;
+      }
+      function budgetSetLimit(val) {
+        const b = loadBudget();
+        b.monthlyLimit = parseFloat(val) || 5.00;
+        b.blocked = b.spent < b.monthlyLimit;
+        saveBudget(b);
+        toast(`✅ Buget lunar setat la $${b.monthlyLimit.toFixed(2)}`);
+        renderAdminAIKB();
+      }
+      function budgetReset() {
+        const b = loadBudget();
+        b.spent = 0; b.calls = 0; b.tokensIn = 0; b.tokensOut = 0; b.blocked = false;
+        saveBudget(b);
+        toast('✅ Contor resetat');
+        renderAdminAIKB();
+      }
+      function budgetGetSummaryHTML() {
+        const b = loadBudget();
+        const pct = b.monthlyLimit > 0 ? Math.min(100, Math.round(b.spent / b.monthlyLimit * 100)) : 0;
+        const barColor = pct < 60 ? 'var(--green)' : pct < 85 ? 'var(--amber,#f59e0b)' : 'var(--red,#ef4444)';
+        return `<div style="font-size:11px;margin-top:6px">
+          <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px">
+            <span style="font-weight:600">💰 $${b.spent.toFixed(4)} / $${b.monthlyLimit.toFixed(2)}</span>
+            <span style="color:var(--txt3)">${b.calls} apeluri · ${Math.round(b.tokensIn/1000)}K in · ${Math.round(b.tokensOut/1000)}K out</span>
+          </div>
+          <div style="height:6px;background:var(--surface2);border-radius:3px;overflow:hidden">
+            <div style="height:100%;width:${pct}%;background:${barColor};border-radius:3px;transition:width .3s"></div>
+          </div>
+          ${b.blocked ? '<div style="color:var(--red,#ef4444);font-weight:600;margin-top:4px">⛔ Buget atins — apelurile AI sunt blocate</div>' : ''}
+        </div>`;
+      }
 
       // ── DEFAULTS ──
       const KB_COMMON_DEFAULTS = {
@@ -11556,7 +11644,7 @@ PROGRAM MAGAZINE:
         n = n || 30;
         const catalog = loadCatalog();
         if (!catalog.length || !query) return [];
-        let tokens = query.toLowerCase().split(/\s+/).filter(t => t.length > 2);
+        let tokens = query.toLowerCase().split(/\s+/).filter(t => t.length > 1);
         if (!tokens.length) return catalog.slice(0, n);
 
         // #6 Expand tokens with synonyms
@@ -11613,14 +11701,24 @@ PROGRAM MAGAZINE:
 
       // Extrage cuvinte cheie din textul agentului pentru cautare catalog
       function extractKeywords(text) {
-        // Elimina cuvinte comune, pastreaza substantive relevante
         const stopWords = new Set(['si','sau','de','la','cu','in','pe','pentru','care','este','sunt',
           'se','un','o','al','ale','cel','cea','cei','cele','acest','aceasta','aceste',
-          'ma','mi','ti','ii','ne','va','le','avem','aveam','vreau','trebuie','poate']);
-        return text.toLowerCase()
-          .replace(/[^a-zA-ZăîâșțĂÎÂȘȚ0-9\s]/g, ' ')
+          'ma','mi','ti','ii','ne','va','le','avem','aveam','vreau','trebuie','poate',
+          'cat','cate','cati','cum','mai','tot','din','prin','spre']);
+        // Pre-process: join codes like "cm 17" → "cm17", "cm 11" → "cm11"
+        let processed = text.toLowerCase()
+          .replace(/\b(cm|ct|af|cx|cf)\s*(\d+)/gi, '$1$2')  // cm 17 → cm17
+          .replace(/[^a-zA-ZăîâșțĂÎÂȘȚ0-9\s]/g, ' ');
+        return processed
           .split(/\s+/)
-          .filter(w => w.length > 2 && !stopWords.has(w))
+          .filter(w => {
+            if (w.length <= 1) return false;
+            if (stopWords.has(w)) return false;
+            // Keep short technical terms (BCA, OSB, EPS, GC, CM9 etc.)
+            if (/^[a-z]{2,3}\d{1,2}$/i.test(w)) return true; // cm17, cm9, af1
+            if (/^[A-Z]{2,3}$/i.test(w) && ['bca','osb','eps','xps','pvc','ppr','gcm','mdf','pal','opc'].includes(w)) return true;
+            return w.length > 2;
+          })
           .join(' ');
       }
 
@@ -12481,6 +12579,7 @@ PROGRAM MAGAZINE:
         const _today = new Date().toISOString().split('T')[0];
         const fetchPrompt = 'DATA: ' + _today + '. Citește prețul ACTUAL al produsului "' + tp.nume + '" (' + (tp.um||'buc') + ') de pe fiecare site.\n\nPentru FIECARE URL, fă web_search cu URL-ul EXACT ca query pentru a accesa pagina reală.\n\nURL-URI:\n' + urlInstructions + '\n\nCitește prețul cu TVA inclus AFIȘAT ACUM PE PAGINĂ (nu din cache Google). JSON STRICT:\n{"' + urlEntries.map(e => e.key).join('":{"p":0},"') + '":{"p":0}}';
         try {
+          if (!budgetCanCall()) return;
           const resp = await fetch('https://api.anthropic.com/v1/messages', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true', 'anthropic-beta': 'web-search-2025-03-05' },
@@ -12489,6 +12588,7 @@ PROGRAM MAGAZINE:
           if (!resp.ok) { toast('⚠ Eroare API: ' + resp.status); return; }
           const data = await resp.json();
           trackAIUsage('message', 'oferte');
+          budgetTrackCall(data.usage?.input_tokens || 5000, data.usage?.output_tokens || 100, model);
           const text = (data.content || []).filter(b => b.type === 'text').map(b => b.text).join('');
           const jm = text.match(/\{[\s\S]*\}/);
           if (jm) {
@@ -13664,7 +13764,42 @@ function writePriceRow(sheet, row, prices, urls, date, ensureCol) {
         const costO = (o.messages * (costPerMsg[modelOferte] || 0.003)).toFixed(2);
         const costTotal = (parseFloat(costC) + parseFloat(costO)).toFixed(2);
 
-        return `<div class="admin-card">
+        const budget = loadBudget();
+
+        return `
+  <!-- BUGET LUNAR -->
+  <div class="admin-card" style="margin-bottom:12px;border-left:4px solid ${budget.spent >= budget.monthlyLimit ? 'var(--red,#ef4444)' : budget.spent >= budget.monthlyLimit * 0.8 ? 'var(--amber,#f59e0b)' : 'var(--green)'}">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:8px">
+      <div style="font-size:11px;font-weight:700;color:var(--txt3);letter-spacing:1px;text-transform:uppercase;font-family:var(--mono)">💰 Buget lunar API</div>
+      <span style="font-size:11px;font-weight:700;color:${budget.spent >= budget.monthlyLimit ? 'var(--red,#ef4444)' : 'var(--green)'}">${budget.month}</span>
+    </div>
+    <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:8px">
+      <span style="font-size:28px;font-weight:900;color:var(--navy)">$${budget.spent.toFixed(4)}</span>
+      <span style="font-size:14px;color:var(--txt3)">/ $${budget.monthlyLimit.toFixed(2)}</span>
+    </div>
+    <div style="height:8px;background:var(--surface2);border-radius:4px;overflow:hidden;margin-bottom:10px">
+      <div style="height:100%;width:${Math.min(100, Math.round(budget.spent / budget.monthlyLimit * 100))}%;background:${budget.spent >= budget.monthlyLimit ? 'var(--red,#ef4444)' : budget.spent >= budget.monthlyLimit * 0.8 ? 'var(--amber,#f59e0b)' : 'var(--green)'};border-radius:4px;transition:width .3s"></div>
+    </div>
+    ${budget.blocked ? '<div style="background:#fef2f2;border:1px solid #fecaca;border-radius:6px;padding:8px 12px;font-size:11px;color:#991b1b;font-weight:600;margin-bottom:10px">⛔ Buget atins — apelurile AI sunt blocate. Mărește limita sau resetează contorul.</div>' : ''}
+    <div style="display:flex;gap:8px;font-size:10px;color:var(--txt3);margin-bottom:12px;flex-wrap:wrap">
+      <span>${budget.calls} apeluri</span>
+      <span>·</span>
+      <span>${Math.round(budget.tokensIn/1000)}K tokens input</span>
+      <span>·</span>
+      <span>${Math.round(budget.tokensOut/1000)}K tokens output</span>
+    </div>
+    <div style="display:flex;gap:12px;align-items:end;flex-wrap:wrap">
+      <div>
+        <label class="label">Limită lunară ($)</label>
+        <select class="input" style="max-width:160px;font-size:12px" onchange="budgetSetLimit(this.value)">
+          ${[1,2,3,5,10,15,20,50].map(v => `<option value="${v}" ${budget.monthlyLimit == v ? 'selected' : ''}>$${v}.00</option>`).join('')}
+        </select>
+      </div>
+      <button class="btn btn-ghost btn-sm" style="font-size:11px;color:var(--red,#ef4444)" onclick="if(confirm('Resetezi contorul lunar?'))budgetReset()">🗑 Resetează contor</button>
+    </div>
+  </div>
+
+  <div class="admin-card">
   <div style="font-size:11px;font-weight:700;color:var(--txt3);letter-spacing:1px;text-transform:uppercase;margin-bottom:14px;font-family:var(--mono)">📊 Statistici Utilizare AI</div>
 
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px">
@@ -16295,6 +16430,7 @@ LIMBA: ${lang === 'ro' ? 'Română' : lang === 'en' ? 'English' : 'Auto-detect'}
         addChatMessage('user', text);
         chatConversation.push({ role: 'user', content: text });
         trackAIUsage('message', 'consultant');
+        if (!budgetCanCall()) { chatIsProcessing = false; return; }
 
         chatIsProcessing = true;
         const sendBtn = document.getElementById('chat-send-btn');
@@ -16373,6 +16509,12 @@ LIMBA: ${lang === 'ro' ? 'Română' : lang === 'en' ? 'English' : 'Auto-detect'}
           chatConversation.push({ role: 'assistant', content: fullText });
           saveChatHistory();
           playNotifSound();
+          // Budget tracking (estimate tokens from text lengths)
+          const _spLen = (body.system || '').length;
+          const _msgLen = JSON.stringify(body.messages).length;
+          const _estIn = Math.round((_spLen + _msgLen) / 4);
+          const _estOut = Math.round((fullText || '').length / 4);
+          budgetTrackCall(_estIn, _estOut, body.model);
 
         } catch (err) {
           console.error('Chat API error:', err);
@@ -16453,7 +16595,9 @@ LIMBA: ${lang === 'ro' ? 'Română' : lang === 'en' ? 'English' : 'Auto-detect'}
           throw new Error(`API ${response.status}: ${errData?.error?.message || response.statusText}`);
         }
 
-        return await response.json();
+        const _data = await response.json();
+        budgetTrackCall(_data.usage?.input_tokens || 3000, _data.usage?.output_tokens || 300, body.model);
+        return _data;
       }
 
       // ── Extract text from Claude response (handles web_search tool use) ──
@@ -17326,7 +17470,11 @@ LIMBA: ${lang === 'ro' ? 'Română' : lang === 'en' ? 'English' : 'Auto-detect'}
         // Show tracked products stats
         const _tpList = loadTrackedProducts().filter(p => p.status === 'aprobat' && p.lastPrices);
         const _cInfo = $('oferta-cache-info');
-        if (_cInfo) _cInfo.textContent = _tpList.length > 0 ? `🎯 ${_tpList.length} produse cu prețuri salvate` : '';
+        if (_cInfo) {
+          const _b = loadBudget();
+          _cInfo.innerHTML = (_tpList.length > 0 ? `🎯 ${_tpList.length} produse urmărite` : '') +
+            ` <span style="margin-left:8px;color:${_b.spent >= _b.monthlyLimit * 0.8 ? 'var(--red,#ef4444)' : 'var(--txt3)'}">💰 $${_b.spent.toFixed(2)}/$${_b.monthlyLimit.toFixed(2)}</span>`;
+        }
         // #5 Render template list
         setTimeout(renderTemplateList, 50);
       }
@@ -17567,17 +17715,19 @@ LIMBA: ${lang === 'ro' ? 'Română' : lang === 'en' ? 'English' : 'Auto-detect'}
         try {
           // ──────── PAS 1: Claude identifică materialele din text ────────
           toast('🤖 Pas 1/3: Identificare materiale...');
+          if (!budgetCanCall()) throw new Error('Buget lunar atins');
           const identResp = await fetch('https://api.anthropic.com/v1/messages', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' },
             body: JSON.stringify({
               model, max_tokens: 3000,
-              system: (() => { const _cat = searchCatalog(extractKeywords(text), 15); const _csv = _cat.length ? '\nCATALOG MATHAUS (SAP = codul unic pe mathaus.ro):\n' + catalogToPromptCSV(_cat) : ''; const _reguli = (kb.ofertaReguli || '').trim(); return 'Identifica materialele din nota agentului. Potriveste FIECARE material cu catalogul local.\n\nPROTOCOL IDENTIFICARE:\n1. Cauta in catalogul de mai jos dupa CUVINTE CHEIE din nota\n2. Daca gasesti potrivire: pune SAP exact din catalog + in_catalog=true\n3. Daca NU gasesti in catalog: pune sap="" si in_catalog=false\n4. Denumirile din catalog sunt INTERNE — nu le afisa clientului' + (_reguli ? '\n\nREGULI ADMINISTRATOR:\n' + _reguli : '') + _csv + '\nRETURN STRICT JSON: {"materiale":[{"nume":"denumire clara","cantitate":50,"um":"buc/sac/m2","mentionat_ca":"text original","sap":"SAP sau gol","in_catalog":true}],"neidentificate":["materiale neidentificate"]}'; })(),
+              system: (() => { const _cat = searchCatalog(extractKeywords(text), 8); const _csv = _cat.length ? '\nCATALOG MATHAUS (SAP = codul unic pe mathaus.ro):\n' + catalogToPromptCSV(_cat) : ''; const _reguli = (kb.ofertaReguli || '').trim(); return 'Identifica materialele din nota agentului. Potriveste FIECARE material cu catalogul local.\n\nPROTOCOL IDENTIFICARE:\n1. Cauta in catalogul de mai jos dupa CUVINTE CHEIE din nota\n2. Daca gasesti potrivire: pune SAP exact din catalog + in_catalog=true\n3. Daca NU gasesti in catalog: pune sap="" si in_catalog=false\n4. Denumirile din catalog sunt INTERNE — nu le afisa clientului' + (_reguli ? '\n\nREGULI ADMINISTRATOR:\n' + _reguli : '') + _csv + '\nRETURN STRICT JSON: {"materiale":[{"nume":"denumire clara","cantitate":50,"um":"buc/sac/m2","mentionat_ca":"text original","sap":"SAP sau gol","in_catalog":true}],"neidentificate":["materiale neidentificate"]}'; })(),
               messages: [{ role: 'user', content: 'Identifica materialele:\n\n' + text }]
             })
           });
           const identData = await identResp.json();
           trackAIUsage('message', 'oferte');
+          budgetTrackCall(identData.usage?.input_tokens || 2000, identData.usage?.output_tokens || 200, model);
           const identText = (identData.content || []).filter(b => b.type === 'text').map(b => b.text).join('');
           let parsed = { materiale: [], neidentificate: [] };
           try { const jm = identText.match(/\{[\s\S]*\}/); if (jm) parsed = JSON.parse(jm[0]); } catch(e) {
@@ -17622,7 +17772,17 @@ LIMBA: ${lang === 'ro' ? 'Română' : lang === 'en' ? 'English' : 'Auto-detect'}
           const _needCompetitors = [];
 
           for (const m of (parsed.materiale || [])) {
-            const _sap = (m.sap || '').trim();
+            let _sap = (m.sap || '').trim();
+            
+            // Fallback: if no SAP from Claude, try tracked products match
+            if (!_sap) {
+              const tp = findTrackedProduct('', m.nume) || findTrackedProduct('', m.mentionat_ca);
+              if (tp?.sap) {
+                _sap = tp.sap;
+                console.log(`[Ofertare] ${m.nume}: SAP ${_sap} recuperat din Produse Urmărite`);
+              }
+            }
+            
             const _mhUrl = _sap ? getMathausLink(_sap) : 'https://mathaus.ro/search?text=' + encodeURIComponent(m.mentionat_ca || m.nume);
 
             // Preț MatHaus: Catalog (Sheet) → PRICE_TABLE (fallback manual)
@@ -17704,12 +17864,25 @@ LIMBA: ${lang === 'ro' ? 'Română' : lang === 'en' ? 'English' : 'Auto-detect'}
                 if (isRecent && tp.lastPrices && Object.values(tp.lastPrices).some(p => p > 0)) {
                   // Use cached tracked prices — zero AI cost
                   const matIdx = m.idx;
+                  // Propagate SAP + MH price from tracked product if missing
+                  if (!materiale[matIdx].sap && tp.sap) {
+                    materiale[matIdx].sap = tp.sap;
+                    materiale[matIdx].inCatalog = true;
+                  }
+                  if (!materiale[matIdx].mathaus?.pret && tp.sap) {
+                    const cat = getCatalogBySap(tp.sap);
+                    if (cat?.price) {
+                      materiale[matIdx].mathaus = { pret: cat.price, link: getMathausLink(tp.sap), disponibil: true };
+                      materiale[matIdx].pretOferta = cat.price;
+                      materiale[matIdx]._localPret = cat.price;
+                    }
+                  }
                   ['mathaus','dedeman','leroy','bricodepot','hornbach'].forEach(c => {
                     if (tp.lastPrices[c]) {
                       materiale[matIdx][c] = { pret: tp.lastPrices[c], link: tp.urls?.[c] || null, disponibil: true };
                     }
                   });
-                  if (tp.lastPrices.mathaus) materiale[matIdx].pretOferta = tp.lastPrices.mathaus;
+                  if (tp.lastPrices.mathaus && !materiale[matIdx].pretOferta) materiale[matIdx].pretOferta = tp.lastPrices.mathaus;
                   materiale[matIdx].sursa = 'tracked-cache';
                   materiale[matIdx]._priceDate = tp.lastPriceDate || '';
                   materiale[matIdx]._status = 'done';
@@ -17733,6 +17906,19 @@ LIMBA: ${lang === 'ro' ? 'Română' : lang === 'en' ? 'English' : 'Auto-detect'}
                 const m = _tracked[ti];
                 const tp = m._tp;
                 const matIdx = m.idx;
+                
+                // Propagate SAP + MH price from tracked product if missing
+                if (!materiale[matIdx].sap && tp.sap) {
+                  materiale[matIdx].sap = tp.sap;
+                  materiale[matIdx].inCatalog = true;
+                }
+                if (!materiale[matIdx].mathaus?.pret && tp.sap) {
+                  const cat = getCatalogBySap(tp.sap);
+                  if (cat?.price) {
+                    materiale[matIdx].mathaus = { pret: cat.price, link: getMathausLink(tp.sap), disponibil: true };
+                    materiale[matIdx].pretOferta = cat.price;
+                  }
+                }
                 
                 toast(`🎯 ${ti+1}/${_tracked.length}: ${m.nume.substring(0,30)}...`);
                 
@@ -17776,6 +17962,7 @@ Răspunde DOAR cu JSON:
 Unde p = prețul cu TVA (număr, ex: 55.89). null dacă nu găsești.`;
 
                 try {
+                  if (!budgetCanCall()) { toast('⛔ Buget atins — skip restul'); break; }
                   const resp = await fetch('https://api.anthropic.com/v1/messages', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true', 'anthropic-beta': 'web-search-2025-03-05' },
@@ -17804,6 +17991,7 @@ Unde p = prețul cu TVA (număr, ex: 55.89). null dacă nu găsești.`;
                   if (resp.ok) {
                     const data = await resp.json();
                     trackAIUsage('message', 'oferte');
+                    budgetTrackCall(data.usage?.input_tokens || 5000, data.usage?.output_tokens || 100, model);
                     const text = (data.content || []).filter(b => b.type === 'text').map(b => b.text).join('');
                     const jm = text.match(/\{[\s\S]*\}/);
                     
