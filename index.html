@@ -8471,6 +8471,22 @@
           appSettings.catalogSheetUrl = localStorage.getItem('mh_catalog_url') || '';
           appSettings.catalogLastSync = localStorage.getItem('mh_catalog_sync') || '';
         }
+        // 🧹 AUTO-CLEANUP: curăță URL-uri Apps Script contaminate cu parametri de test
+        // (?callback=test&t=999) care strică toate request-urile cu double-?
+        let cleaned = false;
+        if (typeof sanitizeAppsScriptUrl === 'function') {
+          ['cloudUrl', 'priceWritebackUrl', 'sheetsWebhookUrl', 'catalogSheetUrl'].forEach(key => {
+            const orig = appSettings[key];
+            if (orig && typeof orig === 'string' && orig.indexOf('/exec?') > 0) {
+              appSettings[key] = sanitizeAppsScriptUrl(orig);
+              cleaned = true;
+              console.warn('[URL Cleanup] Field "' + key + '" sanitized at load');
+            }
+          });
+          if (cleaned) {
+            try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(appSettings)); } catch(e) {}
+          }
+        }
         } catch (e) {}
       }
 
@@ -10741,7 +10757,7 @@
       </div>
       ${appSettings.cloudUrl ? `
         <div style="display:flex;gap:8px;align-items:center">
-          <input class="input" id="team-link-output" readonly value="${window.location.origin + window.location.pathname + '?cloud=' + encodeURIComponent(appSettings.cloudUrl)}" style="flex:1;font-family:var(--mono);font-size:11px;min-height:40px;background:var(--surface)" />
+          <input class="input" id="team-link-output" readonly value="${window.location.origin + window.location.pathname + '?cloud=' + encodeURIComponent(sanitizeAppsScriptUrl(appSettings.cloudUrl||''))}" style="flex:1;font-family:var(--mono);font-size:11px;min-height:40px;background:var(--surface)" />
           <button class="btn btn-primary btn-sm" onclick="copyTeamLink()">📋 Copiază</button>
         </div>
         <div style="font-size:11px;color:var(--txt3);margin-top:8px">
@@ -10777,13 +10793,33 @@
         });
       }
 
+      // 🧹 Sanitizare URL Apps Script — strip orice e după /exec
+      // Previne contaminarea cu parametri de test (?callback=test&t=999)
+      function sanitizeAppsScriptUrl(url) {
+        if (!url || typeof url !== 'string') return url;
+        url = url.trim();
+        const execIdx = url.indexOf('/exec');
+        if (execIdx > 0) {
+          const cleaned = url.substring(0, execIdx + 5); // 5 = "/exec".length
+          if (cleaned !== url) {
+            console.log('[URL Cleanup] Sanitized:', url, '→', cleaned);
+          }
+          return cleaned;
+        }
+        return url;
+      }
+
       function saveCloudUrl() {
-        const url = $('cloud-url-input')?.value?.trim() || '';
+        const raw = $('cloud-url-input')?.value?.trim() || '';
+        const url = sanitizeAppsScriptUrl(raw); // 🧹 curăță automat parametrii de test
         appSettings.cloudUrl = url;
+        // Update UI input cu valoarea curată (vizibil pentru user)
+        const inp = $('cloud-url-input');
+        if (inp && inp.value !== url) inp.value = url;
         saveSettings();
         // Save settings to cloud immediately so URL and password persist
         if (url) { _isAdmin = true; setTimeout(() => cloudSave(), 500); }
-        toast(url ? '☁ URL Cloud Backup salvat!' : '☁ Cloud Backup dezactivat.');
+        toast(url ? '☁ URL Cloud Backup salvat!' + (raw !== url ? ' (curățat automat)' : '') : '☁ Cloud Backup dezactivat.');
         renderAdminSetari();
       }
 
