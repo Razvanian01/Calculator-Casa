@@ -10677,12 +10677,38 @@
       function saveBudget(b) {
         try { localStorage.setItem(AI_BUDGET_STORE, JSON.stringify(b)); } catch(e) {}
       }
-      function budgetTrackCall(inputTokens, outputTokens, model) {
+      // ══════════ AI CALL LOG — istoric detaliat per acțiune ══════════
+      // Fiecare apel API se înregistrează cu context (ce a făcut, pentru ce ofertă, etc.)
+      // ca utilizatorul să poată vedea EXACT ce a costat fiecare acțiune și să identifice
+      // surse de risipă (ex: prea multe AI fallback pentru un competitor specific).
+      const AI_CALL_LOG_KEY = 'mathaus_ai_call_log';
+      const AI_CALL_LOG_MAX = 500; // ultimele 500 apeluri (rulant)
+
+      function loadAICallLog() {
+        try { return JSON.parse(localStorage.getItem(AI_CALL_LOG_KEY) || '[]'); }
+        catch(e) { return []; }
+      }
+      function saveAICallLog(arr) {
+        try {
+          // Auto-prune: păstrează doar ultimele AI_CALL_LOG_MAX
+          if (arr.length > AI_CALL_LOG_MAX) arr = arr.slice(-AI_CALL_LOG_MAX);
+          localStorage.setItem(AI_CALL_LOG_KEY, JSON.stringify(arr));
+        } catch(e) { console.warn('[AI Log] save failed:', e.message); }
+      }
+      function aiLogClear() {
+        if (!confirm('Ștergi tot istoricul de apeluri AI? Bugetul total NU e afectat.')) return;
+        try { localStorage.removeItem(AI_CALL_LOG_KEY); toast('🧹 Istoric AI șters'); }
+        catch(e) {}
+        if (typeof renderAdminAIKB === 'function') renderAdminAIKB();
+      }
+
+      function budgetTrackCall(inputTokens, outputTokens, model, context) {
         const b = loadBudget();
-        // Cost calculation per model
+        // Cost calculation per model ($ per 1M tokens)
         const costs = {
           'claude-haiku-4-5-20251001': { input: 1.00, output: 5.00 },
           'claude-sonnet-4-5-20250929': { input: 3.00, output: 15.00 },
+          'claude-opus-4-6': { input: 15.00, output: 75.00 },
         };
         const modelKey = Object.keys(costs).find(k => (model || '').includes(k.split('-').slice(0,3).join('-'))) || '';
         const rate = costs[modelKey] || costs['claude-haiku-4-5-20251001'];
@@ -10693,6 +10719,24 @@
         b.tokensOut += outputTokens;
         if (b.spent >= b.monthlyLimit) b.blocked = true;
         saveBudget(b);
+
+        // Log per-acțiune: timestamp + context + tokens + cost
+        try {
+          const log = loadAICallLog();
+          const ctx = context || {};
+          log.push({
+            ts: Date.now(),
+            action: ctx.action || 'unknown',     // 'identificare' | 'pret_fetch' | 'consultant_chat' | 'consultant_session'
+            target: ctx.target || '',            // ex: 'CIMENT 40KG HOLCIM' or 'oferta_id' or 'dedeman'
+            ofertaId: ctx.ofertaId || null,      // pentru group by ofertă
+            model: model || 'unknown',
+            inputTokens, outputTokens,
+            cost: Math.round(callCost * 1000000) / 1000000, // 6 decimal places
+            success: ctx.success !== false       // default true
+          });
+          saveAICallLog(log);
+        } catch(e) { console.warn('[AI Log] entry failed:', e.message); }
+
         return { cost: callCost, total: b.spent, limit: b.monthlyLimit, blocked: b.blocked };
       }
       function budgetCanCall() {
@@ -13443,7 +13487,11 @@ PROGRAM MAGAZINE:
               if (resp.ok) {
                 const data = await resp.json();
                 trackAIUsage('message', 'oferte');
-                budgetTrackCall(data.usage?.input_tokens || 5000, data.usage?.output_tokens || 100, model);
+                budgetTrackCall(data.usage?.input_tokens || 5000, data.usage?.output_tokens || 100, model, {
+                  action: 'pret_fetch_manual',
+                  target: tp.nume,
+                  ofertaId: null
+                });
                 const text = (data.content || []).filter(b => b.type === 'text').map(b => b.text).join('');
                 const jm = text.match(/\{[\s\S]*\}/);
                 if (jm) {
@@ -14689,7 +14737,117 @@ function writePriceRow(sheet, row, prices, urls, date, ensureCol) {
         // Recent errors
         const _telErrors = (telToday.errors || []).slice(-8).reverse();
 
+        // ─── AI Call Log: per-acțiune + agregări ───
+        const _aiLog = loadAICallLog();
+        const _today0 = new Date(); _today0.setHours(0,0,0,0);
+        const _todayTs = _today0.getTime();
+        const _aiToday = _aiLog.filter(e => e.ts >= _todayTs);
+        const _aiTodayCost = _aiToday.reduce((s, e) => s + (e.cost || 0), 0);
+
+        // Group today by action type
+        const _aiByAction = {};
+        _aiToday.forEach(e => {
+          if (!_aiByAction[e.action]) _aiByAction[e.action] = { count: 0, cost: 0, tokens: 0 };
+          _aiByAction[e.action].count++;
+          _aiByAction[e.action].cost += e.cost || 0;
+          _aiByAction[e.action].tokens += (e.inputTokens || 0) + (e.outputTokens || 0);
+        });
+        const _actionLabels = {
+          'identificare': { label: '🤖 Identificare materiale (Pas 1)', color: '#1e40af', tip: 'Claude identifică materiale în catalog' },
+          'pret_fetch': { label: '🌐 Fetch preț competitor (Pas 3A)', color: '#dc2626', tip: 'Claude citește preț de pe site competitor (după fetch direct eșuat)' },
+          'pret_fetch_manual': { label: '🔄 Refresh manual preț', color: '#0891b2', tip: 'Click pe Refresh la un material' },
+          'consultant_chat': { label: '💬 Consultant — mesaj', color: '#7c3aed', tip: 'Conversație cu agent Consultant' },
+          'unknown': { label: '❓ Necategorizat', color: '#6b7280', tip: '' }
+        };
+
+        // Group today by ofertă
+        const _aiByOferta = {};
+        _aiToday.filter(e => e.ofertaId).forEach(e => {
+          if (!_aiByOferta[e.ofertaId]) _aiByOferta[e.ofertaId] = { count: 0, cost: 0, tokens: 0 };
+          _aiByOferta[e.ofertaId].count++;
+          _aiByOferta[e.ofertaId].cost += e.cost || 0;
+          _aiByOferta[e.ofertaId].tokens += (e.inputTokens || 0) + (e.outputTokens || 0);
+        });
+        const _ofertaLookup = {};
+        try { loadOferte().forEach(o => { _ofertaLookup[o.id] = o; }); } catch(e) {}
+
+        // Last 15 calls (most recent first)
+        const _aiRecent = _aiLog.slice(-15).reverse();
+        const _modelShortName = (m) => m?.includes('haiku') ? '⚡ Haiku' : m?.includes('opus') ? '👑 Opus' : m?.includes('sonnet') ? '🧠 Sonnet' : m;
+
         return `
+  <!-- ═════════════ AI CALL LOG — istoric apeluri + agregări ═════════════ -->
+  <div class="admin-card" style="margin-bottom:12px;border-left:4px solid var(--blue,#3b82f6)">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px">
+      <div style="font-size:11px;font-weight:700;color:var(--txt3);letter-spacing:1px;text-transform:uppercase;font-family:var(--mono)">📜 Istoric apeluri AI</div>
+      <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+        <span style="font-size:11px;color:var(--txt3);font-weight:600">${_aiToday.length} apeluri azi · <span style="color:var(--green);font-weight:700">$${_aiTodayCost.toFixed(4)}</span></span>
+        <button class="btn btn-ghost btn-sm" style="font-size:10px" onclick="aiLogClear()" title="Șterge istoricul (bugetul total nu e afectat)">🧹 Reset</button>
+      </div>
+    </div>
+
+    ${_aiToday.length === 0 ? `
+      <div style="text-align:center;padding:24px;color:var(--txt3);font-size:12px;background:var(--surface2);border-radius:var(--r-sm)">
+        Niciun apel AI azi. La prima ofertă sau conversație Consultant, vei vedea aici toate apelurile cu costul exact.
+      </div>
+    ` : `
+      <!-- Defalcare pe tip de acțiune -->
+      <div style="font-size:10px;font-weight:700;color:var(--txt3);text-transform:uppercase;margin-bottom:6px;letter-spacing:.06em">Defalcare azi pe tip acțiune</div>
+      <div style="display:grid;grid-template-columns:1fr;gap:6px;margin-bottom:14px">
+        ${Object.entries(_aiByAction).sort((a,b) => b[1].cost - a[1].cost).map(([action, stats]) => {
+          const meta = _actionLabels[action] || _actionLabels.unknown;
+          const pct = _aiTodayCost > 0 ? Math.round(stats.cost / _aiTodayCost * 100) : 0;
+          return `<div style="display:flex;align-items:center;gap:10px;padding:8px 12px;background:var(--surface2);border-radius:var(--r-sm);border-left:3px solid ${meta.color}" title="${meta.tip}">
+            <div style="flex:1;font-size:11px;font-weight:700;color:var(--navy)">${meta.label}</div>
+            <div style="font-size:10px;color:var(--txt3);font-family:var(--mono)">${stats.count} call${stats.count===1?'':'s'}</div>
+            <div style="font-size:10px;color:var(--txt3);font-family:var(--mono)">${(stats.tokens/1000).toFixed(1)}k tok</div>
+            <div style="font-size:13px;font-weight:800;color:${meta.color};min-width:70px;text-align:right">$${stats.cost.toFixed(4)}</div>
+            <div style="width:36px;text-align:right;font-size:10px;color:var(--txt3);font-weight:700">${pct}%</div>
+          </div>`;
+        }).join('')}
+      </div>
+
+      ${Object.keys(_aiByOferta).length > 0 ? `
+      <!-- Cost per ofertă azi -->
+      <div style="font-size:10px;font-weight:700;color:var(--txt3);text-transform:uppercase;margin-bottom:6px;letter-spacing:.06em">Cost per ofertă azi</div>
+      <div style="display:grid;grid-template-columns:1fr;gap:4px;margin-bottom:14px;max-height:160px;overflow-y:auto">
+        ${Object.entries(_aiByOferta).sort((a,b) => b[1].cost - a[1].cost).slice(0,10).map(([ofId, stats]) => {
+          const oferta = _ofertaLookup[ofId];
+          const ofClient = oferta ? (oferta.client || 'Client') : 'Ofertă ștearsă';
+          const ofMaterials = oferta?.materiale?.length || 0;
+          return `<div style="display:flex;align-items:center;gap:10px;padding:6px 12px;background:#fff;border:1px solid var(--border);border-radius:var(--r-sm);font-size:11px">
+            <div style="flex:1;color:var(--navy);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHtml(ofClient)}</div>
+            <div style="color:var(--txt3);font-size:10px;font-family:var(--mono)">${ofMaterials} mat · ${stats.count} call</div>
+            <div style="color:var(--green);font-weight:800;min-width:70px;text-align:right">$${stats.cost.toFixed(4)}</div>
+          </div>`;
+        }).join('')}
+      </div>
+      ` : ''}
+
+      <!-- Ultimele 15 apeluri detaliate -->
+      <div style="font-size:10px;font-weight:700;color:var(--txt3);text-transform:uppercase;margin-bottom:6px;letter-spacing:.06em">Ultimele ${_aiRecent.length} apeluri (cronologic invers)</div>
+      <div style="background:var(--surface2);border-radius:var(--r-sm);max-height:280px;overflow-y:auto">
+        ${_aiRecent.map(e => {
+          const time = new Date(e.ts).toLocaleTimeString('ro-RO', {hour:'2-digit',minute:'2-digit',second:'2-digit'});
+          const meta = _actionLabels[e.action] || _actionLabels.unknown;
+          const isToday = e.ts >= _todayTs;
+          const dateLabel = isToday ? '' : new Date(e.ts).toLocaleDateString('ro-RO', {day:'2-digit',month:'2-digit'}) + ' ';
+          return `<div style="display:flex;align-items:center;gap:8px;padding:7px 12px;border-bottom:1px solid var(--border);font-size:11px;font-family:var(--mono)" title="${escHtml(e.target || '')}">
+            <div style="color:var(--txt3);width:74px;flex-shrink:0">${dateLabel}${time}</div>
+            <div style="background:${meta.color};color:#fff;padding:1px 6px;border-radius:3px;font-size:9px;font-weight:700;white-space:nowrap;flex-shrink:0">${meta.label.split(' ')[0]}</div>
+            <div style="flex:1;color:var(--txt2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-family:inherit">${escHtml((e.target || '').substring(0, 50))}</div>
+            <div style="color:var(--txt3);font-size:9px;flex-shrink:0">${_modelShortName(e.model)}</div>
+            <div style="color:var(--txt3);font-size:9px;flex-shrink:0;width:60px;text-align:right">${((e.inputTokens||0)+(e.outputTokens||0))/1000 > 0.1 ? (((e.inputTokens||0)+(e.outputTokens||0))/1000).toFixed(1) + 'k' : ((e.inputTokens||0)+(e.outputTokens||0))} tok</div>
+            <div style="color:var(--green);font-weight:800;min-width:70px;text-align:right">$${(e.cost || 0).toFixed(5)}</div>
+          </div>`;
+        }).join('')}
+      </div>
+      <div style="font-size:10px;color:var(--txt3);margin-top:8px;text-align:center">
+        💡 Aplicația păstrează ultimele ${AI_CALL_LOG_MAX} apeluri. Costul afișat e exact (pe baza tokens raportate de Anthropic).
+      </div>
+    `}
+  </div>
+
   <!-- TELEMETRIE EXTRACȚIE PREȚURI -->
   <div class="admin-card" style="margin-bottom:12px;border-left:4px solid ${_telHealthColor}">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px">
@@ -17535,7 +17693,10 @@ LIMBA: ${lang === 'ro' ? 'Română' : lang === 'en' ? 'English' : 'Auto-detect'}
           const _msgLen = JSON.stringify(body.messages).length;
           const _estIn = Math.round((_spLen + _msgLen) / 4);
           const _estOut = Math.round((fullText || '').length / 4);
-          budgetTrackCall(_estIn, _estOut, body.model);
+          budgetTrackCall(_estIn, _estOut, body.model, {
+            action: 'consultant_chat',
+            target: (chatConversation[chatConversation.length-2]?.content || '').substring(0, 60)
+          });
 
         } catch (err) {
           console.error('Chat API error:', err);
@@ -17617,7 +17778,9 @@ LIMBA: ${lang === 'ro' ? 'Română' : lang === 'en' ? 'English' : 'Auto-detect'}
         }
 
         const _data = await response.json();
-        budgetTrackCall(_data.usage?.input_tokens || 3000, _data.usage?.output_tokens || 300, body.model);
+        budgetTrackCall(_data.usage?.input_tokens || 3000, _data.usage?.output_tokens || 300, body.model, {
+          action: 'consultant_chat'
+        });
         return _data;
       }
 
@@ -19268,7 +19431,11 @@ LIMBA: ${lang === 'ro' ? 'Română' : lang === 'en' ? 'English' : 'Auto-detect'}
               });
               const identData = await identResp.json();
               trackAIUsage('message', 'oferte');
-              budgetTrackCall(identData.usage?.input_tokens || 2000, identData.usage?.output_tokens || 200, model);
+              budgetTrackCall(identData.usage?.input_tokens || 2000, identData.usage?.output_tokens || 200, model, {
+                action: 'identificare',
+                target: localResult.unmatched.slice(0, 3).join(' | ').substring(0, 80),
+                ofertaId
+              });
               const identText = (identData.content || []).filter(b => b.type === 'text').map(b => b.text).join('');
               try {
                 const jm = identText.match(/\{[\s\S]*\}/);
@@ -19585,7 +19752,11 @@ LIMBA: ${lang === 'ro' ? 'Română' : lang === 'en' ? 'English' : 'Auto-detect'}
                     if (resp.ok) {
                       const data = await resp.json();
                       trackAIUsage('message', 'oferte');
-                      budgetTrackCall(data.usage?.input_tokens || 5000, data.usage?.output_tokens || 100, model);
+                      budgetTrackCall(data.usage?.input_tokens || 5000, data.usage?.output_tokens || 100, model, {
+                        action: 'pret_fetch',
+                        target: tp.nume + ' (' + failed.map(f => f.comp).join(',') + ')',
+                        ofertaId
+                      });
                       const text = (data.content || []).filter(b => b.type === 'text').map(b => b.text).join('');
                       const jm = text.match(/\{[\s\S]*\}/);
                       if (jm) {
