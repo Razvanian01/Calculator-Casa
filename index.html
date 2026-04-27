@@ -6651,6 +6651,12 @@
         
         // Admin password check — show custom modal
         if (mode === 'admin' && !_isAdmin) {
+          // 🔐 USER ROLE CHECK — doar utilizatorii cu rol 'admin' pot intra în Admin
+          const u = getCurrentUser();
+          if (!u || u.role !== 'admin') {
+            alert('🔒 Acces restricționat\n\nDoar utilizatorii cu rol Admin pot accesa această zonă.\nContactează administratorul pentru drepturi.');
+            return;
+          }
           // 🔒 Hard block: dacă admin a fost lock-uit la pornire (team link + sync eșuat
           // sau parolă admin lipsă în config) → refuză total accesul.
           if (window._adminLocked) {
@@ -8105,6 +8111,257 @@
       const SETTINGS_KEY = "mathausSettingsV1";
       let appSettings = { showPrices: false, cloudUrl: '', adminPass: '', cloudAutoSave: true, sheetsWebhookUrl: '', sheetsEmail: '', catalogSheetUrl: '', catalogLastSync: '', syncIntervalHours: 24, priceWritebackUrl: '' };
       let _isAdmin = false; // session-only, not persisted
+
+      // ════════════════════════════════════════════════════════════════════
+      // 🔐 USER AUTH — login per consilier cu username/parolă
+      // Fiecare utilizator are: username (unic), parolă hash-uită, rol (admin/agent)
+      // Sesiunea durează 30 zile (cookie-like în localStorage), apoi cere re-login.
+      // Toate apelurile AI, feedback-urile, sugestiile sunt marcate cu username.
+      // ════════════════════════════════════════════════════════════════════
+      const USERS_KEY = 'mathaus_users';
+      const SESSION_KEY = 'mathaus_session';
+      const SESSION_DAYS = 30;
+
+      // Utilizatori default (preconfigurați la prima utilizare)
+      // În producție, admin-ul îi adaugă din Admin → Utilizatori
+      const DEFAULT_USERS = [
+        // password='1' hash-uit cu SHA-256
+        { username: 'Razvan', passHash: '6b86b273ff34fce19d6b804eff5a3f5747ada4eaa22f1d49c01e52ddb7875b4b', role: 'admin', createdAt: new Date().toISOString() }
+      ];
+
+      // SHA-256 pentru hash parole (browser-native, fără biblioteci externe)
+      async function hashPassword(plain) {
+        const enc = new TextEncoder().encode(plain);
+        const buf = await crypto.subtle.digest('SHA-256', enc);
+        return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
+      }
+
+      function loadUsers() {
+        try {
+          const raw = localStorage.getItem(USERS_KEY);
+          if (raw) return JSON.parse(raw);
+        } catch(e) {}
+        // First boot: seed defaults
+        try { localStorage.setItem(USERS_KEY, JSON.stringify(DEFAULT_USERS)); } catch(e) {}
+        return DEFAULT_USERS.slice();
+      }
+      function saveUsers(users) {
+        try { localStorage.setItem(USERS_KEY, JSON.stringify(users)); } catch(e) {}
+      }
+
+      function loadSession() {
+        try {
+          const raw = localStorage.getItem(SESSION_KEY);
+          if (!raw) return null;
+          const s = JSON.parse(raw);
+          // Check expiry
+          if (s.expiresAt && new Date(s.expiresAt).getTime() < Date.now()) {
+            localStorage.removeItem(SESSION_KEY);
+            return null;
+          }
+          return s;
+        } catch(e) { return null; }
+      }
+      function saveSession(session) {
+        try { localStorage.setItem(SESSION_KEY, JSON.stringify(session)); } catch(e) {}
+      }
+      function clearSession() {
+        try { localStorage.removeItem(SESSION_KEY); } catch(e) {}
+      }
+
+      // Curent user (cached din sesiune)
+      let _currentUser = null;
+      function getCurrentUser() {
+        if (_currentUser) return _currentUser;
+        const s = loadSession();
+        if (s) _currentUser = s;
+        return _currentUser;
+      }
+
+      async function authLogin(username, password) {
+        const users = loadUsers();
+        const u = users.find(x => x.username.toLowerCase() === username.toLowerCase());
+        if (!u) return { ok: false, error: 'Utilizator inexistent' };
+        const passHash = await hashPassword(password);
+        if (u.passHash !== passHash) return { ok: false, error: 'Parolă incorectă' };
+        const session = {
+          username: u.username,
+          role: u.role || 'agent',
+          loginAt: new Date().toISOString(),
+          expiresAt: new Date(Date.now() + SESSION_DAYS * 86400000).toISOString()
+        };
+        saveSession(session);
+        _currentUser = session;
+        // Telemetrie: înregistrează login
+        try { telemetryRecord('user_login', null, { username: u.username, role: u.role }); } catch(e) {}
+        return { ok: true, user: session };
+      }
+
+      function authLogout() {
+        const u = getCurrentUser();
+        if (u) {
+          try { telemetryRecord('user_logout', null, { username: u.username }); } catch(e) {}
+        }
+        clearSession();
+        _currentUser = null;
+        location.reload();
+      }
+
+      // Admin UI helpers — apelabile din butoanele din dashboard
+      async function adminAddUserPrompt() {
+        const username = prompt('Username pentru noul consilier:');
+        if (!username || !username.trim()) return;
+        const password = prompt(`Parolă pentru ${username}:`);
+        if (!password) return;
+        const role = confirm('Acest utilizator va avea drepturi ADMIN?\n\nOK = ADMIN (acces complet, inclusiv setări)\nAnulează = AGENT (doar Consultant + Ofertare)') ? 'admin' : 'agent';
+        const r = await authAddUser(username.trim(), password, role);
+        if (r.ok) {
+          toast(`✅ Utilizator ${username} (${role}) adăugat`);
+          if (typeof renderAdminAIKB === 'function') renderAdminAIKB();
+        } else {
+          alert('❌ ' + r.error);
+        }
+      }
+      async function adminChangePasswordPrompt(username) {
+        const newPwd = prompt(`Parolă nouă pentru ${username}:\n\n(Lasă gol pentru a anula)`);
+        if (!newPwd) return;
+        const r = await authChangePassword(username, newPwd);
+        if (r.ok) {
+          toast(`🔑 Parolă actualizată pentru ${username}`);
+          if (typeof renderAdminAIKB === 'function') renderAdminAIKB();
+        } else {
+          alert('❌ ' + r.error);
+        }
+      }
+      function adminDeleteUserConfirm(username) {
+        if (!confirm(`Ștergi utilizatorul "${username}"?\n\nSesiunea lui curentă rămâne activă până expiră (max 30 zile) sau până dă logout.\nIstoricul apelurilor AI rămâne în log pentru audit.`)) return;
+        authDeleteUser(username);
+        toast(`🗑 Utilizator ${username} șters`);
+        if (typeof renderAdminAIKB === 'function') renderAdminAIKB();
+      }
+
+      // Adaugă/șterge utilizator (doar admin)
+      async function authAddUser(username, password, role) {
+        if (!username || username.length < 2) return { ok: false, error: 'Username prea scurt' };
+        if (!password || password.length < 1) return { ok: false, error: 'Parolă obligatorie' };
+        const users = loadUsers();
+        if (users.find(u => u.username.toLowerCase() === username.toLowerCase())) {
+          return { ok: false, error: 'Username deja folosit' };
+        }
+        users.push({
+          username, passHash: await hashPassword(password),
+          role: role || 'agent', createdAt: new Date().toISOString()
+        });
+        saveUsers(users);
+        // Trigger cloud save dacă e setat
+        try { if (typeof triggerCloudAutoSave === 'function') triggerCloudAutoSave(); } catch(e) {}
+        return { ok: true };
+      }
+      function authDeleteUser(username) {
+        const users = loadUsers().filter(u => u.username !== username);
+        saveUsers(users);
+        try { if (typeof triggerCloudAutoSave === 'function') triggerCloudAutoSave(); } catch(e) {}
+        return { ok: true };
+      }
+      async function authChangePassword(username, newPassword) {
+        const users = loadUsers();
+        const u = users.find(x => x.username === username);
+        if (!u) return { ok: false, error: 'Utilizator inexistent' };
+        u.passHash = await hashPassword(newPassword);
+        saveUsers(users);
+        try { if (typeof triggerCloudAutoSave === 'function') triggerCloudAutoSave(); } catch(e) {}
+        return { ok: true };
+      }
+
+      // Login UI overlay — blochează aplicația până la autentificare
+      function showLoginScreen() {
+        // Hide app
+        document.body.style.overflow = 'hidden';
+        const existing = document.getElementById('login-overlay');
+        if (existing) existing.remove();
+
+        const overlay = document.createElement('div');
+        overlay.id = 'login-overlay';
+        overlay.style.cssText = 'position:fixed;inset:0;background:linear-gradient(135deg,#1c2b4a 0%,#2563eb 100%);z-index:99999;display:flex;align-items:center;justify-content:center;padding:20px;font-family:var(--font,sans-serif)';
+        overlay.innerHTML = `
+          <div style="background:#fff;border-radius:16px;width:100%;max-width:400px;padding:32px 28px;box-shadow:0 30px 80px rgba(0,0,0,.4)">
+            <div style="text-align:center;margin-bottom:24px">
+              <div style="font-size:42px;margin-bottom:8px">🔐</div>
+              <h2 style="margin:0;font-size:20px;font-weight:800;color:#1c2b4a">SmartOffer AI MatHaus</h2>
+              <div style="font-size:12px;color:#6b7280;margin-top:6px">Autentifică-te pentru a accesa aplicația</div>
+            </div>
+            <form id="login-form" onsubmit="event.preventDefault();authLoginSubmit();return false">
+              <div style="margin-bottom:14px">
+                <label style="display:block;font-size:11px;font-weight:700;color:#374151;margin-bottom:6px;text-transform:uppercase;letter-spacing:.05em">Utilizator</label>
+                <input type="text" id="login-username" autocomplete="username" autofocus
+                  style="width:100%;padding:12px;border:2px solid #e5e7eb;border-radius:8px;font-size:14px;box-sizing:border-box"
+                  placeholder="ex: Razvan"/>
+              </div>
+              <div style="margin-bottom:18px">
+                <label style="display:block;font-size:11px;font-weight:700;color:#374151;margin-bottom:6px;text-transform:uppercase;letter-spacing:.05em">Parolă</label>
+                <input type="password" id="login-password" autocomplete="current-password"
+                  style="width:100%;padding:12px;border:2px solid #e5e7eb;border-radius:8px;font-size:14px;box-sizing:border-box"
+                  placeholder="Parolă"/>
+              </div>
+              <div id="login-error" style="display:none;background:#fef2f2;border:1px solid #fecaca;color:#991b1b;padding:10px;border-radius:6px;font-size:12px;margin-bottom:14px;font-weight:600"></div>
+              <button type="submit"
+                style="width:100%;padding:14px;background:linear-gradient(135deg,#2563eb,#1e40af);color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:800;cursor:pointer;letter-spacing:.03em">
+                LOGIN →
+              </button>
+            </form>
+            <div style="margin-top:18px;padding-top:14px;border-top:1px solid #e5e7eb;text-align:center;font-size:11px;color:#9ca3af">
+              MatHaus · Acces limitat la consilieri autorizați
+            </div>
+          </div>
+        `;
+        document.body.appendChild(overlay);
+      }
+
+      async function authLoginSubmit() {
+        const u = (document.getElementById('login-username')?.value || '').trim();
+        const p = document.getElementById('login-password')?.value || '';
+        const err = document.getElementById('login-error');
+        if (!u || !p) {
+          if (err) { err.textContent = '⚠ Completează ambele câmpuri'; err.style.display = 'block'; }
+          return;
+        }
+        const result = await authLogin(u, p);
+        if (!result.ok) {
+          if (err) { err.textContent = '❌ ' + result.error; err.style.display = 'block'; }
+          // Mic delay anti-bruteforce (1.5s între încercări)
+          setTimeout(() => { document.getElementById('login-password').value = ''; document.getElementById('login-password').focus(); }, 1500);
+          return;
+        }
+        // Success — close login + reveal app
+        const overlay = document.getElementById('login-overlay');
+        if (overlay) overlay.remove();
+        document.body.style.overflow = '';
+        // Show toast welcome
+        try { toast(`👋 Bun venit, ${result.user.username}!`); } catch(e) {}
+        // Trigger render-uri care depind de user
+        try { renderUserBadge(); } catch(e) {}
+      }
+
+      // User badge în header (afișează username + buton Logout)
+      function renderUserBadge() {
+        const u = getCurrentUser();
+        if (!u) return;
+        const existing = document.getElementById('user-badge');
+        if (existing) existing.remove();
+        const badge = document.createElement('div');
+        badge.id = 'user-badge';
+        badge.style.cssText = 'position:fixed;top:8px;right:12px;z-index:9000;display:flex;gap:6px;align-items:center;background:rgba(255,255,255,.95);border:1px solid rgba(0,0,0,.08);border-radius:20px;padding:4px 4px 4px 12px;font-size:11px;font-weight:600;box-shadow:0 2px 8px rgba(0,0,0,.08);pointer-events:auto';
+        const roleColor = u.role === 'admin' ? '#15803d' : '#1d4ed8';
+        const roleLabel = u.role === 'admin' ? '👑 Admin' : '👤 Agent';
+        badge.innerHTML = `
+          <span style="color:${roleColor};font-weight:700">${escHtml ? escHtml(u.username) : u.username}</span>
+          <span style="font-size:9px;color:#6b7280;background:#f3f4f6;padding:1px 6px;border-radius:8px">${roleLabel}</span>
+          <button onclick="if(confirm('Logout?'))authLogout()" title="Ieșire"
+            style="background:#fee;color:#dc2626;border:none;border-radius:50%;width:24px;height:24px;cursor:pointer;font-size:11px;display:flex;align-items:center;justify-content:center">⏻</button>
+        `;
+        document.body.appendChild(badge);
+      }
+
 
       // Detectare device deschis prin Link Echipă (parametrul ?cloud= prezent în URL)
       // Folosit pentru a aplica restricții de securitate diferențiate (consilier vs admin master)
@@ -10809,19 +11066,22 @@
         if (b.spent >= b.monthlyLimit) b.blocked = true;
         saveBudget(b);
 
-        // Log per-acțiune: timestamp + context + tokens + cost
+        // Log per-acțiune: timestamp + context + tokens + cost + USER
         try {
           const log = loadAICallLog();
           const ctx = context || {};
+          const u = getCurrentUser();
           log.push({
             ts: Date.now(),
-            action: ctx.action || 'unknown',     // 'identificare' | 'pret_fetch' | 'consultant_chat' | 'consultant_session'
-            target: ctx.target || '',            // ex: 'CIMENT 40KG HOLCIM' or 'oferta_id' or 'dedeman'
-            ofertaId: ctx.ofertaId || null,      // pentru group by ofertă
+            user: u?.username || 'anonim',           // ← cine a făcut apelul
+            role: u?.role || 'unknown',              // admin / agent
+            action: ctx.action || 'unknown',
+            target: ctx.target || '',
+            ofertaId: ctx.ofertaId || null,
             model: model || 'unknown',
             inputTokens, outputTokens,
-            cost: Math.round(callCost * 1000000) / 1000000, // 6 decimal places
-            success: ctx.success !== false       // default true
+            cost: Math.round(callCost * 1000000) / 1000000,
+            success: ctx.success !== false
           });
           saveAICallLog(log);
         } catch(e) { console.warn('[AI Log] entry failed:', e.message); }
@@ -14878,7 +15138,72 @@ function writePriceRow(sheet, row, prices, urls, date, ensureCol) {
         const _aiRecent = _aiLog.slice(-15).reverse();
         const _modelShortName = (m) => m?.includes('haiku') ? '⚡ Haiku' : m?.includes('opus') ? '👑 Opus' : m?.includes('sonnet') ? '🧠 Sonnet' : m;
 
+        // ─── Users dashboard: cine s-a logat, cât a consumat ───
+        const _users = loadUsers();
+        const _userStats = {};
+        _aiToday.forEach(e => {
+          const u = e.user || 'anonim';
+          if (!_userStats[u]) _userStats[u] = { calls: 0, cost: 0, tokens: 0, lastActivity: 0 };
+          _userStats[u].calls++;
+          _userStats[u].cost += e.cost || 0;
+          _userStats[u].tokens += (e.inputTokens || 0) + (e.outputTokens || 0);
+          if (e.ts > _userStats[u].lastActivity) _userStats[u].lastActivity = e.ts;
+        });
+        const _userStatsTotal = {};
+        _aiLog.forEach(e => {
+          const u = e.user || 'anonim';
+          if (!_userStatsTotal[u]) _userStatsTotal[u] = { calls: 0, cost: 0 };
+          _userStatsTotal[u].calls++;
+          _userStatsTotal[u].cost += e.cost || 0;
+        });
+        const _currentUsername = getCurrentUser()?.username || '';
+
         return `
+  <!-- ═════════════ UTILIZATORI ÎNREGISTRAȚI ═════════════ -->
+  <div class="admin-card" style="margin-bottom:12px;border-left:4px solid #7c3aed">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px">
+      <div style="font-size:11px;font-weight:700;color:var(--txt3);letter-spacing:1px;text-transform:uppercase;font-family:var(--mono)">👥 Utilizatori (${_users.length})</div>
+      <button class="btn btn-primary btn-sm" style="font-size:11px" onclick="adminAddUserPrompt()">+ Adaugă utilizator</button>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr;gap:8px">
+      ${_users.map(u => {
+        const stats = _userStats[u.username] || { calls: 0, cost: 0, tokens: 0, lastActivity: 0 };
+        const total = _userStatsTotal[u.username] || { calls: 0, cost: 0 };
+        const lastLabel = stats.lastActivity > 0 ? new Date(stats.lastActivity).toLocaleString('ro-RO', {day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit'}) : 'Niciodată azi';
+        const isActive = stats.lastActivity > 0 && (Date.now() - stats.lastActivity) < 3600000;
+        const roleBadge = u.role === 'admin' 
+          ? '<span style="background:#dcfce7;color:#15803d;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700">👑 ADMIN</span>'
+          : '<span style="background:#e0e7ff;color:#3730a3;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700">👤 AGENT</span>';
+        return `<div style="display:flex;align-items:center;gap:12px;padding:12px;background:var(--surface2);border-radius:var(--r-sm);border-left:3px solid ${isActive ? 'var(--green)' : '#94a3b8'}">
+          <div style="flex:1;min-width:0">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;flex-wrap:wrap">
+              <span style="font-weight:700;color:var(--navy);font-size:13px">${u.username}</span>
+              ${roleBadge}
+              ${isActive ? '<span style="background:#dcfce7;color:#15803d;padding:1px 6px;border-radius:3px;font-size:9px;font-weight:700">🟢 Activ</span>' : ''}
+            </div>
+            <div style="font-size:10px;color:var(--txt3);font-family:var(--mono)">
+              Ultim. activ: ${lastLabel} · Creat: ${u.createdAt ? new Date(u.createdAt).toLocaleDateString('ro-RO') : '—'}
+            </div>
+          </div>
+          <div style="text-align:right;font-size:11px;line-height:1.5;min-width:140px">
+            <div style="color:var(--txt3)">Azi: <strong style="color:var(--navy)">${stats.calls}</strong> apeluri · <strong style="color:var(--green)">$${stats.cost.toFixed(4)}</strong></div>
+            <div style="color:var(--txt3);font-size:10px">Total: ${total.calls} · $${total.cost.toFixed(4)}</div>
+          </div>
+          <div style="display:flex;gap:4px;flex-shrink:0">
+            <button onclick="adminChangePasswordPrompt('${u.username.replace(/'/g, "\\'")}')" title="Schimbă parolă"
+              style="background:none;border:1px solid var(--border);border-radius:6px;padding:6px 10px;cursor:pointer;font-size:13px">🔑</button>
+            ${u.username !== _currentUsername ? `<button onclick="adminDeleteUserConfirm('${u.username.replace(/'/g, "\\'")}')" title="Șterge"
+              style="background:#fee;color:#dc2626;border:1px solid #fecaca;border-radius:6px;padding:6px 10px;cursor:pointer;font-size:13px">🗑</button>` : '<span style="font-size:9px;color:var(--txt3);padding:6px;font-weight:700">tu</span>'}
+          </div>
+        </div>`;
+      }).join('')}
+    </div>
+    <div style="font-size:10px;color:var(--txt3);margin-top:10px;padding-top:8px;border-top:1px solid var(--border);text-align:center">
+      💡 Adaugă consilieri ca utilizatori AGENT — vor putea folosi Consultant + Ofertare, dar NU Admin. Tot consumul lor AI se înregistrează aici.
+    </div>
+  </div>
+
   <!-- ═════════════ AI CALL LOG — istoric apeluri + agregări ═════════════ -->
   <div class="admin-card" style="margin-bottom:12px;border-left:4px solid var(--blue,#3b82f6)">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px">
@@ -17203,6 +17528,25 @@ function writePriceRow(sheet, row, prices, urls, date, ensureCol) {
 
       // ─────────────────────────── INIT ─────────────────────────────
       window.addEventListener("DOMContentLoaded", async () => {
+        // 🔐 LOGIN GATE — primul lucru care se întâmplă: verifică sesiunea, altfel cere login
+        const session = getCurrentUser();
+        if (!session) {
+          // Fără sesiune validă → afișează login overlay și OPRIM aici
+          // Restul init-ului (loadSettings, cloud sync etc.) se va face DUPĂ login
+          showLoginScreen();
+          // Așteaptă login-ul (poll la fiecare 500ms până se loghează)
+          await new Promise(resolve => {
+            const checkInterval = setInterval(() => {
+              if (getCurrentUser()) {
+                clearInterval(checkInterval);
+                resolve();
+              }
+            }, 500);
+          });
+        }
+        // De aici încolo, getCurrentUser() returnează user-ul logat
+        // Render badge cu numele user-ului
+        setTimeout(renderUserBadge, 100);
         loadAdmin();
         loadProducts();
         loadPrices();
