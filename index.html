@@ -3147,27 +3147,70 @@
               </div>
             </div>
 
-            <!-- Voice uses Web Speech API — no API key needed -->
-
-            <!-- VOCE -->
-            <div class="voice-section" id="oferta-voice-section">
-              <button class="voice-btn" id="oferta-voice-btn" onclick="ofertaToggleRecording()">🎤</button>
-              <div class="voice-status" id="oferta-voice-status">Apasă pentru înregistrare vocală</div>
+            <!-- ═════ TOGGLE MOD: Microfon (voice/text) vs Scris (search & select) ═════ -->
+            <div style="display:flex;gap:6px;background:var(--surface2);border-radius:var(--r);padding:4px;margin-bottom:12px">
+              <button id="onm-mode-mic" onclick="ofertaSetMode('mic')"
+                style="flex:1;padding:10px 14px;border:none;border-radius:calc(var(--r) - 4px);cursor:pointer;font-size:13px;font-weight:700;background:transparent;color:var(--txt2);transition:all .15s">
+                🎤 Dictează
+              </button>
+              <button id="onm-mode-scris" onclick="ofertaSetMode('scris')"
+                style="flex:1;padding:10px 14px;border:none;border-radius:calc(var(--r) - 4px);cursor:pointer;font-size:13px;font-weight:700;background:var(--navy);color:#fff;transition:all .15s">
+                ⌨ Caută & Adaugă
+              </button>
             </div>
-            <div id="oferta-transcript" style="display:none;font-size:11px;color:var(--txt3);background:var(--surface2);border-radius:var(--r-sm);padding:8px 10px;margin-bottom:8px;font-style:italic"></div>
 
-            <!-- TEXT -->
-            <div style="margin-bottom:0">
-              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:5px">
-                <label class="label" style="margin-bottom:0">Materiale & observații</label>
-                <div id="oferta-tpl-dropdown" style="position:relative">
-                  <button class="btn btn-ghost btn-sm" style="font-size:10px;padding:3px 8px" onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='block'?'none':'block'">📋 Template-uri</button>
-                  <div style="display:none;position:absolute;right:0;top:100%;z-index:100;background:var(--surface);border:1px solid var(--border);border-radius:var(--r-sm);box-shadow:var(--shadow);padding:6px;min-width:220px;max-height:200px;overflow-y:auto" id="oferta-templates-list"></div>
-                </div>
+            <!-- ═════ MOD MICROFON (voice + text) — flux clasic AI ═════ -->
+            <div id="onm-panel-mic" style="display:none">
+              <div class="voice-section" id="oferta-voice-section">
+                <button class="voice-btn" id="oferta-voice-btn" onclick="ofertaToggleRecording()">🎤</button>
+                <div class="voice-status" id="oferta-voice-status">Apasă pentru înregistrare vocală</div>
               </div>
-              <textarea class="input" id="oferta-text" rows="5"
-                placeholder="ex: 150mp BCA 30cm, 20 saci adeziv Termofix, 5 paleți gresie 60x60, livrare urgentă..."
-                style="resize:vertical;font-size:13px;line-height:1.6"></textarea>
+              <div id="oferta-transcript" style="display:none;font-size:11px;color:var(--txt3);background:var(--surface2);border-radius:var(--r-sm);padding:8px 10px;margin-bottom:8px;font-style:italic"></div>
+
+              <div style="margin-bottom:0">
+                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:5px">
+                  <label class="label" style="margin-bottom:0">Materiale & observații</label>
+                  <div id="oferta-tpl-dropdown" style="position:relative">
+                    <button class="btn btn-ghost btn-sm" style="font-size:10px;padding:3px 8px" onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='block'?'none':'block'">📋 Template-uri</button>
+                    <div style="display:none;position:absolute;right:0;top:100%;z-index:100;background:var(--surface);border:1px solid var(--border);border-radius:var(--r-sm);box-shadow:var(--shadow);padding:6px;min-width:220px;max-height:200px;overflow-y:auto" id="oferta-templates-list"></div>
+                  </div>
+                </div>
+                <textarea class="input" id="oferta-text" rows="5"
+                  placeholder="ex: 150mp BCA 30cm, 20 saci adeziv Termofix, 5 paleți gresie 60x60, livrare urgentă..."
+                  style="resize:vertical;font-size:13px;line-height:1.6"></textarea>
+              </div>
+            </div>
+
+            <!-- ═════ MOD SCRIS (search & select din catalog) — fără AI cost ═════ -->
+            <div id="onm-panel-scris" style="display:block">
+              <!-- Search box -->
+              <div style="position:relative;margin-bottom:10px">
+                <div style="position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--txt3);font-size:14px">🔎</div>
+                <input type="text" class="input" id="picker-search" autocomplete="off"
+                  placeholder="Caută produs din catalog (ex: cm17, ciment 40kg, BCA, SAP exact)..."
+                  style="padding-left:38px;font-size:13px"
+                  oninput="pickerOnSearchInput()" onkeydown="pickerOnSearchKeydown(event)"/>
+                <div id="picker-search-clear" style="display:none;position:absolute;right:10px;top:50%;transform:translateY(-50%);cursor:pointer;color:var(--txt3);font-size:18px;padding:0 6px"
+                  onclick="pickerClearSearch()" title="Șterge căutarea">×</div>
+              </div>
+
+              <!-- Search results — appear here when typing -->
+              <div id="picker-results" style="display:none;background:var(--surface2);border-radius:var(--r-sm);overflow:hidden;margin-bottom:10px;max-height:340px;overflow-y:auto"></div>
+
+              <!-- Lista cumulată — materialele adăugate până acum -->
+              <div id="picker-cumlist-wrap" style="display:none">
+                <div style="font-size:10px;font-weight:700;color:var(--txt3);text-transform:uppercase;letter-spacing:.06em;padding:6px 0;display:flex;justify-content:space-between;align-items:center">
+                  <span>📦 Materiale adăugate (<span id="picker-cumcount">0</span>)</span>
+                  <button class="btn btn-ghost btn-sm" style="font-size:10px;color:var(--red,#dc2626)" onclick="pickerClearAll()">🗑 Golește lista</button>
+                </div>
+                <div id="picker-cumlist" style="display:flex;flex-direction:column;gap:6px"></div>
+              </div>
+
+              <!-- Empty state -->
+              <div id="picker-empty" style="text-align:center;padding:24px 12px;color:var(--txt3);font-size:12px;background:var(--surface2);border-radius:var(--r-sm);margin-bottom:10px">
+                Tastează în câmpul de mai sus pentru a căuta produse din catalog.<br>
+                <span style="font-size:11px;opacity:.7">Click pe rezultat → ești întrebat de cantitate → se adaugă în ofertă.</span>
+              </div>
             </div>
           </div>
 
@@ -3180,8 +3223,8 @@
               </label>
               <span id="oferta-cache-info" style="margin-left:auto;font-size:10px;color:var(--txt3)"></span>
             </div>
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-              <!-- Salveaza Notita -->
+            <!-- Acțiuni MOD MICROFON -->
+            <div id="onm-actions-mic" style="display:none;grid-template-columns:1fr 1fr;gap:8px">
               <button onclick="notitaSalveazaRapid()"
                 style="display:flex;flex-direction:column;align-items:center;gap:4px;padding:12px 10px;background:var(--surface2);border:2px solid var(--border2);border-radius:var(--r);cursor:pointer;transition:all .15s"
                 onmouseover="this.style.borderColor='var(--navy)'" onmouseout="this.style.borderColor='var(--border2)'">
@@ -3189,14 +3232,20 @@
                 <span style="font-size:12px;font-weight:800;color:var(--navy)">Salvează Notiță</span>
                 <span style="font-size:10px;color:var(--txt3);text-align:center">→ Notițe Salvate<br>Neprocesate</span>
               </button>
-
-              <!-- Identifica cu AI -->
               <button onclick="ofertaProcess()"
                 style="display:flex;flex-direction:column;align-items:center;gap:4px;padding:12px 10px;background:var(--navy);border:2px solid var(--navy);border-radius:var(--r);cursor:pointer;transition:all .15s"
                 onmouseover="this.style.opacity='.9'" onmouseout="this.style.opacity='1'">
                 <span style="font-size:20px">🤖</span>
                 <span style="font-size:12px;font-weight:800;color:#fff">Identifică cu AI</span>
                 <span style="font-size:10px;color:rgba(255,255,255,.7);text-align:center">→ Notițe în Lucru<br>AI procesează</span>
+              </button>
+            </div>
+            <!-- Acțiuni MOD SCRIS -->
+            <div id="onm-actions-scris" style="display:grid;grid-template-columns:1fr;gap:8px">
+              <button id="picker-submit-btn" onclick="pickerSubmit()" disabled
+                style="display:flex;align-items:center;justify-content:center;gap:8px;padding:14px;background:var(--navy);border:2px solid var(--navy);border-radius:var(--r);cursor:pointer;transition:all .15s;color:#fff;font-weight:800;font-size:14px;opacity:.4">
+                <span style="font-size:18px">⚡</span>
+                <span id="picker-submit-label">Procesează ofertă</span>
               </button>
             </div>
             <button class="btn btn-ghost btn-sm" onclick="ofertaCloseModal()" style="width:100%;text-align:center">Anulează</button>
@@ -11655,8 +11704,15 @@ PROGRAM MAGAZINE:
           });
         } catch(e) {}
         
+        // Detect weight tokens in query (40kg, 25kg, 10cm, 1.5l etc.) — these are CRITICAL discriminators
+        // Without these, "ciment 40kg" matches both 20kg and 40kg variants equally.
+        const WEIGHT_RE = /^\d+(?:[.,]\d+)?(?:kg|gr|ml|mp|m2|m²|m³|m3|cm|mm|t|l|buc|sac)$/i;
+        const queryWeights = tokens.filter(t => WEIGHT_RE.test(t)).map(w => w.toLowerCase());
+
         const scored = catalog.map(p => {
-          const haystack = (p.name + ' ' + (p.sap || '') + ' ' + (p.um || '') + ' ' + (p.synonyms || '')).toLowerCase();
+          // Build haystack with normalized weights ("40 KG" → "40kg") so query "40kg" matches catalog "40 KG"
+          const rawHaystack = (p.name + ' ' + (p.sap || '') + ' ' + (p.um || '') + ' ' + (p.synonyms || '')).toLowerCase();
+          const haystack = rawHaystack.replace(/(\d+(?:[.,]\d+)?)\s*(kg|gr|ml|mp|m2|m²|m³|m3|cm|mm|t|l|buc|sac)\b/gi, '$1$2');
           let score = 0;
           // Original tokens — weighted by specificity:
           //  - Product codes (letters+digits like cm17, af1) → 5 (very specific)
@@ -11669,8 +11725,12 @@ PROGRAM MAGAZINE:
               if ((p.name || '').toLowerCase().startsWith(t)) score += 2;
               return;
             }
+            // Weight tokens (40kg, 25kg, 10cm) — VERY strong discriminator: +8
+            if (WEIGHT_RE.test(t)) {
+              score += 8;
+            }
             // Code pattern (cm17, af1, ct17): high weight — these are exact product identifiers
-            if (/^[a-z]{2,3}\d{1,3}$/i.test(t)) {
+            else if (/^[a-z]{2,3}\d{1,3}$/i.test(t)) {
               score += 5;
             } else if (TECH_ACRONYMS.has(t)) {
               score += 4;
@@ -11681,6 +11741,24 @@ PROGRAM MAGAZINE:
             }
             if ((p.name || '').toLowerCase().startsWith(t)) score += 2;
           });
+
+          // CRITICAL: Weight mismatch penalty.
+          // If query specifies "40kg" but product has "20kg" (and not 40kg), heavily penalize.
+          // Without this, weight differences become invisible and the wrong-size variant wins.
+          if (queryWeights.length > 0) {
+            const productWeights = haystack.match(/\d+(?:[.,]\d+)?(?:kg|gr|ml|mp|m2|m²|m³|m3|cm|mm|t|l)\b/gi) || [];
+            const productWeightsLower = productWeights.map(w => w.toLowerCase());
+            const allMatch = queryWeights.every(qw => productWeightsLower.includes(qw));
+            const someMatch = queryWeights.some(qw => productWeightsLower.includes(qw));
+            if (queryWeights.length > 0 && productWeightsLower.length > 0 && !someMatch) {
+              // Product has weights but NONE match query → wrong variant
+              score -= 15;
+            }
+            if (allMatch && queryWeights.length > 0) {
+              score += 5; // extra reinforcement when ALL query weights match
+            }
+          }
+
           // Expanded synonyms get lower weight
           uniqueTokens.forEach(t => {
             if (!tokens.includes(t) && haystack.includes(t)) score += 1;
@@ -11691,7 +11769,8 @@ PROGRAM MAGAZINE:
           if (aliasHay) {
             tokens.forEach(t => {
               if (!aliasHay.includes(t)) return;
-              if (/^[a-z]{2,3}\d{1,3}$/i.test(t)) score += 6;       // code in alias = strong signal
+              if (WEIGHT_RE.test(t)) score += 8;
+              else if (/^[a-z]{2,3}\d{1,3}$/i.test(t)) score += 6;       // code in alias = strong signal
               else if (TECH_ACRONYMS.has(t)) score += 5;
               else if (t.length > 4) score += 4;
               else score += 2;
@@ -11861,15 +11940,21 @@ PROGRAM MAGAZINE:
           'se','un','o','al','ale','cel','cea','cei','cele','acest','aceasta','aceste',
           'ma','mi','ti','ii','ne','va','le','avem','aveam','vreau','trebuie','poate',
           'cat','cate','cati','cum','mai','tot','din','prin','spre']);
-        // Pre-process: join codes like "cm 17" → "cm17", "cm 11" → "cm11"
+        // Pre-process:
+        //  1) Join product codes "cm 17" → "cm17"
+        //  2) Join weight/dimension units "40 kg" → "40kg", "10 cm" → "10cm" — CRITICAL for weight matching
+        //     (catalog has "40 KG" with space, agent writes "40kg" without — without normalization they don't match)
         let processed = text.toLowerCase()
-          .replace(/\b(cm|ct|af|cx|cf)\s*(\d+)/gi, '$1$2')  // cm 17 → cm17
+          .replace(/\b(cm|ct|af|cx|cf)\s*(\d+)/gi, '$1$2')              // cm 17 → cm17
+          .replace(/(\d+)\s*(kg|gr|ml|mp|m2|m²|m³|m3|cm|mm|tone?|t|l|buc|sac)\b/gi, '$1$2')  // 40 kg → 40kg
           .replace(/[^a-zA-ZăîâșțĂÎÂȘȚ0-9\s]/g, ' ');
         return processed
           .split(/\s+/)
           .filter(w => {
             if (w.length <= 1) return false;
             if (stopWords.has(w)) return false;
+            // Keep weight tokens (40kg, 25kg, 10cm) regardless of length
+            if (/^\d+(?:kg|gr|ml|mp|m2|m²|m³|m3|cm|mm|t|l|buc|sac)$/i.test(w)) return true;
             // Keep short technical terms (BCA, OSB, EPS, GC, CM9 etc.)
             if (/^[a-z]{2,3}\d{1,2}$/i.test(w)) return true; // cm17, cm9, af1
             if (/^[A-Z]{2,3}$/i.test(w) && ['bca','osb','eps','xps','pvc','ppr','gcm','mdf','pal','opc'].includes(w)) return true;
@@ -18377,6 +18462,10 @@ LIMBA: ${lang === 'ro' ? 'Română' : lang === 'en' ? 'English' : 'Auto-detect'}
         }
         // #5 Render template list
         setTimeout(renderTemplateList, 50);
+        // 🎯 Init Picker (modul Scris) — încarcă draft + setează default mode
+        if (typeof pickerInit === 'function') {
+          setTimeout(pickerInit, 60);
+        }
       }
 
       function ofertaCloseModal() {
@@ -18541,6 +18630,481 @@ LIMBA: ${lang === 'ro' ? 'Română' : lang === 'en' ? 'English' : 'Auto-detect'}
         }
       }
 
+      // ════════════════════════════════════════════════════════════════════
+      // 🎯 PICKER — Caută & Adaugă materiale din catalog (mod Scris)
+      // Flux: type → search results → click → quantity popup → add → search reset
+      // Bypass total al Pas 0+1 (nu folosește AI), trimite materialele cu SAP exact
+      // direct la Pas 2 (preț MH) + Pas 3 (prețuri competitor).
+      // ════════════════════════════════════════════════════════════════════
+
+      const PICKER_DRAFT_KEY = 'mathaus_picker_draft';
+      let _pickerState = {
+        materials: [], // { sap, nume, um, cantitate, observatii, _localPret, mentionat_ca }
+        searchTimer: null
+      };
+
+      // Toggle între modul Microfon și Scris
+      function ofertaSetMode(mode) {
+        const isMic = mode === 'mic';
+        const panelMic = document.getElementById('onm-panel-mic');
+        const panelScris = document.getElementById('onm-panel-scris');
+        const actMic = document.getElementById('onm-actions-mic');
+        const actScris = document.getElementById('onm-actions-scris');
+        const btnMic = document.getElementById('onm-mode-mic');
+        const btnScris = document.getElementById('onm-mode-scris');
+        if (panelMic) panelMic.style.display = isMic ? 'block' : 'none';
+        if (panelScris) panelScris.style.display = isMic ? 'none' : 'block';
+        if (actMic) actMic.style.display = isMic ? 'grid' : 'none';
+        if (actScris) actScris.style.display = isMic ? 'none' : 'grid';
+        // Active button styling
+        if (btnMic) {
+          btnMic.style.background = isMic ? 'var(--navy)' : 'transparent';
+          btnMic.style.color = isMic ? '#fff' : 'var(--txt2)';
+        }
+        if (btnScris) {
+          btnScris.style.background = !isMic ? 'var(--navy)' : 'transparent';
+          btnScris.style.color = !isMic ? '#fff' : 'var(--txt2)';
+        }
+        // If switching to Scris, focus on search
+        if (!isMic) {
+          setTimeout(() => { const inp = document.getElementById('picker-search'); if (inp) inp.focus(); }, 100);
+        }
+      }
+
+      // Init la deschiderea modalului — încarcă draft + setează mod default
+      function pickerInit() {
+        _pickerState.materials = [];
+        try {
+          const raw = localStorage.getItem(PICKER_DRAFT_KEY);
+          if (raw) {
+            const draft = JSON.parse(raw);
+            if (Array.isArray(draft.materials) && draft.materials.length > 0) {
+              _pickerState.materials = draft.materials;
+              if (draft.client) { const c = document.getElementById('oferta-client'); if (c) c.value = draft.client; }
+              if (draft.adresa) { const a = document.getElementById('oferta-adresa'); if (a) a.value = draft.adresa; }
+            }
+          }
+        } catch(e) { console.warn('[Picker] draft load failed:', e.message); }
+        pickerRenderCumlist();
+        pickerClearSearch();
+        // Default mode: Scris (search-first)
+        ofertaSetMode('scris');
+      }
+
+      function pickerSaveDraft() {
+        try {
+          const client = document.getElementById('oferta-client')?.value || '';
+          const adresa = document.getElementById('oferta-adresa')?.value || '';
+          localStorage.setItem(PICKER_DRAFT_KEY, JSON.stringify({
+            materials: _pickerState.materials, client, adresa, ts: Date.now()
+          }));
+        } catch(e) {}
+      }
+      function pickerClearDraft() {
+        try { localStorage.removeItem(PICKER_DRAFT_KEY); } catch(e) {}
+      }
+
+      // ── SEARCH ──
+      function pickerOnSearchInput() {
+        const q = document.getElementById('picker-search')?.value || '';
+        const clearBtn = document.getElementById('picker-search-clear');
+        if (clearBtn) clearBtn.style.display = q ? 'block' : 'none';
+        clearTimeout(_pickerState.searchTimer);
+        _pickerState.searchTimer = setTimeout(() => pickerSearch(q), 150);
+      }
+
+      function pickerOnSearchKeydown(e) {
+        if (e.key === 'Escape') { pickerClearSearch(); return; }
+        if (e.key === 'Enter') {
+          // If exactly 1 result, select it directly
+          const rows = document.querySelectorAll('#picker-results .picker-row');
+          if (rows.length === 1) {
+            e.preventDefault();
+            rows[0].click();
+          }
+        }
+      }
+
+      function pickerClearSearch() {
+        const inp = document.getElementById('picker-search');
+        if (inp) inp.value = '';
+        const clearBtn = document.getElementById('picker-search-clear');
+        if (clearBtn) clearBtn.style.display = 'none';
+        const res = document.getElementById('picker-results');
+        if (res) { res.style.display = 'none'; res.innerHTML = ''; }
+        const empty = document.getElementById('picker-empty');
+        if (empty && _pickerState.materials.length === 0) empty.style.display = 'block';
+      }
+
+      // 1:1 substring search (no AI scoring) — exactly what user asked:
+      // tokens are AND-matched as substrings against name + SAP (with weight normalization).
+      function pickerSearch(query) {
+        const empty = document.getElementById('picker-empty');
+        const res = document.getElementById('picker-results');
+        if (!res) return;
+        query = (query || '').trim();
+        if (query.length < 2) {
+          res.style.display = 'none';
+          res.innerHTML = '';
+          if (empty && _pickerState.materials.length === 0) empty.style.display = 'block';
+          return;
+        }
+        if (empty) empty.style.display = 'none';
+
+        const catalog = loadCatalog();
+        // Normalize query: weight tokens "40 kg" → "40kg"
+        const qNorm = query.toLowerCase()
+          .replace(/(\d+)\s*(kg|gr|ml|mp|m2|m²|m³|m3|cm|mm|t|l)\b/gi, '$1$2');
+        const tokens = qNorm.split(/\s+/).filter(t => t.length > 0);
+        if (tokens.length === 0) return;
+
+        // Build tracked SAP set for badge "Urmărit"
+        const trackedSAPs = new Set();
+        try {
+          loadTrackedProducts().filter(t => t.status === 'aprobat' && t.sap).forEach(t => trackedSAPs.add(t.sap));
+        } catch(e) {}
+
+        // 1:1 AND search: every token must appear in name OR SAP (haystack normalized too)
+        const matches = catalog.filter(p => {
+          const haystack = ((p.name || '') + ' ' + (p.sap || '')).toLowerCase()
+            .replace(/(\d+)\s*(kg|gr|ml|mp|m2|m²|m³|m3|cm|mm|t|l)\b/gi, '$1$2');
+          return tokens.every(t => haystack.includes(t));
+        }).slice(0, 8); // max 8 results
+
+        if (matches.length === 0) {
+          res.style.display = 'block';
+          res.innerHTML = `
+            <div style="padding:18px;text-align:center;color:var(--txt3);font-size:12px">
+              <div style="font-size:24px;margin-bottom:6px">🔍</div>
+              <div style="margin-bottom:8px">Niciun produs găsit pentru <strong>"${escHtml(query)}"</strong></div>
+              <button class="btn btn-ghost btn-sm" style="font-size:11px" onclick="pickerOpenManualAdd('${escHtml(query).replace(/'/g,"\\\\'")}')">+ Adaugă la urmărire (produs nou)</button>
+            </div>`;
+          return;
+        }
+
+        // Render results — same layout as user's screenshot
+        res.style.display = 'block';
+        res.innerHTML = matches.map((p, idx) => {
+          const sap = (p.sap || '').trim();
+          const isTracked = sap && trackedSAPs.has(sap);
+          const trackedBadge = isTracked
+            ? `<span style="font-size:9px;font-weight:700;color:#15803d;background:#dcfce7;padding:2px 7px;border-radius:4px;white-space:nowrap">✓ Urmărit</span>`
+            : '';
+          const priceTxt = p.price ? `${p.price.toFixed(2)} lei` : '—';
+          // Highlight matching tokens in name
+          let nameHighlighted = escHtml(p.name || '');
+          tokens.forEach(t => {
+            const re = new RegExp('(' + t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + ')', 'gi');
+            nameHighlighted = nameHighlighted.replace(re, '<mark style="background:#fef08a;padding:0 1px">$1</mark>');
+          });
+          return `<div class="picker-row" data-idx="${idx}" data-sap="${escHtml(sap)}"
+            onclick="pickerOpenQtyPopup(${idx})"
+            style="display:flex;align-items:center;gap:10px;padding:12px 14px;cursor:pointer;border-bottom:1px solid var(--border);min-height:52px;background:#fff;transition:background .12s"
+            onmouseover="this.style.background='var(--surface2)'" onmouseout="this.style.background='#fff'">
+            <div style="font-family:var(--mono);font-size:10px;color:var(--txt3);width:80px;flex-shrink:0">${escHtml(sap || '—')}</div>
+            <div style="flex:1;font-size:13px;font-weight:600;color:var(--navy);line-height:1.3">${nameHighlighted}</div>
+            <div style="font-size:11px;color:var(--txt3);font-weight:600;width:42px;text-align:center">${escHtml(p.um || '—')}</div>
+            <div style="font-size:13px;font-weight:800;color:var(--green);width:84px;text-align:right">${priceTxt}</div>
+            <div style="width:74px;text-align:right">${trackedBadge}</div>
+          </div>`;
+        }).join('');
+        // Stash matches for popup access
+        res._matches = matches;
+      }
+
+      // ── QUANTITY POPUP ──
+      function pickerOpenQtyPopup(matchIdx, editIndex) {
+        // editIndex = index in materials list if editing existing
+        let prod;
+        if (typeof editIndex === 'number' && _pickerState.materials[editIndex]) {
+          const m = _pickerState.materials[editIndex];
+          prod = { sap: m.sap, name: m.nume, um: m.um, price: m._localPret };
+        } else {
+          const res = document.getElementById('picker-results');
+          if (!res || !res._matches || !res._matches[matchIdx]) return;
+          prod = res._matches[matchIdx];
+        }
+        const isEdit = typeof editIndex === 'number';
+        const existing = isEdit ? _pickerState.materials[editIndex] : null;
+        const defaultQty = existing ? existing.cantitate : 1;
+        const defaultObs = existing ? (existing.observatii || '') : '';
+
+        // Remove any existing popup
+        const oldPopup = document.getElementById('picker-qty-popup');
+        if (oldPopup) oldPopup.remove();
+
+        const popup = document.createElement('div');
+        popup.id = 'picker-qty-popup';
+        popup.style.cssText = 'position:fixed;inset:0;background:rgba(28,43,74,0.55);z-index:10000;display:flex;justify-content:center;align-items:center;padding:16px;backdrop-filter:blur(2px)';
+        popup.innerHTML = `
+          <div style="background:#fff;border-radius:14px;width:100%;max-width:440px;box-shadow:0 20px 60px rgba(0,0,0,.3);overflow:hidden">
+            <div style="padding:14px 18px;background:var(--navy);color:#fff">
+              <div style="font-size:11px;opacity:.7;font-weight:700;letter-spacing:.06em;text-transform:uppercase">${isEdit ? 'Editează cantitate' : 'Adaugă în ofertă'}</div>
+              <div style="font-size:14px;font-weight:700;margin-top:4px;line-height:1.3">${escHtml(prod.name)}</div>
+              <div style="font-size:10px;opacity:.65;margin-top:3px;font-family:var(--mono)">SAP ${escHtml(prod.sap || '—')} · ${prod.price ? prod.price.toFixed(2) + ' lei/' + (prod.um || 'buc') : 'fără preț intern'}</div>
+            </div>
+            <div style="padding:18px">
+              <label class="label">Cantitate</label>
+              <div style="display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center;margin-bottom:14px">
+                <input type="number" id="picker-qty-input" value="${defaultQty}" step="0.1" min="0.1"
+                  style="font-size:18px;font-weight:700;text-align:center;padding:14px;border:2px solid var(--border);border-radius:var(--r-sm);width:100%"
+                  onkeydown="if(event.key==='Enter'){event.preventDefault();pickerConfirmQty(${matchIdx},${isEdit ? editIndex : 'null'});}"/>
+                <div style="background:var(--surface2);padding:14px 18px;border-radius:var(--r-sm);font-size:13px;font-weight:700;color:var(--navy);min-width:60px;text-align:center">${escHtml(prod.um || 'buc')}</div>
+              </div>
+
+              <details ${defaultObs ? 'open' : ''} style="margin-bottom:14px">
+                <summary style="font-size:11px;color:var(--txt3);cursor:pointer;padding:6px 0;user-select:none">📝 ${defaultObs ? 'Observații' : 'Adaugă observații (opțional)'}</summary>
+                <textarea id="picker-obs-input" rows="2"
+                  placeholder="ex: livrare în 2 zile, depozit nord, atenție la transport..."
+                  style="width:100%;font-size:12px;padding:8px;border:1px solid var(--border);border-radius:var(--r-sm);margin-top:6px;resize:vertical;font-family:inherit">${escHtml(defaultObs)}</textarea>
+              </details>
+
+              <div style="display:grid;grid-template-columns:1fr 2fr;gap:8px">
+                <button onclick="pickerCloseQtyPopup()"
+                  style="padding:14px;background:var(--surface2);border:1.5px solid var(--border);border-radius:var(--r-sm);cursor:pointer;font-weight:700;color:var(--txt2);font-size:13px">
+                  Renunță
+                </button>
+                <button onclick="pickerConfirmQty(${matchIdx},${isEdit ? editIndex : 'null'})"
+                  style="padding:14px;background:var(--navy);color:#fff;border:none;border-radius:var(--r-sm);cursor:pointer;font-weight:800;font-size:14px">
+                  ${isEdit ? '💾 Salvează' : '✅ Adaugă'}
+                </button>
+              </div>
+            </div>
+          </div>`;
+        document.body.appendChild(popup);
+        // Auto-focus + select on the quantity input
+        setTimeout(() => {
+          const inp = document.getElementById('picker-qty-input');
+          if (inp) { inp.focus(); inp.select(); }
+        }, 100);
+      }
+
+      function pickerCloseQtyPopup() {
+        const popup = document.getElementById('picker-qty-popup');
+        if (popup) popup.remove();
+      }
+
+      function pickerConfirmQty(matchIdx, editIndex) {
+        const qtyInput = document.getElementById('picker-qty-input');
+        const obsInput = document.getElementById('picker-obs-input');
+        const qty = parseFloat((qtyInput?.value || '0').replace(',', '.'));
+        if (!qty || qty <= 0) { toast('⚠ Cantitatea trebuie să fie > 0'); return; }
+        const obs = (obsInput?.value || '').trim();
+
+        let prod;
+        const isEdit = typeof editIndex === 'number' && editIndex !== null;
+        if (isEdit && _pickerState.materials[editIndex]) {
+          // Edit existing — keep SAP, update qty + obs
+          const m = _pickerState.materials[editIndex];
+          m.cantitate = qty;
+          m.observatii = obs;
+          pickerCloseQtyPopup();
+          pickerRenderCumlist();
+          pickerSaveDraft();
+          toast(`✅ ${m.nume.substring(0,30)} actualizat`);
+          return;
+        }
+
+        // Add new
+        const res = document.getElementById('picker-results');
+        if (!res || !res._matches || !res._matches[matchIdx]) return;
+        prod = res._matches[matchIdx];
+
+        const newMaterial = {
+          sap: (prod.sap || '').trim(),
+          nume: prod.name || '',
+          um: prod.um || 'buc',
+          cantitate: qty,
+          observatii: obs,
+          _localPret: prod.price || null,
+          mentionat_ca: '', // not from voice/text input — clean entry
+          in_catalog: !!prod.sap
+        };
+
+        // Duplicate detection: same SAP already in list?
+        const existingIdx = newMaterial.sap
+          ? _pickerState.materials.findIndex(m => m.sap === newMaterial.sap)
+          : -1;
+        if (existingIdx >= 0) {
+          const existing = _pickerState.materials[existingIdx];
+          const cumQty = existing.cantitate + qty;
+          // 3-way dialog: cumulate / replace / cancel
+          const choice = confirm(
+            `"${existing.nume}" e deja în listă cu ${existing.cantitate} ${existing.um}.\n\n` +
+            `OK = Cumulez (${existing.cantitate} + ${qty} = ${cumQty} ${existing.um})\n` +
+            `Anulează = Înlocuiesc cu ${qty} ${existing.um}\n\n` +
+            `(Pentru a renunța, închide acest dialog cu Esc)`
+          );
+          if (choice) {
+            existing.cantitate = cumQty;
+            if (obs) existing.observatii = (existing.observatii ? existing.observatii + ' | ' : '') + obs;
+            toast(`📦 Cumulat: ${cumQty} ${existing.um}`);
+          } else {
+            existing.cantitate = qty;
+            if (obs) existing.observatii = obs;
+            toast(`🔄 Înlocuit: ${qty} ${existing.um}`);
+          }
+        } else {
+          _pickerState.materials.push(newMaterial);
+          toast(`✅ Adăugat: ${qty} ${newMaterial.um}`);
+        }
+
+        pickerCloseQtyPopup();
+        pickerRenderCumlist();
+        pickerSaveDraft();
+
+        // Reset search → focus pentru următorul produs
+        pickerClearSearch();
+        const inp = document.getElementById('picker-search');
+        if (inp) inp.focus();
+      }
+
+      // ── LISTA CUMULATĂ ──
+      function pickerRenderCumlist() {
+        const wrap = document.getElementById('picker-cumlist-wrap');
+        const list = document.getElementById('picker-cumlist');
+        const count = document.getElementById('picker-cumcount');
+        const empty = document.getElementById('picker-empty');
+        const submitBtn = document.getElementById('picker-submit-btn');
+        const submitLabel = document.getElementById('picker-submit-label');
+        const n = _pickerState.materials.length;
+
+        if (count) count.textContent = n;
+        if (wrap) wrap.style.display = n > 0 ? 'block' : 'none';
+        if (empty) empty.style.display = (n === 0 && (document.getElementById('picker-search')?.value || '').length < 2) ? 'block' : 'none';
+        if (submitBtn) {
+          submitBtn.disabled = n === 0;
+          submitBtn.style.opacity = n === 0 ? '.4' : '1';
+          submitBtn.style.cursor = n === 0 ? 'not-allowed' : 'pointer';
+        }
+        if (submitLabel) {
+          const total = _pickerState.materials.reduce((s, m) => s + ((m._localPret || 0) * (m.cantitate || 0)), 0);
+          submitLabel.textContent = n === 0
+            ? 'Procesează ofertă'
+            : `Procesează ${n} material${n === 1 ? '' : 'e'} (${total.toFixed(2)} lei estimativ)`;
+        }
+        if (!list) return;
+        list.innerHTML = _pickerState.materials.map((m, i) => {
+          const subtotal = (m._localPret || 0) * (m.cantitate || 0);
+          return `<div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:#fff;border:1px solid var(--border);border-radius:var(--r-sm)">
+            <div style="font-family:var(--mono);font-size:10px;color:var(--txt3);width:74px;flex-shrink:0">${escHtml(m.sap || '—')}</div>
+            <div style="flex:1;min-width:0">
+              <div style="font-size:12px;font-weight:600;color:var(--navy);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(m.nume)}</div>
+              <div style="font-size:10px;color:var(--txt3);margin-top:2px">
+                <strong>${m.cantitate}</strong> ${escHtml(m.um || 'buc')}
+                ${m._localPret ? ` × ${m._localPret.toFixed(2)} lei = <strong>${subtotal.toFixed(2)} lei</strong>` : ' · fără preț intern'}
+                ${m.observatii ? ` · 📝 <em>${escHtml(m.observatii.substring(0, 40))}${m.observatii.length > 40 ? '…' : ''}</em>` : ''}
+              </div>
+            </div>
+            <button onclick="pickerEditMaterial(${i})" title="Editează cantitate / observații"
+              style="background:none;border:1px solid var(--border);border-radius:6px;padding:8px 12px;cursor:pointer;font-size:14px;min-width:44px;min-height:44px">✏</button>
+            <button onclick="pickerDeleteMaterial(${i})" title="Șterge"
+              style="background:none;border:1px solid #fecaca;border-radius:6px;padding:8px 12px;cursor:pointer;font-size:14px;color:#dc2626;min-width:44px;min-height:44px">🗑</button>
+          </div>`;
+        }).join('');
+      }
+
+      function pickerEditMaterial(idx) {
+        if (!_pickerState.materials[idx]) return;
+        pickerOpenQtyPopup(null, idx);
+      }
+
+      function pickerDeleteMaterial(idx) {
+        const m = _pickerState.materials[idx];
+        if (!m) return;
+        if (!confirm(`Ștergi "${m.nume.substring(0, 50)}" din listă?`)) return;
+        _pickerState.materials.splice(idx, 1);
+        pickerRenderCumlist();
+        pickerSaveDraft();
+      }
+
+      function pickerClearAll() {
+        if (_pickerState.materials.length === 0) return;
+        if (!confirm(`Golești lista de ${_pickerState.materials.length} materiale? Acțiunea nu poate fi anulată.`)) return;
+        _pickerState.materials = [];
+        pickerRenderCumlist();
+        pickerSaveDraft();
+        toast('🗑 Lista golită');
+      }
+
+      // Negăsit în catalog → deschide popup-ul existent de tracked product
+      function pickerOpenManualAdd(initialName) {
+        if (typeof openTrackProductDefinePopup === 'function') {
+          openTrackProductDefinePopup({ nume: initialName, sap: '', um: 'buc', mentionat_ca: initialName });
+        } else if (typeof openTrackedProductForm === 'function') {
+          openTrackedProductForm(null, { nume: initialName });
+        } else {
+          toast('⚠ Funcția de adăugare manuală nu e disponibilă');
+        }
+      }
+
+      // ── SUBMIT — trimite materialele direct la Pas 2/3 ──
+      async function pickerSubmit() {
+        if (_pickerState.materials.length === 0) { toast('⚠ Lista e goală'); return; }
+        const client = (document.getElementById('oferta-client')?.value || '').trim() || 'Client nou';
+        const adresa = (document.getElementById('oferta-adresa')?.value || '').trim();
+        const _forceRefresh = document.getElementById('oferta-force-refresh')?.checked || false;
+        const apiKey = localStorage.getItem(CHAT_API_KEY_STORE);
+        if (!apiKey) { toast('⚠ Cheie API Anthropic lipsă — configurează în Admin'); return; }
+
+        try {
+          const _common = loadCommonKB();
+          const _ofKb = loadOfertareKB();
+          const kb = { ..._common, ..._ofKb };
+          const model = _ofKb.aiModelOferte || 'claude-sonnet-4-5-20250929';
+          const _compList = loadCompetitoriList();
+          const compList = _compList.map(c => c.name).filter(Boolean);
+          const siteList = _compList.map(c => c.site).filter(Boolean);
+
+          const ofertaId = 'of_' + Date.now();
+          // Build text snapshot for audit trail (what was added)
+          const textSnapshot = _pickerState.materials.map(m =>
+            `${m.cantitate} ${m.um} ${m.nume}${m.observatii ? ' (' + m.observatii + ')' : ''}`
+          ).join(', ');
+
+          const oferta = {
+            id: ofertaId, client, adresa,
+            data: new Date().toLocaleDateString('ro-RO'),
+            status: 'processing', method: 'picker',
+            tip: 'oferta', eticheta: 'in-lucru',
+            progressStep: 'preturi',
+            progressMateriale: [],
+            inputOriginal: textSnapshot,
+            materiale: [], depozite_locale: [], neidentificate: [],
+            feedback: null, ts: Date.now(),
+            sourceMode: 'scris' // tag pentru audit
+          };
+
+          const list = loadOferte();
+          list.unshift(oferta);
+          saveOferte(list);
+          ofertaCloseModal();
+          _ofertaSelectedId = ofertaId;
+          ofertaRenderList();
+          ofertaShowDetail(ofertaId);
+          trackAIUsage('session', 'oferte');
+
+          // Convert picker materials → format expected by Pas 2/3 (same shape as Claude returns)
+          const prebuiltMaterials = _pickerState.materials.map(m => ({
+            sap: m.sap,
+            nume: m.nume,
+            cantitate: m.cantitate,
+            um: m.um,
+            mentionat_ca: m.observatii ? `📝 ${m.observatii}` : '',
+            in_catalog: !!m.sap
+          }));
+
+          // Clear draft after successful dispatch
+          pickerClearDraft();
+          _pickerState.materials = [];
+
+          await ofertaProcessPrices(ofertaId, textSnapshot, client, adresa, kb, compList, siteList, apiKey, model, _forceRefresh, prebuiltMaterials);
+        } catch(globalErr) {
+          console.error('[Picker] Submit error:', globalErr);
+          toast('❌ Eroare: ' + globalErr.message);
+        }
+      }
+
       async function ofertaProcess() {
         const text = ($('oferta-text')?.value || '').trim();
         const client = ($('oferta-client')?.value || '').trim() || 'Client nou';
@@ -18611,50 +19175,58 @@ LIMBA: ${lang === 'ro' ? 'Română' : lang === 'en' ? 'English' : 'Auto-detect'}
       // Helper: parse batch competitor price results
 
       // ═══ METODA UNICĂ: Identificare + prețuri competitori (tracked URLs) ═══
-      async function ofertaProcessPrices(ofertaId, text, client, adresa, kb, compList, siteList, apiKey, model, forceRefresh) {
+      async function ofertaProcessPrices(ofertaId, text, client, adresa, kb, compList, siteList, apiKey, model, forceRefresh, prebuiltMaterials) {
         try {
-          // ──────── PAS 0: Identificare LOCALĂ (0 tokens, instant) ────────
-          toast('⚡ Pas 0: Identificare locală...');
-          const localResult = localIdentifyMaterials(text);
-          let parsed = { materiale: [...localResult.matched], neidentificate: [] };
-          
-          if (localResult.matched.length > 0) {
-            toast(`✅ ${localResult.matched.length} material(e) identificate local (0 tokens)`);
-          }
-          
-          // ──────── PAS 1: Claude identifică DOAR ce n-a fost găsit local ────────
-          if (localResult.unmatched.length > 0) {
-            const unmatchedText = localResult.unmatched.join(', ');
-            toast(`🤖 Pas 1/3: Claude identifică ${localResult.unmatched.length} material(e)...`);
-            if (!budgetCanCall()) throw new Error('Buget lunar atins');
-            // Dynamic catalog window: more unmatched items → bigger candidate pool
-            // 1-2 unmatched: 8 candidates; 3-5: 15; 6+: 25 (capped to keep prompt small)
-            const _catLimit = localResult.unmatched.length <= 2 ? 8 : localResult.unmatched.length <= 5 ? 15 : 25;
-            const identResp = await fetch('https://api.anthropic.com/v1/messages', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' },
-              body: JSON.stringify({
-                model, max_tokens: 3000,
-                system: (() => { const _cat = searchCatalog(extractKeywords(unmatchedText), _catLimit); const _csv = _cat.length ? '\nCATALOG MATHAUS (SAP = codul unic pe mathaus.ro):\n' + catalogToPromptCSV(_cat) : ''; const _reguli = (kb.ofertaReguli || '').trim(); return 'Identifica materialele din nota agentului. Potriveste FIECARE material cu catalogul local.\n\nPROTOCOL IDENTIFICARE:\n1. Cauta in catalogul de mai jos dupa CUVINTE CHEIE din nota\n2. Daca gasesti potrivire: pune SAP exact din catalog + in_catalog=true\n3. Daca NU gasesti in catalog: pune sap="" si in_catalog=false\n4. Denumirile din catalog sunt INTERNE — nu le afisa clientului\n5. CODURI PRODUSE: CM11, CM17, CM9, CT17, AF-I etc. sunt coduri EXACTE de adeziv Ceresit — NU le confunda cu "ciment". "cm 17" = adeziv CM17, NU ciment 17kg!\n6. GRAMAJ contează: dacă agentul scrie "25kg", cauți varianta de 25kg, nu 5kg.' + (_reguli ? '\n\nREGULI ADMINISTRATOR:\n' + _reguli : '') + _csv + '\nRETURN STRICT JSON: {"materiale":[{"nume":"denumire clara","cantitate":50,"um":"buc/sac/m2","mentionat_ca":"text original","sap":"SAP sau gol","in_catalog":true}],"neidentificate":["materiale neidentificate"]}'; })(),
-                messages: [{ role: 'user', content: 'Identifica materialele:\n\n' + unmatchedText }]
-              })
-            });
-            const identData = await identResp.json();
-            trackAIUsage('message', 'oferte');
-            budgetTrackCall(identData.usage?.input_tokens || 2000, identData.usage?.output_tokens || 200, model);
-            const identText = (identData.content || []).filter(b => b.type === 'text').map(b => b.text).join('');
-            try {
-              const jm = identText.match(/\{[\s\S]*\}/);
-              if (jm) {
-                const claudeParsed = JSON.parse(jm[0]);
-                parsed.materiale.push(...(claudeParsed.materiale || []));
-                parsed.neidentificate = claudeParsed.neidentificate || [];
-              }
-            } catch(e) {
-              console.warn('[Identificare] JSON parse failed:', e.message);
-            }
+          let parsed;
+
+          // ───── BYPASS: când vine din pickerSubmit (mod Scris), avem deja SAP exact ─────
+          if (Array.isArray(prebuiltMaterials) && prebuiltMaterials.length > 0) {
+            toast(`⚡ ${prebuiltMaterials.length} material(e) selectate manual — sărim peste identificare AI`);
+            parsed = { materiale: prebuiltMaterials.slice(), neidentificate: [] };
           } else {
-            toast('⚡ Toate materialele identificate local — 0 tokens Claude!');
+            // ──────── PAS 0: Identificare LOCALĂ (0 tokens, instant) ────────
+            toast('⚡ Pas 0: Identificare locală...');
+            const localResult = localIdentifyMaterials(text);
+            parsed = { materiale: [...localResult.matched], neidentificate: [] };
+            
+            if (localResult.matched.length > 0) {
+              toast(`✅ ${localResult.matched.length} material(e) identificate local (0 tokens)`);
+            }
+            
+            // ──────── PAS 1: Claude identifică DOAR ce n-a fost găsit local ────────
+            if (localResult.unmatched.length > 0) {
+              const unmatchedText = localResult.unmatched.join(', ');
+              toast(`🤖 Pas 1/3: Claude identifică ${localResult.unmatched.length} material(e)...`);
+              if (!budgetCanCall()) throw new Error('Buget lunar atins');
+              // Dynamic catalog window: more unmatched items → bigger candidate pool
+              // 1-2 unmatched: 8 candidates; 3-5: 15; 6+: 25 (capped to keep prompt small)
+              const _catLimit = localResult.unmatched.length <= 2 ? 8 : localResult.unmatched.length <= 5 ? 15 : 25;
+              const identResp = await fetch('https://api.anthropic.com/v1/messages', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' },
+                body: JSON.stringify({
+                  model, max_tokens: 3000,
+                  system: (() => { const _cat = searchCatalog(extractKeywords(unmatchedText), _catLimit); const _csv = _cat.length ? '\nCATALOG MATHAUS (SAP = codul unic pe mathaus.ro):\n' + catalogToPromptCSV(_cat) : ''; const _reguli = (kb.ofertaReguli || '').trim(); return 'Identifica materialele din nota agentului. Potriveste FIECARE material cu catalogul local.\n\nPROTOCOL IDENTIFICARE:\n1. Cauta in catalogul de mai jos dupa CUVINTE CHEIE din nota\n2. Daca gasesti potrivire: pune SAP exact din catalog + in_catalog=true\n3. Daca NU gasesti in catalog: pune sap="" si in_catalog=false\n4. Denumirile din catalog sunt INTERNE — nu le afisa clientului\n5. CODURI PRODUSE: CM11, CM17, CM9, CT17, AF-I etc. sunt coduri EXACTE de adeziv Ceresit — NU le confunda cu "ciment". "cm 17" = adeziv CM17, NU ciment 17kg!\n6. GRAMAJ ESTE OBLIGATORIU IDENTIC: dacă agentul scrie "40kg", trebuie să găsești EXACT varianta cu "40 KG" sau "40KG" în nume. NU sugera 20kg sau 25kg dacă utilizatorul a cerut 40kg. Dacă în catalog NU există varianta exacta cu gramajul cerut, pune sap="" și in_catalog=false (nu ghici cu altă variantă).\n7. UNITATE DE AMBALARE: dacă agentul cere "saci", cauți produse cu UM=SAC. Dacă cere "paleți", cauți cu UM=PAL.' + (_reguli ? '\n\nREGULI ADMINISTRATOR:\n' + _reguli : '') + _csv + '\nRETURN STRICT JSON: {"materiale":[{"nume":"denumire clara","cantitate":50,"um":"buc/sac/m2","mentionat_ca":"text original","sap":"SAP sau gol","in_catalog":true}],"neidentificate":["materiale neidentificate"]}'; })(),
+                  messages: [{ role: 'user', content: 'Identifica materialele:\n\n' + unmatchedText }]
+                })
+              });
+              const identData = await identResp.json();
+              trackAIUsage('message', 'oferte');
+              budgetTrackCall(identData.usage?.input_tokens || 2000, identData.usage?.output_tokens || 200, model);
+              const identText = (identData.content || []).filter(b => b.type === 'text').map(b => b.text).join('');
+              try {
+                const jm = identText.match(/\{[\s\S]*\}/);
+                if (jm) {
+                  const claudeParsed = JSON.parse(jm[0]);
+                  parsed.materiale.push(...(claudeParsed.materiale || []));
+                  parsed.neidentificate = claudeParsed.neidentificate || [];
+                }
+              } catch(e) {
+                console.warn('[Identificare] JSON parse failed:', e.message);
+              }
+            } else {
+              toast('⚡ Toate materialele identificate local — 0 tokens Claude!');
+            }
           }
 
           // Validation: if no materials found, show error with original response
