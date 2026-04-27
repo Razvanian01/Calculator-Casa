@@ -8349,6 +8349,10 @@
                   INTRĂ ÎN APLICAȚIE →
                 </button>
               </form>
+              <button type="button" onclick="loginForceSyncUsers()"
+                style="width:100%;margin-top:10px;padding:9px;background:transparent;color:#6b7280;border:1px dashed #d1d5db;border-radius:8px;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;letter-spacing:.03em">
+                🔄 Re-sincronizează lista utilizatorilor
+              </button>
             </div>
 
             <!-- Motivational footer -->
@@ -8373,7 +8377,15 @@
         }
         const result = await authLogin(u, p);
         if (!result.ok) {
-          if (err) { err.textContent = '❌ ' + result.error; err.style.display = 'block'; }
+          if (err) {
+            // Mesaj mai clar — sugerează re-sync dacă utilizatorul nu există
+            if (result.error === 'Utilizator inexistent' && appSettings?.cloudUrl) {
+              err.innerHTML = '❌ Utilizator inexistent.<br><span style="font-size:11px;font-weight:400">Apasă <strong>"Re-sincronizează lista utilizatorilor"</strong> mai jos dacă l-ai creat recent.</span>';
+            } else {
+              err.textContent = '❌ ' + result.error;
+            }
+            err.style.display = 'block';
+          }
           // Mic delay anti-bruteforce (1.5s între încercări)
           setTimeout(() => { document.getElementById('login-password').value = ''; document.getElementById('login-password').focus(); }, 1500);
           return;
@@ -8386,6 +8398,30 @@
         try { toast(`👋 Bun venit, ${result.user.username}!`); } catch(e) {}
         // Trigger render-uri care depind de user
         try { renderUserBadge(); } catch(e) {}
+      }
+
+      // Buton de re-sync utilizatori în login screen — pentru cazul când admin a adăugat
+      // un utilizator nou și device-ul de test încă nu îl cunoaște.
+      async function loginForceSyncUsers() {
+        const err = document.getElementById('login-error');
+        if (!appSettings?.cloudUrl) {
+          if (err) { err.textContent = '⚠ Cloud Backup nu e configurat — nu pot sincroniza'; err.style.display = 'block'; }
+          return;
+        }
+        if (err) { err.style.background = '#dbeafe'; err.style.color = '#1e40af'; err.style.borderColor = '#93c5fd'; err.textContent = '🔄 Sincronizare în curs...'; err.style.display = 'block'; }
+        try {
+          if (typeof cloudLoad === 'function') {
+            const ok = await cloudLoad();
+            const users = JSON.parse(localStorage.getItem('mathaus_users') || '[]');
+            if (err) {
+              err.style.background = '#dcfce7'; err.style.color = '#166534'; err.style.borderColor = '#bbf7d0';
+              err.innerHTML = `✅ Sincronizat — ${users.length} utilizatori disponibili.<br><span style="font-size:11px;font-weight:400">Lista: ${users.map(u => u.username).join(', ')}</span>`;
+              err.style.display = 'block';
+            }
+          }
+        } catch(e) {
+          if (err) { err.style.background = '#fef2f2'; err.style.color = '#991b1b'; err.style.borderColor = '#fecaca'; err.textContent = '❌ Sincronizare eșuată: ' + e.message; err.style.display = 'block'; }
+        }
       }
 
       // User badge în header (afișează username + buton Logout)
@@ -8441,7 +8477,7 @@
       // ── Cloud Sync (Google Drive via Apps Script) ──
       function collectAllData() {
         return {
-          version: '3.0',
+          version: '3.1',
           savedAt: new Date().toISOString(),
           stagesData: stagesData,
           products: { BCA_DB, CAR_DB, TVG, GC_SYSTEMS },
@@ -8451,6 +8487,7 @@
           customUM: window.CUSTOM_UM || {},
           aiKnowledgeBase: loadAIKB(),
           chatApiKey: getChatApiKey() || '',
+          users: loadUsers(),  // 🔐 utilizatori (cu hash parole) — sincronizați la toate device-urile
         };
       }
 
@@ -8504,6 +8541,13 @@
           // Restore API key from admin cloud backup
           if (data.chatApiKey) {
             localStorage.setItem('mathaus_chat_api_key', data.chatApiKey);
+          }
+          // 🔐 Restore users (lista cu hash parole) — vital pentru auth pe device-uri noi
+          if (data.users && Array.isArray(data.users) && data.users.length > 0) {
+            try {
+              localStorage.setItem(USERS_KEY, JSON.stringify(data.users));
+              console.log('[Cloud] Users restored:', data.users.length, 'utilizatori');
+            } catch(e) { console.warn('[Cloud] Users restore failed:', e.message); }
           }
           return true;
         } catch(e) { console.error('[Cloud] Apply failed:', e); return false; }
@@ -17574,13 +17618,32 @@ function writePriceRow(sheet, row, prices, urls, date, ensureCol) {
 
       // ─────────────────────────── INIT ─────────────────────────────
       window.addEventListener("DOMContentLoaded", async () => {
-        // 🔐 LOGIN GATE — primul lucru care se întâmplă: verifică sesiunea, altfel cere login
+        // 🌐 PRE-LOGIN CLOUD SYNC: pe device-uri cu Link Echipă, încarcă utilizatorii
+        // de pe Drive ÎNAINTE de a afișa login-ul. Altfel device-ul nou nu cunoaște
+        // utilizatorii noi adăugați de admin pe alte device-uri.
+        try {
+          loadSettings(); // necesar ca să avem appSettings.cloudUrl disponibil
+          const _urlParams = new URLSearchParams(window.location.search);
+          const _teamCloudUrl = _urlParams.get('cloud');
+          if (_teamCloudUrl && !appSettings.cloudUrl) {
+            appSettings.cloudUrl = decodeURIComponent(_teamCloudUrl);
+            saveSettings();
+          }
+          if (appSettings.cloudUrl) {
+            console.log('[Pre-Login] Sincronizare utilizatori de la Drive...');
+            try {
+              if (typeof cloudLoad === 'function') {
+                const ok = await cloudLoad();
+                console.log('[Pre-Login] Cloud sync result:', ok);
+              }
+            } catch(e) { console.warn('[Pre-Login] Cloud sync failed:', e.message); }
+          }
+        } catch(e) { console.warn('[Pre-Login] Init error:', e.message); }
+
+        // 🔐 LOGIN GATE — verifică sesiunea, altfel cere login
         const session = getCurrentUser();
         if (!session) {
-          // Fără sesiune validă → afișează login overlay și OPRIM aici
-          // Restul init-ului (loadSettings, cloud sync etc.) se va face DUPĂ login
           showLoginScreen();
-          // Așteaptă login-ul (poll la fiecare 500ms până se loghează)
           await new Promise(resolve => {
             const checkInterval = setInterval(() => {
               if (getCurrentUser()) {
@@ -17591,27 +17654,25 @@ function writePriceRow(sheet, row, prices, urls, date, ensureCol) {
           });
         }
         // De aici încolo, getCurrentUser() returnează user-ul logat
-        // Render badge cu numele user-ului
         setTimeout(renderUserBadge, 100);
         loadAdmin();
         loadProducts();
         loadPrices();
         loadCustomUM();
-        loadSettings();
+        // loadSettings already called above
         loadStageMats();
 
         // ── Team Link: auto-configure from URL parameter ──
         const urlParams = new URLSearchParams(window.location.search);
         const teamCloudUrl = urlParams.get('cloud');
-        const isTeamLink = !!teamCloudUrl; // device-ul e deschis prin Link Echipă
+        const isTeamLink = !!teamCloudUrl;
         if (teamCloudUrl && !appSettings.cloudUrl) {
-          // First visit with team link — save cloud URL and auto-load
           appSettings.cloudUrl = decodeURIComponent(teamCloudUrl);
           saveSettings();
           console.log('[Team] Cloud URL set from team link:', appSettings.cloudUrl);
         }
 
-        // Auto-load from cloud (overwrite local with server data)
+        // Auto-load from cloud (overwrite local with server data) — second pass post-login
         let _cloudSyncOk = false;
         if (appSettings.cloudUrl) {
           try {
