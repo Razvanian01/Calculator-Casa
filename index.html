@@ -12866,18 +12866,34 @@ PROGRAM MAGAZINE:
           if (changed) localStorage.setItem('mathaus_sheet_comp_prices', JSON.stringify(sheetPrices));
         } catch(e) { console.warn('[Cleanup] sheet prices error:', e.message); }
 
-        // 3) Existing oferte materiale (already-generated offers with bad prices)
+        // 3) Existing oferte materiale (already-generated offers with bad prices OR missing links)
         try {
           const oferte = JSON.parse(localStorage.getItem('mathaus_oferte_ai') || '[]');
+          // Build SAP → URLs lookup map from tracked products (avoids per-material lookup)
+          const _sapUrlMap = {};
+          try {
+            const tps = JSON.parse(localStorage.getItem('mathaus_tracked_products') || '[]');
+            tps.forEach(tp => {
+              if (tp.sap && tp.urls) _sapUrlMap[tp.sap] = tp.urls;
+            });
+          } catch(e) {}
           let changed = false;
+          let linksHealed = 0;
           oferte.forEach(o => {
             if (!Array.isArray(o.materiale)) return;
             o.materiale.forEach(m => {
+              const tpUrls = m.sap ? _sapUrlMap[m.sap] : null;
               ['mathaus','dedeman','leroy','bricodepot','hornbach'].forEach(c => {
                 if (m[c]?.pret && !validatePrice(m[c].pret).valid) {
                   console.warn(`[Cleanup] Removed corrupted offer price oferta=${o.id} mat=${m.nume} ${c}=${m[c].pret}`);
                   m[c] = { pret: null, link: m[c].link || null, disponibil: false };
                   totalRemoved++;
+                  changed = true;
+                }
+                // Heal missing click-through link: if we have a price + SAP + tracked URL, attach it
+                if (m[c]?.pret && !m[c]?.link && tpUrls?.[c]) {
+                  m[c].link = tpUrls[c];
+                  linksHealed++;
                   changed = true;
                 }
               });
@@ -12890,6 +12906,9 @@ PROGRAM MAGAZINE:
             });
           });
           if (changed) localStorage.setItem('mathaus_oferte_ai', JSON.stringify(oferte));
+          if (linksHealed > 0) {
+            console.log(`[Cleanup] ${linksHealed} click-through link-uri reparate la oferte existente`);
+          }
         } catch(e) { console.warn('[Cleanup] oferte error:', e.message); }
 
         if (totalRemoved > 0) {
@@ -13123,6 +13142,54 @@ PROGRAM MAGAZINE:
       // Returns: { price: Number, source: 'direct-fetch' } or { error: '...' }
       // Internal throttle: max 1 fetch per 400ms to avoid hitting allorigins.win rate limits
       let _lastDirectFetchTs = 0;
+
+      // Multiple CORS proxies — if one is down, try next.
+      // Order matters: most reliable first based on availability stats.
+      const CORS_PROXIES = [
+        // allorigins.win — wraps response in JSON {contents, status:{http_code}}
+        { name: 'allorigins', url: (u) => 'https://api.allorigins.win/get?url=' + encodeURIComponent(u),
+          parse: async (resp) => {
+            if (!resp.ok) return { error: 'HTTP ' + resp.status };
+            const d = await resp.json();
+            if (d.status?.http_code && d.status.http_code !== 200) return { error: 'Site HTTP ' + d.status.http_code };
+            return { html: d.contents || '' };
+          } },
+        // corsproxy.io — returns raw HTML, no wrapper
+        { name: 'corsproxy.io', url: (u) => 'https://corsproxy.io/?' + encodeURIComponent(u),
+          parse: async (resp) => {
+            if (!resp.ok) return { error: 'HTTP ' + resp.status };
+            return { html: await resp.text() };
+          } },
+        // cors.lol — similar pattern, raw HTML response
+        { name: 'cors.lol', url: (u) => 'https://api.cors.lol/?url=' + encodeURIComponent(u),
+          parse: async (resp) => {
+            if (!resp.ok) return { error: 'HTTP ' + resp.status };
+            return { html: await resp.text() };
+          } },
+      ];
+
+      async function _tryAllProxies(targetUrl, competitor) {
+        const lastErrors = [];
+        for (const proxy of CORS_PROXIES) {
+          try {
+            const proxyUrl = proxy.url(targetUrl);
+            const resp = await fetch(proxyUrl, { cache: 'no-cache', signal: AbortSignal.timeout ? AbortSignal.timeout(15000) : undefined });
+            if (resp.status === 429) { lastErrors.push(`${proxy.name}: 429 rate-limited`); continue; }
+            const result = await proxy.parse(resp);
+            if (result.error) { lastErrors.push(`${proxy.name}: ${result.error}`); continue; }
+            if (result.html && result.html.length > 200) {
+              console.log(`[fetchPriceDirect] ${competitor} via ${proxy.name}: HTML ${result.html.length} chars`);
+              return { html: result.html, proxy: proxy.name };
+            }
+            lastErrors.push(`${proxy.name}: empty response`);
+          } catch(e) {
+            lastErrors.push(`${proxy.name}: ${e.message || 'fetch failed'}`);
+            // Continue to next proxy
+          }
+        }
+        return { error: 'Toate proxy-urile au eșuat: ' + lastErrors.join(' | ') };
+      }
+
       async function fetchPriceDirect(url, competitor) {
         if (!url || !competitor || !PRICE_EXTRACTORS[competitor]) {
           return { error: 'URL sau competitor invalid' };
@@ -13135,31 +13202,23 @@ PROGRAM MAGAZINE:
         }
         _lastDirectFetchTs = Date.now();
         try {
-          // Try direct fetch first (works only for CORS-enabled sites — usually fails)
+          // Strategy 1: Try direct fetch (works when site has open CORS — e.g. BricoDepot)
           let html = '';
+          let proxyName = 'direct';
           try {
             const r = await fetch(url, { cache: 'no-cache', mode: 'cors' });
             if (r.ok) html = await r.text();
-          } catch(e) { /* CORS blocked, fall through to proxy */ }
+          } catch(e) { /* CORS blocked, fall through */ }
           
-          if (!html) {
-            // CORS proxy fallback (same one used for Google Sheets)
-            const proxyUrl = 'https://api.allorigins.win/get?url=' + encodeURIComponent(url);
-            const pr = await fetch(proxyUrl, { cache: 'no-cache' });
-            if (pr.status === 429) {
-              telemetryRecord('directFail', competitor, { url, error: 'Proxy rate-limited 429' });
-              return { error: 'Proxy rate-limited (429) — reîncearcă în 1 min' };
+          // Strategy 2: Try each proxy in order until one works
+          if (!html || html.length < 200) {
+            const proxyResult = await _tryAllProxies(url, competitor);
+            if (proxyResult.error) {
+              telemetryRecord('directFail', competitor, { url, error: proxyResult.error });
+              return { error: proxyResult.error };
             }
-            if (!pr.ok) {
-              telemetryRecord('directFail', competitor, { url, error: 'Proxy HTTP ' + pr.status });
-              return { error: 'Proxy HTTP ' + pr.status };
-            }
-            const pd = await pr.json();
-            if (pd.status?.http_code && pd.status.http_code !== 200) {
-              telemetryRecord('directFail', competitor, { url, error: 'Site HTTP ' + pd.status.http_code });
-              return { error: 'Site HTTP ' + pd.status.http_code };
-            }
-            html = pd.contents || '';
+            html = proxyResult.html;
+            proxyName = proxyResult.proxy;
           }
           
           if (!html || html.length < 200) {
@@ -13169,13 +13228,12 @@ PROGRAM MAGAZINE:
           
           const rawPrice = PRICE_EXTRACTORS[competitor](html);
           if (rawPrice === null || rawPrice === undefined) {
-            telemetryRecord('directFail', competitor, { url, error: 'Selector neactualizat — preț negăsit' });
+            telemetryRecord('directFail', competitor, { url, error: `Selector neactualizat — preț negăsit (via ${proxyName})` });
             return { error: 'Preț negăsit în HTML (selector neactualizat)' };
           }
           // Apply same sanity check
           const validation = validatePrice(rawPrice);
           if (!validation.valid) {
-            // Map rejection reason to telemetry event
             const evtMap = { year: 'rejectedYear', tooLow: 'rejectedTooLow', tooHigh: 'rejectedTooHigh' };
             const evt = evtMap[validation.code] || 'directFail';
             telemetryRecord(evt, competitor, { url, error: validation.reason, rawPrice });
@@ -13183,7 +13241,7 @@ PROGRAM MAGAZINE:
           }
           
           telemetryRecord('directOk', competitor, null);
-          return { price: validation.price, source: 'direct-fetch' };
+          return { price: validation.price, source: 'direct-fetch', proxy: proxyName };
         } catch(e) {
           telemetryRecord('directFail', competitor, { url, error: 'Excepție: ' + e.message });
           return { error: 'Excepție: ' + e.message };
@@ -18707,14 +18765,20 @@ LIMBA: ${lang === 'ro' ? 'Română' : lang === 'en' ? 'English' : 'Auto-detect'}
               if (!_spStale && sp && (sp.dedeman || sp.leroy || sp.bricodepot || sp.hornbach)) {
                 // Use Sheet prices directly — zero AI cost
                 const matIdx = m.idx;
+                // Lookup tracked product to attach click-through URLs (otherwise prices
+                // render as plain spans and user can't open competitor pages)
+                const _tpForUrls = m.sap ? findTrackedProductSafe(m.sap, m.nume, m.mentionat_ca) : null;
+                const _urls = _tpForUrls?.urls || {};
                 ['dedeman','leroy','bricodepot','hornbach'].forEach(c => {
                   if (sp[c]) {
-                    materiale[matIdx][c] = { pret: sp[c], link: null, disponibil: true };
+                    materiale[matIdx][c] = { pret: sp[c], link: _urls[c] || null, disponibil: true };
                   }
                 });
                 // Override MatHaus with real site price from Sheet
                 if (sp.mathaus && sp.mathaus > 0) {
-                  materiale[matIdx].mathaus = { pret: sp.mathaus, link: materiale[matIdx].mathaus?.link || null, disponibil: true };
+                  // Prefer existing MH link (from getMathausLink), fall back to tracked URL
+                  const _mhLink = materiale[matIdx].mathaus?.link || _urls.mathaus || (m.sap ? getMathausLink(m.sap) : null);
+                  materiale[matIdx].mathaus = { pret: sp.mathaus, link: _mhLink, disponibil: true };
                   materiale[matIdx].pretOferta = sp.mathaus;
                 }
                 materiale[matIdx].sursa = materiale[matIdx].mathaus?.pret ? 'sheet' : 'sheet';
