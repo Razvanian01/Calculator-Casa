@@ -6651,11 +6651,25 @@
         
         // Admin password check — show custom modal
         if (mode === 'admin' && !_isAdmin) {
+          // 🔒 Hard block: dacă admin a fost lock-uit la pornire (team link + sync eșuat
+          // sau parolă admin lipsă în config) → refuză total accesul.
+          if (window._adminLocked) {
+            const reason = window._adminLockReason || 'Admin blocat pentru siguranță.';
+            alert('🔒 Acces Admin blocat\n\n' + reason);
+            return;
+          }
           if (appSettings.adminPass) {
             showPasswordModal();
             return; // Don't switch yet — modal callback will continue
           }
-          _isAdmin = true;
+          // Fallback: dacă cumva s-a ajuns aici fără parolă (ex: aplicație nou-instalată
+          // pe device-ul tău), permitem dar avertizăm
+          if (!isTeamLinkActive()) {
+            _isAdmin = true;
+          } else {
+            alert('🔒 Configurația nu conține parolă admin.\n\nÎnchide aplicația și redeschide după ce sincronizarea cu Drive s-a completat.');
+            return;
+          }
         }
         
         _doSwitchMode(mode);
@@ -8091,6 +8105,14 @@
       const SETTINGS_KEY = "mathausSettingsV1";
       let appSettings = { showPrices: false, cloudUrl: '', adminPass: '', cloudAutoSave: true, sheetsWebhookUrl: '', sheetsEmail: '', catalogSheetUrl: '', catalogLastSync: '', syncIntervalHours: 24, priceWritebackUrl: '' };
       let _isAdmin = false; // session-only, not persisted
+
+      // Detectare device deschis prin Link Echipă (parametrul ?cloud= prezent în URL)
+      // Folosit pentru a aplica restricții de securitate diferențiate (consilier vs admin master)
+      function isTeamLinkActive() {
+        try {
+          return new URLSearchParams(window.location.search).has('cloud');
+        } catch(e) { return false; }
+      }
       let _cloudSaveTimer = null;
 
       // Listen for save confirmation from cloud iframe
@@ -17191,6 +17213,7 @@ function writePriceRow(sheet, row, prices, urls, date, ensureCol) {
         // ── Team Link: auto-configure from URL parameter ──
         const urlParams = new URLSearchParams(window.location.search);
         const teamCloudUrl = urlParams.get('cloud');
+        const isTeamLink = !!teamCloudUrl; // device-ul e deschis prin Link Echipă
         if (teamCloudUrl && !appSettings.cloudUrl) {
           // First visit with team link — save cloud URL and auto-load
           appSettings.cloudUrl = decodeURIComponent(teamCloudUrl);
@@ -17199,11 +17222,31 @@ function writePriceRow(sheet, row, prices, urls, date, ensureCol) {
         }
 
         // Auto-load from cloud (overwrite local with server data)
+        let _cloudSyncOk = false;
         if (appSettings.cloudUrl) {
           try {
             const loaded = await cloudLoad();
-            if (loaded) console.log('[Cloud] Data synchronized from Drive.');
+            if (loaded) {
+              _cloudSyncOk = true;
+              console.log('[Cloud] Data synchronized from Drive.');
+            }
           } catch(e) { console.warn('[Cloud] Auto-load failed:', e.message); }
+        }
+
+        // 🔒 SECURITY GATE: dacă device-ul e deschis prin Link Echipă (consilier),
+        // și sync-ul a eșuat, sau adminPass nu e setat în config → blocăm Admin TOTAL.
+        // Asta previne situația: consilier deschide aplicația, Drive temporar offline,
+        // adminPass gol → Admin liber. Mai bine refuzăm decât să dăm acces nesigur.
+        if (isTeamLink) {
+          if (!_cloudSyncOk) {
+            window._adminLocked = true;
+            window._adminLockReason = 'Sync cu Drive a eșuat. Aplicația funcționează în mod consilier — Admin blocat. Reîncarcă pagina când conexiunea revine.';
+            console.warn('[Security] Cloud sync failed for team link — admin LOCKED');
+          } else if (!appSettings.adminPass) {
+            window._adminLocked = true;
+            window._adminLockReason = 'Configurația de pe Drive nu conține parolă admin. Admin blocat pentru siguranță.';
+            console.warn('[Security] No adminPass in cloud config — admin LOCKED');
+          }
         }
         populateTotalSidebar();
         totalSidebarSwap();
