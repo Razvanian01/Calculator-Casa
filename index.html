@@ -11659,18 +11659,57 @@ PROGRAM MAGAZINE:
         });
         const uniqueTokens = [...new Set(expandedTokens)];
 
+        // Pre-load tracked products aliases for scoring
+        const _tpAlias = {};
+        try {
+          loadTrackedProducts().filter(t => t.status === 'aprobat' && t.sap && t.alternativ?.length).forEach(t => {
+            _tpAlias[t.sap] = t.alternativ.join(' ').toLowerCase();
+          });
+        } catch(e) {}
+        
         const scored = catalog.map(p => {
           const haystack = (p.name + ' ' + (p.sap || '') + ' ' + (p.um || '') + ' ' + (p.synonyms || '')).toLowerCase();
           let score = 0;
-          // Original tokens get higher weight
+          // Original tokens — weighted by specificity:
+          //  - Product codes (letters+digits like cm17, af1) → 5 (very specific)
+          //  - Short technical acronyms (bca, eps, osb, xps, pvc, ppr, mdf, opc) → 4
+          //  - Long descriptive words (>4 chars) → 3
+          //  - Short generic words → 1
+          const TECH_ACRONYMS = new Set(['bca','osb','eps','xps','pvc','ppr','gcm','mdf','pal','opc','gc','uw','cw','ud','cd']);
           tokens.forEach(t => {
-            if (haystack.includes(t)) score += t.length > 4 ? 3 : 1;
+            if (!haystack.includes(t)) {
+              if ((p.name || '').toLowerCase().startsWith(t)) score += 2;
+              return;
+            }
+            // Code pattern (cm17, af1, ct17): high weight — these are exact product identifiers
+            if (/^[a-z]{2,3}\d{1,3}$/i.test(t)) {
+              score += 5;
+            } else if (TECH_ACRONYMS.has(t)) {
+              score += 4;
+            } else if (t.length > 4) {
+              score += 3;
+            } else {
+              score += 1;
+            }
             if ((p.name || '').toLowerCase().startsWith(t)) score += 2;
           });
           // Expanded synonyms get lower weight
           uniqueTokens.forEach(t => {
             if (!tokens.includes(t) && haystack.includes(t)) score += 1;
           });
+          
+          // BONUS: check tracked product aliases for this SAP
+          const aliasHay = p.sap ? _tpAlias[p.sap] : null;
+          if (aliasHay) {
+            tokens.forEach(t => {
+              if (!aliasHay.includes(t)) return;
+              if (/^[a-z]{2,3}\d{1,3}$/i.test(t)) score += 6;       // code in alias = strong signal
+              else if (TECH_ACRONYMS.has(t)) score += 5;
+              else if (t.length > 4) score += 4;
+              else score += 2;
+            });
+          }
+          
           return { ...p, _score: score };
         });
 
@@ -11683,11 +11722,18 @@ PROGRAM MAGAZINE:
       // Construieste CSV compact pentru injectare in prompt
       function catalogToPromptCSV(rows) {
         if (!rows.length) return '';
-        const header = 'SAP,Denumire_SAP,UM,Pret,Link_mathaus';
+        // Pre-load alias map
+        const _tpAlias = {};
+        try {
+          loadTrackedProducts().filter(t => t.status === 'aprobat' && t.sap && t.alternativ?.length).forEach(t => {
+            _tpAlias[t.sap] = t.alternativ.slice(0, 3).join('; ');
+          });
+        } catch(e) {}
+        const header = 'SAP,Denumire_SAP,UM,Pret,Alias';
         const lines = rows.map(p => {
           const sap = (p.sap || '').trim();
-          const link = sap ? getMathausLink(sap) : '';
-          return `${sap},${(p.name || '').replace(/,/g, ' ')},${p.um || ''},${p.price || ''},${link}`;
+          const alias = sap ? (_tpAlias[sap] || '') : '';
+          return `${sap},${(p.name || '').replace(/,/g, ' ')},${p.um || ''},${p.price || ''},${alias}`;
         });
         return header + '\n' + lines.join('\n');
       }
@@ -11697,6 +11743,128 @@ PROGRAM MAGAZINE:
         if (!sap) return null;
         const catalog = loadCatalog();
         return catalog.find(p => (p.sap || '').trim() === sap.trim()) || null;
+      }
+
+      // ══════ PAS 0: IDENTIFICARE LOCALĂ (0 tokens, instant) ══════
+      // Încearcă să identifice materialele din text fără Claude
+      // Returnează: { matched: [...], unmatched: "text ramas" }
+      function localIdentifyMaterials(text) {
+        const matched = [];
+        const unmatched = [];
+        
+        // Split text into material groups — extended separators:
+        // comma, "si"/"și", newline, semicolon, plus sign, bullet markers, and "+" with surrounding spaces
+        const groups = text
+          .replace(/\bși\b|\bsi\b/gi, ',')
+          .replace(/[\n;]/g, ',')
+          .replace(/\s\+\s/g, ',')          // " + " separator (only with spaces, so we don't break "5+5kg")
+          .replace(/^[\s•\-\*]+/gm, '')     // strip bullet markers at line start
+          .split(',')
+          .map(g => g.trim())
+          .filter(g => g.length > 2);
+        
+        // Pre-load tracked product alias map: alias → { sap, name, um }
+        const _aliasMap = [];
+        try {
+          loadTrackedProducts().filter(t => t.status === 'aprobat').forEach(t => {
+            // Add main name
+            _aliasMap.push({ pattern: (t.nume || '').toLowerCase(), sap: t.sap, name: t.nume, um: t.um });
+            // Add each alternative
+            (t.alternativ || []).forEach(alt => {
+              if (alt.trim()) _aliasMap.push({ pattern: alt.trim().toLowerCase(), sap: t.sap, name: t.nume, um: t.um });
+            });
+          });
+        } catch(e) {}
+        
+        for (const group of groups) {
+          const groupLow = group.toLowerCase().replace(/\b(cm|ct|af|cx|cf)\s*(\d+)/gi, '$1$2');
+          
+          // Extract quantity — extended patterns:
+          //  1) Number at start: "18 saci ...", "50 ..."
+          //  2) "Nx ..." multiplier: "5x Adeziv", "10x BCA"
+          //  3) Number followed by UM-like word (incl. "paleți", "palete", "bidoane", "cutii", "role")
+          //  4) Standalone integer at start of group (e.g. "10" alone in "10 BCA 25cm")
+          let qty = 1;
+          const qPatterns = [
+            /^(\d+)[\s,]/,                                                           // "18 saci ..."
+            /^(\d+)\s*x\s/i,                                                         // "5x ..."
+            /\b(\d+)\s*(?:saci?|buc(?:[aă]ț?i)?|mp|m2|m²|ml|pal(?:[ețt]i|ete)?|role?|bare?|placi?|foi?|kg|t|tone?|bidoane?|cutii|seturi?|colaci?)\b/i,
+          ];
+          for (const re of qPatterns) {
+            const mq = group.match(re);
+            if (mq) { qty = parseInt(mq[1]) || 1; break; }
+          }
+          // Decimal qty support: "1.5 mp", "2,5 saci"
+          const decMatch = group.match(/(\d+[.,]\d+)\s*(?:saci?|mp|m2|m²|ml|kg|t|buc)\b/i);
+          if (decMatch) {
+            const dec = parseFloat(decMatch[1].replace(',', '.'));
+            if (dec > 0) qty = dec;
+          }
+          
+          // Try 1: Direct alias match (highest priority)
+          let found = null;
+          let bestAliasLen = 0;
+          for (const a of _aliasMap) {
+            if (a.pattern.length > 2 && groupLow.includes(a.pattern) && a.pattern.length > bestAliasLen) {
+              found = a;
+              bestAliasLen = a.pattern.length;
+            }
+          }
+          
+          if (found && found.sap) {
+            // Verify with catalog to get price
+            const cat = getCatalogBySap(found.sap);
+            matched.push({
+              nume: cat?.name || found.name,
+              sap: found.sap,
+              cantitate: qty,
+              um: cat?.um || found.um || 'buc',
+              mentionat_ca: group.trim(),
+              in_catalog: !!cat,
+              _matchType: 'alias',
+              _confidence: 95
+            });
+            console.log(`[Pas0] ALIAS match: "${group}" → ${found.name} (SAP: ${found.sap})`);
+            continue;
+          }
+          
+          // Try 2: searchCatalog with high confidence threshold
+          const keywords = extractKeywords(groupLow);
+          if (keywords) {
+            const results = searchCatalog(keywords, 3);
+            if (results.length > 0) {
+              const top = results[0];
+              const second = results[1];
+              const topScore = top._score || 0;
+              const secondScore = second?._score || 0;
+              
+              // High confidence: top score >> second score (unique match)
+              // OR top score is very high (exact code match like "cm17")
+              const isUnique = topScore > 0 && (secondScore < topScore * 0.5 || topScore >= 8);
+              
+              if (isUnique && topScore >= 4) {
+                matched.push({
+                  nume: top.name,
+                  sap: top.sap || '',
+                  cantitate: qty,
+                  um: top.um || 'buc',
+                  mentionat_ca: group.trim(),
+                  in_catalog: !!top.sap,
+                  _matchType: 'catalog',
+                  _confidence: Math.min(99, Math.round(topScore / (topScore + 2) * 100))
+                });
+                console.log(`[Pas0] CATALOG match: "${group}" → ${top.name} (score: ${topScore}, 2nd: ${secondScore})`);
+                continue;
+              }
+            }
+          }
+          
+          // No confident local match → needs Claude
+          unmatched.push(group.trim());
+          console.log(`[Pas0] NO MATCH: "${group}" → send to Claude`);
+        }
+        
+        return { matched, unmatched };
       }
 
       // Extrage cuvinte cheie din textul agentului pentru cautare catalog
@@ -12637,7 +12805,8 @@ PROGRAM MAGAZINE:
         const oferta = list.find(o => o.id === ofertaId);
         if (!oferta?.materiale?.[matIdx]) return;
         const m = oferta.materiale[matIdx];
-        const tp = findTrackedProduct(m.sap, m.nume) || findTrackedProduct('', m.mentionat_ca);
+        // Use Safe variant: protects against SAP mismatch (different product, similar name)
+        const tp = findTrackedProductSafe(m.sap, m.nume, m.mentionat_ca);
         if (!tp || !hasCompetitorUrls(tp)) { toast('⚠ Adaugă produsul la Urmărite mai întâi'); return; }
         await tpRefreshPrices(tp.id, (fetchedPrices) => {
           const list2 = loadOferte();
@@ -12650,8 +12819,11 @@ PROGRAM MAGAZINE:
             }
           });
           of2.materiale[matIdx].sursa = 'tracked';
+          // Update price date so the badge reflects the actual fetch moment
+          of2.materiale[matIdx]._priceDate = new Date().toISOString().split('T')[0];
           saveOferte(list2);
           ofertaShowDetail(ofertaId);
+          toast('✅ Prețuri actualizate la zi');
         });
       }
 
@@ -17134,6 +17306,26 @@ LIMBA: ${lang === 'ro' ? 'Română' : lang === 'en' ? 'English' : 'Auto-detect'}
         
         return bestScore >= 30 ? bestMatch : null;
       }
+      // Wrapper: findTrackedProduct with SAP safety check
+      // If the material has a SAP and the tracked product has a different SAP → no match
+      function findTrackedProductSafe(materialSap, materialName, materialMentionat) {
+        // Try SAP first (exact)
+        if (materialSap) {
+          const tp = findTrackedProduct(materialSap, '');
+          if (tp) return tp;
+        }
+        // Try name match
+        const tp = findTrackedProduct('', materialName) || findTrackedProduct('', materialMentionat);
+        if (tp) {
+          // Safety: if material has SAP and tracked has different SAP → wrong match
+          if (materialSap && tp.sap && materialSap !== tp.sap) {
+            console.log(`[Tracked] SKIP: "${materialName}" SAP ${materialSap} ≠ tracked "${tp.nume}" SAP ${tp.sap}`);
+            return null;
+          }
+          return tp;
+        }
+        return null;
+      }
       // Get tracked products stats
       function getTrackedProductsStats() {
         const list = loadTrackedProducts();
@@ -17746,25 +17938,48 @@ LIMBA: ${lang === 'ro' ? 'Română' : lang === 'en' ? 'English' : 'Auto-detect'}
       // ═══ METODA UNICĂ: Identificare + prețuri competitori (tracked URLs) ═══
       async function ofertaProcessPrices(ofertaId, text, client, adresa, kb, compList, siteList, apiKey, model, forceRefresh) {
         try {
-          // ──────── PAS 1: Claude identifică materialele din text ────────
-          toast('🤖 Pas 1/3: Identificare materiale...');
-          if (!budgetCanCall()) throw new Error('Buget lunar atins');
-          const identResp = await fetch('https://api.anthropic.com/v1/messages', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' },
-            body: JSON.stringify({
-              model, max_tokens: 3000,
-              system: (() => { const _cat = searchCatalog(extractKeywords(text), 8); const _csv = _cat.length ? '\nCATALOG MATHAUS (SAP = codul unic pe mathaus.ro):\n' + catalogToPromptCSV(_cat) : ''; const _reguli = (kb.ofertaReguli || '').trim(); return 'Identifica materialele din nota agentului. Potriveste FIECARE material cu catalogul local.\n\nPROTOCOL IDENTIFICARE:\n1. Cauta in catalogul de mai jos dupa CUVINTE CHEIE din nota\n2. Daca gasesti potrivire: pune SAP exact din catalog + in_catalog=true\n3. Daca NU gasesti in catalog: pune sap="" si in_catalog=false\n4. Denumirile din catalog sunt INTERNE — nu le afisa clientului' + (_reguli ? '\n\nREGULI ADMINISTRATOR:\n' + _reguli : '') + _csv + '\nRETURN STRICT JSON: {"materiale":[{"nume":"denumire clara","cantitate":50,"um":"buc/sac/m2","mentionat_ca":"text original","sap":"SAP sau gol","in_catalog":true}],"neidentificate":["materiale neidentificate"]}'; })(),
-              messages: [{ role: 'user', content: 'Identifica materialele:\n\n' + text }]
-            })
-          });
-          const identData = await identResp.json();
-          trackAIUsage('message', 'oferte');
-          budgetTrackCall(identData.usage?.input_tokens || 2000, identData.usage?.output_tokens || 200, model);
-          const identText = (identData.content || []).filter(b => b.type === 'text').map(b => b.text).join('');
-          let parsed = { materiale: [], neidentificate: [] };
-          try { const jm = identText.match(/\{[\s\S]*\}/); if (jm) parsed = JSON.parse(jm[0]); } catch(e) {
-            console.warn('[Identificare] JSON parse failed:', e.message, 'Text:', identText.substring(0, 200));
+          // ──────── PAS 0: Identificare LOCALĂ (0 tokens, instant) ────────
+          toast('⚡ Pas 0: Identificare locală...');
+          const localResult = localIdentifyMaterials(text);
+          let parsed = { materiale: [...localResult.matched], neidentificate: [] };
+          
+          if (localResult.matched.length > 0) {
+            toast(`✅ ${localResult.matched.length} material(e) identificate local (0 tokens)`);
+          }
+          
+          // ──────── PAS 1: Claude identifică DOAR ce n-a fost găsit local ────────
+          if (localResult.unmatched.length > 0) {
+            const unmatchedText = localResult.unmatched.join(', ');
+            toast(`🤖 Pas 1/3: Claude identifică ${localResult.unmatched.length} material(e)...`);
+            if (!budgetCanCall()) throw new Error('Buget lunar atins');
+            // Dynamic catalog window: more unmatched items → bigger candidate pool
+            // 1-2 unmatched: 8 candidates; 3-5: 15; 6+: 25 (capped to keep prompt small)
+            const _catLimit = localResult.unmatched.length <= 2 ? 8 : localResult.unmatched.length <= 5 ? 15 : 25;
+            const identResp = await fetch('https://api.anthropic.com/v1/messages', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' },
+              body: JSON.stringify({
+                model, max_tokens: 3000,
+                system: (() => { const _cat = searchCatalog(extractKeywords(unmatchedText), _catLimit); const _csv = _cat.length ? '\nCATALOG MATHAUS (SAP = codul unic pe mathaus.ro):\n' + catalogToPromptCSV(_cat) : ''; const _reguli = (kb.ofertaReguli || '').trim(); return 'Identifica materialele din nota agentului. Potriveste FIECARE material cu catalogul local.\n\nPROTOCOL IDENTIFICARE:\n1. Cauta in catalogul de mai jos dupa CUVINTE CHEIE din nota\n2. Daca gasesti potrivire: pune SAP exact din catalog + in_catalog=true\n3. Daca NU gasesti in catalog: pune sap="" si in_catalog=false\n4. Denumirile din catalog sunt INTERNE — nu le afisa clientului\n5. CODURI PRODUSE: CM11, CM17, CM9, CT17, AF-I etc. sunt coduri EXACTE de adeziv Ceresit — NU le confunda cu "ciment". "cm 17" = adeziv CM17, NU ciment 17kg!\n6. GRAMAJ contează: dacă agentul scrie "25kg", cauți varianta de 25kg, nu 5kg.' + (_reguli ? '\n\nREGULI ADMINISTRATOR:\n' + _reguli : '') + _csv + '\nRETURN STRICT JSON: {"materiale":[{"nume":"denumire clara","cantitate":50,"um":"buc/sac/m2","mentionat_ca":"text original","sap":"SAP sau gol","in_catalog":true}],"neidentificate":["materiale neidentificate"]}'; })(),
+                messages: [{ role: 'user', content: 'Identifica materialele:\n\n' + unmatchedText }]
+              })
+            });
+            const identData = await identResp.json();
+            trackAIUsage('message', 'oferte');
+            budgetTrackCall(identData.usage?.input_tokens || 2000, identData.usage?.output_tokens || 200, model);
+            const identText = (identData.content || []).filter(b => b.type === 'text').map(b => b.text).join('');
+            try {
+              const jm = identText.match(/\{[\s\S]*\}/);
+              if (jm) {
+                const claudeParsed = JSON.parse(jm[0]);
+                parsed.materiale.push(...(claudeParsed.materiale || []));
+                parsed.neidentificate = claudeParsed.neidentificate || [];
+              }
+            } catch(e) {
+              console.warn('[Identificare] JSON parse failed:', e.message);
+            }
+          } else {
+            toast('⚡ Toate materialele identificate local — 0 tokens Claude!');
           }
 
           // Validation: if no materials found, show error with original response
@@ -17844,18 +18059,35 @@ LIMBA: ${lang === 'ro' ? 'Română' : lang === 'en' ? 'English' : 'Auto-detect'}
           // ──────── PAS 3: Prețuri competitori ────────
           // Prioritate: 1) Sheet prices (gratuit) → 2) Tracked URLs (Claude) → 3) Untracked (skip)
           if (_needCompetitors.length > 0) {
-            toast(`🔍 Pas 3/3: Verific prețuri competitori (${_needCompetitors.length} materiale)...`);
+            if (forceRefresh) {
+              toast(`🔄 Pas 3/3: FORCE REFRESH — citesc prețuri proaspete de pe site-uri (${_needCompetitors.length} materiale)...`);
+              console.log('[Ofertare] FORCE REFRESH activ — bypass Sheet cache + tracked-cache');
+            } else {
+              toast(`🔍 Pas 3/3: Verific prețuri competitori (${_needCompetitors.length} materiale)...`);
+            }
 
             // ── 3.0: Verifică prețuri din Sheet (coloane Pret_Dedeman etc.) — GRATUIT ──
+            // Bypass Sheet prices when forceRefresh is true (user wants live data)
             let sheetCompPrices = {};
-            try { sheetCompPrices = JSON.parse(localStorage.getItem('mathaus_sheet_comp_prices') || '{}'); } catch(e) {}
-            
+            if (!forceRefresh) {
+              try { sheetCompPrices = JSON.parse(localStorage.getItem('mathaus_sheet_comp_prices') || '{}'); } catch(e) {}
+            }
+            // Stale-Sheet guard: if Sheet entry is older than priceCacheMaxDays, treat as missing
+            const _staleDays = kb.priceCacheMaxDays || 7;
+            const _staleCutoff = Date.now() - _staleDays * 86400000;
+
             let _sheetHits = 0;
             const _stillNeedComp = [];
 
             for (const m of _needCompetitors) {
               const sp = m.sap ? sheetCompPrices[m.sap] : null;
-              if (sp && (sp.dedeman || sp.leroy || sp.bricodepot || sp.hornbach)) {
+              // Stale check: if Sheet has a date and it's older than cache window, ignore
+              const _spDate = sp?.date ? new Date(sp.date).getTime() : 0;
+              const _spStale = _spDate > 0 && _spDate < _staleCutoff;
+              if (_spStale) {
+                console.log(`[Ofertare] Sheet price for SAP ${m.sap} is stale (${sp.date}) — will refetch`);
+              }
+              if (!_spStale && sp && (sp.dedeman || sp.leroy || sp.bricodepot || sp.hornbach)) {
                 // Use Sheet prices directly — zero AI cost
                 const matIdx = m.idx;
                 ['dedeman','leroy','bricodepot','hornbach'].forEach(c => {
@@ -17888,13 +18120,14 @@ LIMBA: ${lang === 'ro' ? 'Română' : lang === 'en' ? 'English' : 'Auto-detect'}
             const _untracked = [];
 
             for (const m of _stillNeedComp) {
-              const tp = findTrackedProduct(m.sap, m.nume) || findTrackedProduct('', m.mentionat_ca);
+              const tp = findTrackedProductSafe(m.sap, m.nume, m.mentionat_ca);
               if (tp && hasCompetitorUrls(tp)) {
                 // Check if tracked product has recent lastPrices — use cache
                 const lastDate = tp.lastPriceDate ? new Date(tp.lastPriceDate) : null;
                 const _cacheDays = kb.priceCacheMaxDays || 7;
                 const isRecent = lastDate && (Date.now() - lastDate.getTime()) < _cacheDays * 86400000;
-                if (isRecent && tp.lastPrices && Object.values(tp.lastPrices).some(p => p > 0)) {
+                // Bypass tracked-cache when forceRefresh is true
+                if (!forceRefresh && isRecent && tp.lastPrices && Object.values(tp.lastPrices).some(p => p > 0)) {
                   // Use cached tracked prices — zero AI cost
                   const matIdx = m.idx;
                   // Propagate SAP + MH price from tracked product if missing
@@ -18404,12 +18637,27 @@ Unde p = prețul cu TVA (număr, ex: 55.89). null dacă nu găsești.`;
                 };
                 const b = badges[m.sursa];
                 let html = b ? `<div style="display:inline-flex;align-items:center;gap:3px;margin-top:3px;background:${b[2]};border:1px solid ${b[1]}33;border-radius:4px;padding:2px 6px;font-size:9px;font-weight:600;color:${b[1]}">${b[0]}</div>` : '';
-                // Show price date + age
+                // Show price date + age (with explicit "STALE" warning for old prices)
                 if (m._priceDate) {
                   const _ageDays = Math.round((Date.now() - new Date(m._priceDate).getTime()) / 86400000);
-                  const _ageColor = _ageDays <= 1 ? 'var(--green)' : _ageDays <= 7 ? 'var(--blue)' : 'var(--amber)';
-                  const _ageLabel = _ageDays === 0 ? 'azi' : _ageDays === 1 ? 'ieri' : _ageDays + ' zile';
-                  html += ` <span style="font-size:8px;color:${_ageColor};font-weight:600" title="Preț verificat pe ${m._priceDate}">📅 ${_ageLabel}</span>`;
+                  let _ageColor, _ageLabel, _ageBg = '', _isStale = false;
+                  if (_ageDays <= 1) {
+                    _ageColor = 'var(--green)';
+                    _ageLabel = _ageDays === 0 ? 'azi' : 'ieri';
+                  } else if (_ageDays <= 7) {
+                    _ageColor = 'var(--blue)';
+                    _ageLabel = _ageDays + ' zile';
+                  } else if (_ageDays <= 14) {
+                    _ageColor = 'var(--amber)';
+                    _ageLabel = _ageDays + ' zile';
+                  } else {
+                    // Older than 14 days → explicit STALE warning, red, with background
+                    _ageColor = '#dc2626';
+                    _ageBg = 'background:#fef2f2;border:1px solid #fecaca;border-radius:4px;padding:1px 5px;';
+                    _ageLabel = '⚠ ' + _ageDays + ' zile — PREȚ VECHI';
+                    _isStale = true;
+                  }
+                  html += ` <span style="font-size:9px;color:${_ageColor};font-weight:700;${_ageBg}" title="Preț verificat pe ${m._priceDate}${_isStale ? ' — apasă 🔄 Refresh prețuri pentru date la zi' : ''}">📅 ${_ageLabel}</span>`;
                 }
                 // Add "Track" button for untracked materials
                 if (m._neUrmarit || m.sursa === 'neUrmarit') {
