@@ -11904,32 +11904,37 @@ PROGRAM MAGAZINE:
         const sep = tabCount >= 2 ? '\t' : semiCount >= 2 ? ';' : ',';
 
         // Normalizam headerele — suportam exact formatul MatHaus SAP
+        // ORDINE CRITICĂ: pattern-urile SPECIFICE trebuie testate ÎNAINTE de cele generice.
+        // Bug istoric: /pret|price/ generic captura "Pret_Dedeman", "Pret_Leroy", "Data_Pret" etc.
+        // toate spre 'price', iar cea din urmă (Data_Pret = "2026-04-27") câștiga → MH = 2026.
         function normalizeHeader(h) {
           const s = h.trim().toLowerCase()
             .replace(/["""'']/g, '')  // eliminam ghilimele
             .trim();
           // Denumire
-          if (/denumire|name|produs|material/i.test(s)) return 'name';
+          if (/denumire|^name$|produs|material/i.test(s)) return 'name';
           // Cod SAP
           if (/cod\s*sap|sap\s*cod|^sap$|^cod$/i.test(s)) return 'sap';
           // UM
-          if (/^um$|^u\.m\.$|unitate|masura/i.test(s)) return 'um';
-          // Pret
-          if (/pret|price|lista/i.test(s)) return 'price';
+          if (/^um$|^u\.m\.$|^unitate$|^masura$/i.test(s)) return 'um';
+          // ── COLOANE SPECIFICE — TESTATE ÎNAINTE DE /pret/ GENERIC ──
+          // Date column for price freshness (TREBUIE testat înainte de /pret/ pentru "Data_Pret")
+          if (/data.?pret|date.?price|actualizat|updated|pret.?data|price.?date/i.test(s)) return 'pret_date';
+          // Competitor price columns (Pret_Dedeman etc.)
+          if (/pret.?dedeman|dedeman.?pret|price.?dedeman/i.test(s)) return 'pret_dedeman';
+          if (/pret.?leroy|leroy.?pret|price.?leroy/i.test(s)) return 'pret_leroy';
+          if (/pret.?brico|brico.?pret|price.?brico/i.test(s)) return 'pret_bricodepot';
+          if (/pret.?hornbach|hornbach.?pret|price.?hornbach/i.test(s)) return 'pret_hornbach';
+          if (/pret.?mathaus.?real|mathaus.?pret.?real|pret.?site/i.test(s)) return 'pret_mathaus_real';
           // URL columns for tracked products
           if (/url.?mathaus|link.?mathaus|mathaus.?url|mathaus.?link/i.test(s)) return 'url_mathaus';
           if (/url.?dedeman|link.?dedeman|dedeman.?url|dedeman.?link/i.test(s)) return 'url_dedeman';
           if (/url.?leroy|link.?leroy|leroy.?url|leroy.?link/i.test(s)) return 'url_leroy';
           if (/url.?brico|link.?brico|brico.?url|brico.?link/i.test(s)) return 'url_bricodepot';
           if (/url.?hornbach|link.?hornbach|hornbach.?url|hornbach.?link/i.test(s)) return 'url_hornbach';
-          // Competitor price columns (from Apps Script scraper)
-          if (/pret.?dedeman|dedeman.?pret|price.?dedeman/i.test(s)) return 'pret_dedeman';
-          if (/pret.?leroy|leroy.?pret|price.?leroy/i.test(s)) return 'pret_leroy';
-          if (/pret.?brico|brico.?pret|price.?brico/i.test(s)) return 'pret_bricodepot';
-          if (/pret.?hornbach|hornbach.?pret|price.?hornbach/i.test(s)) return 'pret_hornbach';
-          if (/pret.?mathaus.?real|mathaus.?pret.?real|pret.?site/i.test(s)) return 'pret_mathaus_real';
-          // Date column for price freshness
-          if (/data.?pret|date.?price|actualizat|updated/i.test(s)) return 'pret_date';
+          // ── PRET MATHAUS GENERIC — DOAR DUPĂ toate cele specifice ──
+          // STRICT: doar "pret" / "price" / "pret lista" / "pret intern" / "pret mathaus" — fără sufixe
+          if (/^pret$|^price$|^pret\s*lista$|^pret\s*intern$|^pret\s*mathaus$|^pret\s*ron$|^pret\s*lei$/i.test(s)) return 'price';
           return s;
         }
 
@@ -12662,6 +12667,111 @@ PROGRAM MAGAZINE:
       }
 
       // ══════════ CACHE PREȚURI TRACKED: salvează ultimul preț per produs ══════════
+      // ══════════ VALIDARE PREȚ — anti-an, anti-outlier ══════════
+      // Returns {valid:true, price:Number} or {valid:false, reason:'...'}
+      // Common failure modes detected:
+      //  - Year as price (1900-2099 integer): web_search snippet contained a date
+      //  - Too low (<1 lei): truncation or unit confusion
+      //  - Too high (>50000 lei): wrong material, decimal misplacement
+      function validatePrice(rawValue, opts) {
+        opts = opts || {};
+        const minPrice = opts.minPrice || 0.5;     // sub 0.5 lei e improbabil
+        const maxPrice = opts.maxPrice || 50000;   // peste 50k lei e improbabil pentru materiale construcții
+        const n = typeof rawValue === 'number' ? rawValue : parseFloat(String(rawValue || '').replace(',', '.'));
+        if (!n || isNaN(n) || n <= 0) return { valid: false, reason: 'Valoare invalidă sau zero' };
+        // Year-as-price detector: integer between 1900-2099 is suspicious
+        if (Number.isInteger(n) && n >= 1900 && n <= 2099) {
+          return { valid: false, reason: `${n} pare a fi un AN, nu un preț — respins automat` };
+        }
+        if (n < minPrice) return { valid: false, reason: `${n} lei e sub pragul minim (${minPrice})` };
+        if (n > maxPrice) return { valid: false, reason: `${n} lei depășește pragul maxim (${maxPrice})` };
+        return { valid: true, price: n };
+      }
+
+      // ══════════ CURĂȚARE PREȚURI STRICATE (one-time, la încărcare) ══════════
+      // Removes year-as-price values that may have been saved by previous broken version.
+      // Idempotent: if there's nothing to clean, it does nothing.
+      function cleanupCorruptedPrices() {
+        let totalRemoved = 0;
+        // 1) Tracked products lastPrices
+        try {
+          const list = JSON.parse(localStorage.getItem('mathaus_tracked_products') || '[]');
+          let changed = false;
+          list.forEach(tp => {
+            if (!tp.lastPrices) return;
+            ['mathaus','dedeman','leroy','bricodepot','hornbach'].forEach(c => {
+              const v = tp.lastPrices[c];
+              if (v && !validatePrice(v).valid) {
+                console.warn(`[Cleanup] Removed corrupted price tp=${tp.nume} ${c}=${v}`);
+                delete tp.lastPrices[c];
+                totalRemoved++;
+                changed = true;
+              }
+            });
+            // If all prices removed, also clear date so old date doesn't mislead
+            if (changed && Object.keys(tp.lastPrices).length === 0) {
+              delete tp.lastPriceDate;
+            }
+          });
+          if (changed) localStorage.setItem('mathaus_tracked_products', JSON.stringify(list));
+        } catch(e) { console.warn('[Cleanup] tracked products error:', e.message); }
+
+        // 2) Sheet comp prices
+        try {
+          const sheetPrices = JSON.parse(localStorage.getItem('mathaus_sheet_comp_prices') || '{}');
+          let changed = false;
+          Object.keys(sheetPrices).forEach(sap => {
+            const p = sheetPrices[sap];
+            if (!p) return;
+            ['mathaus','dedeman','leroy','bricodepot','hornbach'].forEach(c => {
+              if (p[c] && !validatePrice(p[c]).valid) {
+                console.warn(`[Cleanup] Removed corrupted Sheet price SAP=${sap} ${c}=${p[c]}`);
+                p[c] = 0;
+                totalRemoved++;
+                changed = true;
+              }
+            });
+          });
+          if (changed) localStorage.setItem('mathaus_sheet_comp_prices', JSON.stringify(sheetPrices));
+        } catch(e) { console.warn('[Cleanup] sheet prices error:', e.message); }
+
+        // 3) Existing oferte materiale (already-generated offers with bad prices)
+        try {
+          const oferte = JSON.parse(localStorage.getItem('mathaus_oferte_ai') || '[]');
+          let changed = false;
+          oferte.forEach(o => {
+            if (!Array.isArray(o.materiale)) return;
+            o.materiale.forEach(m => {
+              ['mathaus','dedeman','leroy','bricodepot','hornbach'].forEach(c => {
+                if (m[c]?.pret && !validatePrice(m[c].pret).valid) {
+                  console.warn(`[Cleanup] Removed corrupted offer price oferta=${o.id} mat=${m.nume} ${c}=${m[c].pret}`);
+                  m[c] = { pret: null, link: m[c].link || null, disponibil: false };
+                  totalRemoved++;
+                  changed = true;
+                }
+              });
+              if (m.pretOferta && !validatePrice(m.pretOferta).valid) {
+                console.warn(`[Cleanup] Reset corrupted pretOferta=${m.pretOferta} for ${m.nume}`);
+                m.pretOferta = m._localPret || 0;
+                totalRemoved++;
+                changed = true;
+              }
+            });
+          });
+          if (changed) localStorage.setItem('mathaus_oferte_ai', JSON.stringify(oferte));
+        } catch(e) { console.warn('[Cleanup] oferte error:', e.message); }
+
+        if (totalRemoved > 0) {
+          console.log(`[Cleanup] ${totalRemoved} prețuri stricate eliminate — apasă 🔄 Refresh pe materiale pentru recitire LIVE`);
+          setTimeout(() => {
+            try { toast(`🧹 ${totalRemoved} prețuri eronate (ani) eliminate. Apasă 🔄 Refresh pe materiale pentru date live.`); } catch(e) {}
+          }, 1000);
+        }
+        return totalRemoved;
+      }
+      // Run cleanup once per page load
+      try { cleanupCorruptedPrices(); } catch(e) { console.warn('[Cleanup] failed:', e.message); }
+
       function tpSaveLastPrices(trackedProductId, prices) {
         const list = loadTrackedProducts();
         const idx = list.findIndex(p => p.id === trackedProductId);
@@ -12751,53 +12861,259 @@ PROGRAM MAGAZINE:
       }
 
       // ══════════ REFRESH: Actualizare prețuri de pe site (Claude API) ══════════
+      // ══════════ EXTRACȚIE PREȚ DIRECT — CORS proxy + regex per-site ══════════
+      // Reads the LIVE HTML of competitor product pages and extracts the current price.
+      // Far more accurate than web_search snippets which can return cached/stale data.
+      // Per-site extractors use schema.org JSON-LD first (most reliable), then meta tags,
+      // then fall back to selector-specific regex.
+      const PRICE_EXTRACTORS = {
+        mathaus: (html) => {
+          // mathaus.ro: try JSON-LD, then specific span/div
+          const ld = extractJsonLdPrice(html);
+          if (ld) return ld;
+          const m = html.match(/itemprop=["']price["'][^>]*content=["']([\d.,]+)["']/i)
+                || html.match(/"price"\s*:\s*"?([\d.,]+)"?/i)
+                || html.match(/class=["'][^"']*(?:product-price|main-price|current-price)[^"']*["'][^>]*>[\s\S]{0,200}?([\d.,]+)\s*(?:lei|RON)/i);
+          return m ? parsePriceString(m[1]) : null;
+        },
+        dedeman: (html) => {
+          // dedeman.ro uses schema.org + Vue. Look for itemprop or JSON-LD.
+          const ld = extractJsonLdPrice(html);
+          if (ld) return ld;
+          // Dedeman main price element: <span itemprop="price" content="36.91"> or .price-current
+          const m = html.match(/itemprop=["']price["'][^>]*content=["']([\d.,]+)["']/i)
+                || html.match(/data-price=["']([\d.,]+)["']/i)
+                || html.match(/<meta\s+property=["']product:price:amount["']\s+content=["']([\d.,]+)["']/i);
+          return m ? parsePriceString(m[1]) : null;
+        },
+        leroy: (html) => {
+          // leroymerlin.ro: JSON-LD or data attributes
+          const ld = extractJsonLdPrice(html);
+          if (ld) return ld;
+          const m = html.match(/itemprop=["']price["'][^>]*content=["']([\d.,]+)["']/i)
+                || html.match(/"unitPrice"\s*:\s*\{?\s*"value"\s*:\s*([\d.]+)/i)
+                || html.match(/data-qa-price=["']([\d.,]+)["']/i);
+          return m ? parsePriceString(m[1]) : null;
+        },
+        bricodepot: (html) => {
+          // bricodepot.ro
+          const ld = extractJsonLdPrice(html);
+          if (ld) return ld;
+          const m = html.match(/itemprop=["']price["'][^>]*content=["']([\d.,]+)["']/i)
+                || html.match(/data-price=["']([\d.,]+)["']/i);
+          return m ? parsePriceString(m[1]) : null;
+        },
+        hornbach: (html) => {
+          // hornbach.ro
+          const ld = extractJsonLdPrice(html);
+          if (ld) return ld;
+          const m = html.match(/itemprop=["']price["'][^>]*content=["']([\d.,]+)["']/i)
+                || html.match(/"price"\s*:\s*"([\d.,]+)"/i)
+                || html.match(/data-price=["']([\d.,]+)["']/i);
+          return m ? parsePriceString(m[1]) : null;
+        }
+      };
+
+      // Helper: extract price from JSON-LD structured data (most reliable signal)
+      function extractJsonLdPrice(html) {
+        const blocks = html.match(/<script[^>]*type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi) || [];
+        for (const block of blocks) {
+          const inner = block.replace(/<script[^>]*>|<\/script>/gi, '').trim();
+          try {
+            const data = JSON.parse(inner);
+            // Walk the structure looking for offers.price or price field
+            const found = walkForPrice(data);
+            if (found) return found;
+          } catch(e) { /* malformed JSON-LD, skip */ }
+        }
+        return null;
+      }
+      function walkForPrice(node) {
+        if (!node) return null;
+        if (Array.isArray(node)) {
+          for (const item of node) { const p = walkForPrice(item); if (p) return p; }
+          return null;
+        }
+        if (typeof node === 'object') {
+          // Direct fields
+          if (node.price !== undefined) {
+            const p = parsePriceString(node.price);
+            if (p && p > 0) return p;
+          }
+          if (node.offers) { const p = walkForPrice(node.offers); if (p) return p; }
+          // Walk children
+          for (const k of Object.keys(node)) {
+            const v = node[k];
+            if (typeof v === 'object') { const p = walkForPrice(v); if (p) return p; }
+          }
+        }
+        return null;
+      }
+      // Parse "36,91" / "36.91" / "1.234,56" / "1,234.56" → number
+      // Heuristic: if only a dot present with exactly 3 digits after it AND no comma,
+      // treat as Romanian thousand separator (e.g. "2.026" → 2026, "1.500" → 1500)
+      function parsePriceString(s) {
+        if (typeof s === 'number') return s;
+        if (s === null || s === undefined) return null;
+        let str = String(s).trim().replace(/\s/g, '');
+        // Detect Romanian thousand separator: dot followed by exactly 3 digits, no comma anywhere
+        const lastDot = str.lastIndexOf('.');
+        const lastComma = str.lastIndexOf(',');
+        if (lastDot > -1 && lastComma > -1) {
+          if (lastComma > lastDot) {
+            str = str.replace(/\./g, '').replace(',', '.'); // "1.234,56" → "1234.56"
+          } else {
+            str = str.replace(/,/g, ''); // "1,234.56" → "1234.56"
+          }
+        } else if (lastComma > -1) {
+          // Only comma — Romanian decimal "36,91" → "36.91"
+          str = str.replace(',', '.');
+        } else if (lastDot > -1) {
+          // Only dot — could be decimal (36.91) or thousand separator (2.026)
+          // If exactly 3 digits after the LAST dot and total length suggests thousands → treat as thousand sep
+          const afterDot = str.length - lastDot - 1;
+          const digitsAfter = str.substring(lastDot + 1);
+          // "2.026" (5 chars, 3 after dot, all digits) → 2026
+          // "36.91" (5 chars, 2 after dot) → 36.91
+          // "1.234.567" (multiple dots) → 1234567 — strip all dots
+          const dotCount = (str.match(/\./g) || []).length;
+          if (dotCount > 1) {
+            str = str.replace(/\./g, ''); // multiple dots = thousand separators
+          } else if (afterDot === 3 && /^\d{3}$/.test(digitsAfter)) {
+            str = str.replace('.', ''); // single dot + 3 digits → thousand separator
+          }
+          // else: standard decimal, leave as-is
+        }
+        const n = parseFloat(str);
+        return isNaN(n) ? null : n;
+      }
+
+      // Main entry point: fetch HTML directly and extract price
+      // Returns: { price: Number, source: 'direct-fetch' } or { error: '...' }
+      async function fetchPriceDirect(url, competitor) {
+        if (!url || !competitor || !PRICE_EXTRACTORS[competitor]) {
+          return { error: 'URL sau competitor invalid' };
+        }
+        try {
+          // Try direct fetch first (works only for CORS-enabled sites — usually fails)
+          let html = '';
+          try {
+            const r = await fetch(url, { cache: 'no-cache', mode: 'cors' });
+            if (r.ok) html = await r.text();
+          } catch(e) { /* CORS blocked, fall through to proxy */ }
+          
+          if (!html) {
+            // CORS proxy fallback (same one used for Google Sheets)
+            const proxyUrl = 'https://api.allorigins.win/get?url=' + encodeURIComponent(url);
+            const pr = await fetch(proxyUrl, { cache: 'no-cache' });
+            if (!pr.ok) return { error: 'Proxy HTTP ' + pr.status };
+            const pd = await pr.json();
+            if (pd.status?.http_code && pd.status.http_code !== 200) {
+              return { error: 'Site HTTP ' + pd.status.http_code };
+            }
+            html = pd.contents || '';
+          }
+          
+          if (!html || html.length < 200) return { error: 'Pagină goală sau redirecționare' };
+          
+          const rawPrice = PRICE_EXTRACTORS[competitor](html);
+          if (rawPrice === null || rawPrice === undefined) {
+            return { error: 'Preț negăsit în HTML (selector neactualizat)' };
+          }
+          // Apply same sanity check
+          const validation = validatePrice(rawPrice);
+          if (!validation.valid) return { error: validation.reason };
+          
+          return { price: validation.price, source: 'direct-fetch' };
+        } catch(e) {
+          return { error: 'Excepție: ' + e.message };
+        }
+      }
+
       async function tpRefreshPrices(trackedProductId, callback) {
         const tp = loadTrackedProducts().find(p => p.id === trackedProductId);
         if (!tp) { toast('⚠ Produs negăsit'); return; }
-        const apiKey = getChatApiKey();
-        if (!apiKey) { toast('⚠ Cheie API Anthropic necesară'); return; }
         const urls = tp.urls || {};
         const urlEntries = [];
-        const COMP_MAP = {mathaus:'mh',dedeman:'d',leroy:'le',bricodepot:'b',hornbach:'h'};
         ['mathaus','dedeman','leroy','bricodepot','hornbach'].forEach(c => {
-          if (urls[c]) urlEntries.push({ comp: c, key: COMP_MAP[c], url: urls[c] });
+          if (urls[c]) urlEntries.push({ comp: c, url: urls[c] });
         });
         if (!urlEntries.length) { toast('⚠ Niciun link configurat'); return; }
-        toast('🔄 Actualizez prețuri: ' + tp.nume + '...');
-        const kb = loadOfertareKB();
-        const model = kb.aiModelOferte || 'claude-sonnet-4-5-20250929';
-        const urlInstructions = urlEntries.map((e, i) => (i+1) + '. ' + e.comp.toUpperCase() + ': ' + e.url).join('\n');
-        const _today = new Date().toISOString().split('T')[0];
-        const fetchPrompt = 'DATA: ' + _today + '. Citește prețul ACTUAL al produsului "' + tp.nume + '" (' + (tp.um||'buc') + ') de pe fiecare site.\n\nPentru FIECARE URL, fă web_search cu URL-ul EXACT ca query pentru a accesa pagina reală.\n\nURL-URI:\n' + urlInstructions + '\n\nCitește prețul cu TVA inclus AFIȘAT ACUM PE PAGINĂ (nu din cache Google). JSON STRICT:\n{"' + urlEntries.map(e => e.key).join('":{"p":0},"') + '":{"p":0}}';
-        try {
-          if (!budgetCanCall()) return;
-          const resp = await fetch('https://api.anthropic.com/v1/messages', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true', 'anthropic-beta': 'web-search-2025-03-05' },
-            body: JSON.stringify({ model, max_tokens: 600, tools: [{ type: 'web_search_20250305', name: 'web_search' }], messages: [{ role: 'user', content: fetchPrompt }] })
-          });
-          if (!resp.ok) { toast('⚠ Eroare API: ' + resp.status); return; }
-          const data = await resp.json();
-          trackAIUsage('message', 'oferte');
-          budgetTrackCall(data.usage?.input_tokens || 5000, data.usage?.output_tokens || 100, model);
-          const text = (data.content || []).filter(b => b.type === 'text').map(b => b.text).join('');
-          const jm = text.match(/\{[\s\S]*\}/);
-          if (jm) {
-            const prices = JSON.parse(jm[0]);
-            const reverseMap = {mh:'mathaus',d:'dedeman',le:'leroy',b:'bricodepot',h:'hornbach',mathaus:'mathaus',dedeman:'dedeman',leroy:'leroy',bricodepot:'bricodepot',hornbach:'hornbach'};
-            const fetchedPrices = {};
-            const results = [];
-            Object.entries(prices).forEach(([k, v]) => {
-              const comp = reverseMap[k];
-              if (comp && v?.p > 0) { fetchedPrices[comp] = v.p; results.push(comp + ': ' + v.p + ' lei'); }
-            });
-            if (Object.keys(fetchedPrices).length > 0) {
-              tpSaveLastPrices(trackedProductId, fetchedPrices);
-              toast('✅ ' + tp.nume + ': ' + results.join(', '));
-              if (callback) callback(fetchedPrices);
-            } else { toast('⚠ Nu am putut extrage prețuri'); }
-          } else { toast('⚠ Răspuns invalid'); }
-        } catch(e) { toast('⚠ Eroare: ' + e.message); }
+        toast('🔄 Citesc prețuri LIVE: ' + tp.nume + '...');
+
+        // ── STRATEGIE 1: Direct HTML fetch via CORS proxy + regex per-site (fără AI cost) ──
+        const fetchedPrices = {};
+        const results = [];
+        const failed = [];
+        for (const e of urlEntries) {
+          const r = await fetchPriceDirect(e.url, e.comp);
+          if (r.price) {
+            fetchedPrices[e.comp] = r.price;
+            results.push(e.comp + ': ' + r.price + ' lei (live)');
+            console.log(`[Refresh-Direct] ${e.comp}: ${r.price} lei from ${e.url}`);
+          } else {
+            failed.push({ comp: e.comp, url: e.url, error: r.error });
+            console.warn(`[Refresh-Direct] ${e.comp} FAILED: ${r.error} (URL: ${e.url})`);
+          }
+        }
+
+        // ── STRATEGIE 2: Fallback Claude pentru cele care au eșuat la fetch direct ──
+        if (failed.length > 0) {
+          const apiKey = getChatApiKey();
+          if (apiKey && budgetCanCall()) {
+            toast(`🤖 ${failed.length} prețuri necesită fallback AI (selectoare neactualizate)`);
+            const kb = loadOfertareKB();
+            const model = kb.aiModelOferte || 'claude-sonnet-4-5-20250929';
+            const COMP_MAP = {mathaus:'mh',dedeman:'d',leroy:'le',bricodepot:'b',hornbach:'h'};
+            const failEntries = failed.map(f => ({ comp: f.comp, key: COMP_MAP[f.comp], url: f.url }));
+            const urlInstructions = failEntries.map((e, i) => (i+1) + '. ' + e.comp.toUpperCase() + ': ' + e.url).join('\n');
+            const _today = new Date().toISOString().split('T')[0];
+            const fetchPrompt = 'DATA: ' + _today + '. Citește prețul ACTUAL afișat pentru "' + tp.nume + '" (' + (tp.um||'buc') + ').\n\n' +
+              'IMPORTANT — REGULI STRICTE:\n' +
+              '• Returnezi DOAR prețul produsului în lei cu TVA, NU anul, NU codul produsului, NU SAP-ul.\n' +
+              '• Anii 2024, 2025, 2026 nu sunt prețuri — sunt date din header-ul paginii.\n' +
+              '• Prețurile materialelor de construcții sunt între 1 lei și 10.000 lei. Orice valoare în afara acestui interval = greșit.\n' +
+              '• Dacă nu poți confirma prețul direct de pe pagina indicată → returnezi null pentru acel URL, NU ghicești.\n\n' +
+              'URL-URI:\n' + urlInstructions + '\n\nJSON STRICT (p = preț lei cu TVA, sau null):\n{"' + failEntries.map(e => e.key).join('":{"p":0},"') + '":{"p":0}}';
+            try {
+              const resp = await fetch('https://api.anthropic.com/v1/messages', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true', 'anthropic-beta': 'web-search-2025-03-05' },
+                body: JSON.stringify({ model, max_tokens: 600, tools: [{ type: 'web_search_20250305', name: 'web_search' }], messages: [{ role: 'user', content: fetchPrompt }] })
+              });
+              if (resp.ok) {
+                const data = await resp.json();
+                trackAIUsage('message', 'oferte');
+                budgetTrackCall(data.usage?.input_tokens || 5000, data.usage?.output_tokens || 100, model);
+                const text = (data.content || []).filter(b => b.type === 'text').map(b => b.text).join('');
+                const jm = text.match(/\{[\s\S]*\}/);
+                if (jm) {
+                  const prices = JSON.parse(jm[0]);
+                  const reverseMap = {mh:'mathaus',d:'dedeman',le:'leroy',b:'bricodepot',h:'hornbach'};
+                  Object.entries(prices).forEach(([k, v]) => {
+                    const comp = reverseMap[k];
+                    if (!comp || v?.p === undefined || v.p === null) return;
+                    const validation = validatePrice(v.p);
+                    if (!validation.valid) {
+                      console.warn(`[Refresh-AI] REJECT ${comp}: ${v.p} — ${validation.reason}`);
+                      return;
+                    }
+                    fetchedPrices[comp] = validation.price;
+                    results.push(comp + ': ' + validation.price + ' lei (AI fallback)');
+                  });
+                }
+              }
+            } catch(e) { console.warn('[Refresh-AI] Error:', e.message); }
+          }
+        }
+
+        if (Object.keys(fetchedPrices).length > 0) {
+          tpSaveLastPrices(trackedProductId, fetchedPrices);
+          toast('✅ ' + tp.nume + ': ' + results.join(', '));
+          if (callback) callback(fetchedPrices);
+        } else {
+          toast('⚠ Nu am putut citi niciun preț (verifică URL-urile sau site-urile blochează acces)');
+        }
       }
 
       async function ofertaRefreshMaterialPrices(ofertaId, matIdx) {
@@ -18163,11 +18479,10 @@ LIMBA: ${lang === 'ro' ? 'Română' : lang === 'en' ? 'English' : 'Auto-detect'}
 
             console.log(`[Ofertare] Pas 3: ${_sheetHits} sheet, ${_needCompetitors.length - _stillNeedComp.length - _sheetHits} tracked-cache, ${_tracked.length} tracked-fetch, ${_untracked.length} untracked`);
 
-            // ── 3A: Materiale CU link-uri → fetch direct pe URLs ──
+            // ── 3A: Materiale CU link-uri → fetch DIRECT pe URLs (apoi AI ca fallback) ──
             if (_tracked.length > 0) {
-              toast(`🎯 ${_tracked.length} produse urmărite — citesc prețuri reale de pe site-uri...`);
+              toast(`🎯 ${_tracked.length} produse urmărite — citesc HTML LIVE de pe site-uri...`);
               
-              // Process ONE material at a time for maximum accuracy
               for (let ti = 0; ti < _tracked.length; ti++) {
                 const m = _tracked[ti];
                 const tp = m._tp;
@@ -18190,109 +18505,94 @@ LIMBA: ${lang === 'ro' ? 'Română' : lang === 'en' ? 'English' : 'Auto-detect'}
                 
                 // Build URL list for this material
                 const urlEntries = [];
-                const COMP_MAP = {mathaus:'mh',dedeman:'d',leroy:'le',bricodepot:'b',hornbach:'h'};
                 ['mathaus','dedeman','leroy','bricodepot','hornbach'].forEach(c => {
-                  if (tp.urls[c]) urlEntries.push({ comp: c, key: COMP_MAP[c], url: tp.urls[c] });
+                  if (tp.urls[c]) urlEntries.push({ comp: c, url: tp.urls[c] });
                 });
-                
                 if (urlEntries.length === 0) continue;
-                
-                // Rate limit protection: 8s between calls (50K tokens/min ÷ ~5K/call = 10 calls/min max)
-                if (ti > 0) {
-                  const waitSec = 8;
-                  toast(`🎯 ${ti+1}/${_tracked.length}: ${m.nume.substring(0,25)}... (${waitSec}s)`, waitSec * 1000);
-                  await new Promise(r => setTimeout(r, waitSec * 1000));
-                }
 
-                const urlInstructions = urlEntries.map((e, i) => 
-                  `${i+1}. ${e.comp.toUpperCase()}: ${e.url}`
-                ).join('\n');
-
-                const _todayDate = new Date().toISOString().split('T')[0];
-                const fetchPrompt = `DATA ACTUALĂ: ${_todayDate}
-Trebuie să citesc prețul ACTUAL al produsului "${m.nume}" de pe site-urile competitorilor.
-
-IMPORTANT: Pentru FIECARE URL de mai jos, fă câte un web_search cu URL-ul EXACT ca query (nu cu cuvinte cheie). Astfel vei accesa pagina reală și vei putea citi prețul CURENT afișat.
-
-URL-URI DE ACCESAT:
-${urlInstructions}
-
-PAȘI PENTRU FIECARE URL:
-1. Fă web_search cu URL-ul complet: de exemplu caută "${urlEntries[0].url}"
-2. Din rezultat, citește prețul cu TVA inclus AFIȘAT ACUM pe pagină (nu din cache)
-3. Verifică că e produsul corect (${m.um}, gramaj potrivit)
-4. Dacă pagina nu afișează preț sau e alt produs → null
-
-Răspunde DOAR cu JSON:
-{"${urlEntries.map(e => e.key).join('":{"p":0},"')}":{"p":0}}
-Unde p = prețul cu TVA (număr, ex: 55.89). null dacă nu găsești.`;
-
-                try {
-                  if (!budgetCanCall()) { toast('⛔ Buget atins — skip restul'); break; }
-                  const resp = await fetch('https://api.anthropic.com/v1/messages', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true', 'anthropic-beta': 'web-search-2025-03-05' },
-                    body: JSON.stringify({
-                      model, max_tokens: 600,
-                      tools: [{ type: 'web_search_20250305', name: 'web_search' }],
-                      messages: [{ role: 'user', content: fetchPrompt }]
-                    })
-                  });
-                  
-                  if (resp.status === 429) {
-                    const retryCount = m._retries || 0;
-                    if (retryCount >= 2) {
-                      console.warn(`[Tracked ${ti+1}] ${m.nume}: skip after 2 retries`);
-                      toast(`⚠ ${m.nume}: skip — rate limit persistent`);
-                      continue;
-                    }
-                    m._retries = retryCount + 1;
-                    const waitTime = 30 + retryCount * 30; // 30s, then 60s
-                    toast(`⏳ Rate limit — aștept ${waitTime}s... (retry ${retryCount + 1}/2)`);
-                    await new Promise(r => setTimeout(r, waitTime * 1000));
-                    ti--; // retry this material
-                    continue;
+                // ── STRATEGIE 1: Direct HTML fetch (no AI cost, no rate limit) ──
+                const fetchedPrices = {};
+                const failed = [];
+                for (const e of urlEntries) {
+                  const r = await fetchPriceDirect(e.url, e.comp);
+                  if (r.price) {
+                    materiale[matIdx][e.comp] = { pret: r.price, link: e.url, disponibil: true };
+                    fetchedPrices[e.comp] = r.price;
+                    if (e.comp === 'mathaus') materiale[matIdx].pretOferta = r.price;
+                    console.log(`[Direct ${ti+1}] ${e.comp}: ${r.price} lei (live HTML)`);
+                  } else {
+                    failed.push({ comp: e.comp, url: e.url, error: r.error });
+                    console.warn(`[Direct ${ti+1}] ${e.comp} FAILED: ${r.error}`);
                   }
+                }
+                
+                // ── STRATEGIE 2: Fallback AI doar pentru ce a eșuat la fetch direct ──
+                if (failed.length > 0 && budgetCanCall()) {
+                  // Rate limit: 8s between AI calls
+                  if (ti > 0) {
+                    await new Promise(r => setTimeout(r, 8000));
+                  }
+                  const COMP_MAP = {mathaus:'mh',dedeman:'d',leroy:'le',bricodepot:'b',hornbach:'h'};
+                  const failEntries = failed.map(f => ({ comp: f.comp, key: COMP_MAP[f.comp], url: f.url }));
+                  const urlInstructions = failEntries.map((e, i) => `${i+1}. ${e.comp.toUpperCase()}: ${e.url}`).join('\n');
+                  const _todayDate = new Date().toISOString().split('T')[0];
+                  const fetchPrompt = `DATA ACTUALĂ: ${_todayDate}\nTrebuie să citesc prețul produsului "${m.nume}" (${m.um || 'buc'}).\n\n` +
+                    `REGULI STRICTE:\n` +
+                    `• Returnezi DOAR prețul în lei cu TVA, NU anul, NU codul produsului.\n` +
+                    `• Anii 2024, 2025, 2026 NU sunt prețuri — sunt date din header. Le respingi.\n` +
+                    `• Materialele de construcții sunt 1-10.000 lei. Valori în afară = greșit.\n` +
+                    `• Dacă nu poți confirma direct → null, NU ghicești.\n\n` +
+                    `URL-URI:\n${urlInstructions}\n\nJSON STRICT:\n{"${failEntries.map(e => e.key).join('":{"p":0},"')}":{"p":0}}`;
                   
-                  if (resp.ok) {
-                    const data = await resp.json();
-                    trackAIUsage('message', 'oferte');
-                    budgetTrackCall(data.usage?.input_tokens || 5000, data.usage?.output_tokens || 100, model);
-                    const text = (data.content || []).filter(b => b.type === 'text').map(b => b.text).join('');
-                    const jm = text.match(/\{[\s\S]*\}/);
-                    
-                    console.log(`[Tracked ${ti+1}] ${m.nume}: response ${text.length} chars, JSON: ${!!jm}`);
-                    
-                    if (jm) {
-                      const prices = JSON.parse(jm[0]);
-                      const reverseMap = {mh:'mathaus',d:'dedeman',de:'dedeman',le:'leroy',b:'bricodepot',h:'hornbach',
-                                          mathaus:'mathaus',dedeman:'dedeman',leroy:'leroy',bricodepot:'bricodepot',hornbach:'hornbach'};
-                      const fetchedPrices = {};
-                      
-                      Object.entries(prices).forEach(([k, v]) => {
-                        const comp = reverseMap[k];
-                        if (comp && v?.p !== undefined && v.p !== null && v.p > 0) {
-                          materiale[matIdx][comp] = { pret: v.p, link: tp.urls[comp] || null, disponibil: true };
-                          fetchedPrices[comp] = v.p;
-                          if (comp === 'mathaus') {
-                            materiale[matIdx].pretOferta = v.p;
-                          }
-                          console.log(`  ${comp}: ${v.p} lei`);
-                        }
-                      });
-                      
-                      materiale[matIdx].sursa = 'tracked';
-                      materiale[matIdx]._priceDate = new Date().toISOString().split('T')[0];
-                      materiale[matIdx]._status = 'done';
-                      
-                      // Save to price history
-                      if (Object.keys(fetchedPrices).length > 0) {
-                        tpSaveLastPrices(tp.id, fetchedPrices);
+                  try {
+                    const resp = await fetch('https://api.anthropic.com/v1/messages', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true', 'anthropic-beta': 'web-search-2025-03-05' },
+                      body: JSON.stringify({ model, max_tokens: 600, tools: [{ type: 'web_search_20250305', name: 'web_search' }], messages: [{ role: 'user', content: fetchPrompt }] })
+                    });
+                    if (resp.status === 429) {
+                      const retryCount = m._retries || 0;
+                      if (retryCount < 2) {
+                        m._retries = retryCount + 1;
+                        await new Promise(r => setTimeout(r, (30 + retryCount * 30) * 1000));
+                        ti--;
+                        continue;
                       }
                     }
-                  }
-                } catch(e) {
-                  console.warn(`[Tracked ${ti+1}] Error:`, e.message);
+                    if (resp.ok) {
+                      const data = await resp.json();
+                      trackAIUsage('message', 'oferte');
+                      budgetTrackCall(data.usage?.input_tokens || 5000, data.usage?.output_tokens || 100, model);
+                      const text = (data.content || []).filter(b => b.type === 'text').map(b => b.text).join('');
+                      const jm = text.match(/\{[\s\S]*\}/);
+                      if (jm) {
+                        const prices = JSON.parse(jm[0]);
+                        const reverseMap = {mh:'mathaus',d:'dedeman',le:'leroy',b:'bricodepot',h:'hornbach'};
+                        Object.entries(prices).forEach(([k, v]) => {
+                          const comp = reverseMap[k];
+                          if (!comp || v?.p === undefined || v.p === null) return;
+                          const validation = validatePrice(v.p);
+                          if (!validation.valid) {
+                            console.warn(`[AI-Fallback ${ti+1}] REJECT ${comp}: ${v.p} — ${validation.reason}`);
+                            return;
+                          }
+                          materiale[matIdx][comp] = { pret: validation.price, link: tp.urls[comp] || null, disponibil: true };
+                          fetchedPrices[comp] = validation.price;
+                          if (comp === 'mathaus') materiale[matIdx].pretOferta = validation.price;
+                          console.log(`[AI-Fallback ${ti+1}] ${comp}: ${validation.price} lei`);
+                        });
+                      }
+                    }
+                  } catch(e) { console.warn(`[AI-Fallback ${ti+1}] Error:`, e.message); }
+                }
+
+                // Mark as done (use direct/mixed source label)
+                materiale[matIdx].sursa = failed.length === 0 ? 'tracked' : (Object.keys(fetchedPrices).length > 0 ? 'tracked' : 'tracked');
+                materiale[matIdx]._priceDate = new Date().toISOString().split('T')[0];
+                materiale[matIdx]._status = 'done';
+                
+                if (Object.keys(fetchedPrices).length > 0) {
+                  tpSaveLastPrices(tp.id, fetchedPrices);
                 }
                 
                 ofertaUpdateProgress(ofertaId, 'preturi', materiale);
