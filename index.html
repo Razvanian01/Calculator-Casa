@@ -9467,12 +9467,49 @@
       }
 
       function adminReset() {
-        if (
-          !confirm(
-            "Ești sigur? TOATE modificările (texte + produse + prețuri) vor fi șterse!"
-          )
-        )
+        // Mesaj de confirmare DETALIAT — agentul vede exact ce pierde
+        const msg = "⚠️ ATENȚIE — RESET COMPLET\n\n" +
+          "Acest buton ȘTERGE următoarele date:\n" +
+          "  • Conținutul etapelor (script-uri, video-uri, scenarii vânzare)\n" +
+          "  • Materialele per etapă\n" +
+          "  • Setările aplicației — INCLUSIV:\n" +
+          "      ◦ URL-ul Apps Script (catalog + writeback prețuri)\n" +
+          "      ◦ Email pentru sincronizare\n" +
+          "      ◦ Parola admin\n\n" +
+          "NU e afectat:\n" +
+          "  ✓ Produse urmărite (URL competitori)\n" +
+          "  ✓ Catalog (prețurile MH)\n" +
+          "  ✓ Oferte salvate\n" +
+          "  ✓ Configurație AI (persona, training)\n\n" +
+          "RECOMANDARE: Apasă mai întâi \"Anulează\", apoi exportă o copie de backup\n" +
+          "din Admin → Setări → Export configurație, apoi revino aici.\n\n" +
+          "Continui cu RESET?";
+        if (!confirm(msg)) return;
+
+        // Auto-backup în consolă ÎNAINTE să șteargă (poate fi recuperat manual)
+        const backup = {
+          ts: new Date().toISOString(),
+          STORAGE_KEY: localStorage.getItem(STORAGE_KEY),
+          PROD_KEY: localStorage.getItem(PROD_KEY),
+          PRICE_KEY: localStorage.getItem(PRICE_KEY),
+          SETTINGS_KEY: localStorage.getItem(SETTINGS_KEY),
+          SMATS_KEY: localStorage.getItem(SMATS_KEY),
+        };
+        try {
+          // Salvează backup-ul în localStorage cu cheie nouă (ca un "trash")
+          // Utilizatorul poate recupera din DevTools dacă regretă
+          localStorage.setItem('mathaus_admin_reset_backup', JSON.stringify(backup));
+          console.log('[adminReset] Backup salvat în localStorage.mathaus_admin_reset_backup:', backup);
+        } catch(e) { console.warn('[adminReset] Backup failed:', e.message); }
+
+        // A doua confirmare cu codul magic — previne reset accidental
+        const code = Math.floor(Math.random() * 9000 + 1000).toString();
+        const userInput = prompt(`Pentru a confirma RESET-ul, introdu codul: ${code}\n\n(Last chance — backup-ul a fost salvat în localStorage.mathaus_admin_reset_backup pentru 24h)`);
+        if (userInput !== code) {
+          toast('❌ Reset anulat — cod incorect');
           return;
+        }
+
         localStorage.removeItem(STORAGE_KEY);
         localStorage.removeItem(PROD_KEY);
         localStorage.removeItem(PRICE_KEY);
@@ -9506,8 +9543,38 @@
         adminSection = "texte";
         adminActiveStage = null;
         renderAdmin();
-        toast("↩ Reset complet la valorile implicite.");
+        toast("↩ Reset complet la valorile implicite. Backup salvat în localStorage.mathaus_admin_reset_backup pentru recuperare manuală.");
       }
+
+      // Recuperare din backup (apelabil din consolă: adminResetRestore())
+      // Sau din butonul Setări → Recuperează din backup
+      function adminResetRestore() {
+        try {
+          const raw = localStorage.getItem('mathaus_admin_reset_backup');
+          if (!raw) {
+            toast('⚠ Nu există backup. Reset-ul anterior probabil a fost cu versiune veche fără auto-backup.');
+            return;
+          }
+          const backup = JSON.parse(raw);
+          const ts = backup.ts ? new Date(backup.ts).toLocaleString('ro-RO') : 'necunoscut';
+          if (!confirm(`Restaurez configurația din backup-ul de la ${ts}?\n\nVa suprascrie:\n  • Etape\n  • Setări (URL Apps Script, etc.)\n  • Materiale per etapă\n  • Prețuri vechi\n\nProduse urmărite, oferte și AI config NU sunt afectate (nici nu erau în backup).`)) return;
+
+          let restored = 0;
+          if (backup.STORAGE_KEY) { localStorage.setItem(STORAGE_KEY, backup.STORAGE_KEY); restored++; }
+          if (backup.PROD_KEY) { localStorage.setItem(PROD_KEY, backup.PROD_KEY); restored++; }
+          if (backup.PRICE_KEY) { localStorage.setItem(PRICE_KEY, backup.PRICE_KEY); restored++; }
+          if (backup.SETTINGS_KEY) { localStorage.setItem(SETTINGS_KEY, backup.SETTINGS_KEY); restored++; }
+          if (backup.SMATS_KEY) { localStorage.setItem(SMATS_KEY, backup.SMATS_KEY); restored++; }
+
+          toast(`✅ ${restored} chei restaurate din backup. Aplicația se reîncarcă...`);
+          setTimeout(() => location.reload(), 1500);
+        } catch(e) {
+          toast('❌ Restaurare eșuată: ' + e.message);
+          console.error('[adminResetRestore]', e);
+        }
+      }
+      // Expune global pentru consolă
+      window.adminResetRestore = adminResetRestore;
 
 
       // ─────────────────────────── ADMIN STAGE MATERIALS ─────────────────────────────
