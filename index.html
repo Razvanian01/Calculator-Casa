@@ -13008,6 +13008,10 @@ PROGRAM MAGAZINE:
           } catch(e) {}
           let changed = false;
           let linksHealed = 0;
+          let datesHealed = 0;
+          // Catalog sync date pentru fallback la materialele fără _priceDate
+          let _catalogSyncDate = '';
+          try { _catalogSyncDate = (JSON.parse(localStorage.getItem('mh_app_settings') || '{}').catalogLastSync || localStorage.getItem('mh_catalog_sync') || '').split('T')[0] || ''; } catch(e) {}
           oferte.forEach(o => {
             if (!Array.isArray(o.materiale)) return;
             o.materiale.forEach(m => {
@@ -13032,11 +13036,21 @@ PROGRAM MAGAZINE:
                 totalRemoved++;
                 changed = true;
               }
+              // Heal missing _priceDate: dacă materialul are preț dar nu are dată,
+              // folosim data sincronizării catalog (fallback). E mai bine decât gol.
+              if (!m._priceDate && (m._localPret || m.mathaus?.pret) && _catalogSyncDate) {
+                m._priceDate = _catalogSyncDate;
+                datesHealed++;
+                changed = true;
+              }
             });
           });
           if (changed) localStorage.setItem('mathaus_oferte_ai', JSON.stringify(oferte));
           if (linksHealed > 0) {
             console.log(`[Cleanup] ${linksHealed} click-through link-uri reparate la oferte existente`);
+          }
+          if (datesHealed > 0) {
+            console.log(`[Cleanup] ${datesHealed} date prețuri reparate (folosind data sincronizării catalog)`);
           }
         } catch(e) { console.warn('[Cleanup] oferte error:', e.message); }
 
@@ -19518,6 +19532,10 @@ LIMBA: ${lang === 'ro' ? 'Română' : lang === 'en' ? 'English' : 'Auto-detect'}
               bricodepot: { pret: null, link: null, disponibil: false },
               hornbach: { pret: null, link: null, disponibil: false },
               pretOferta: _localPret || 0, _localPret: _localPret,
+              // _priceDate inițial: pentru materiale doar din catalog (fără Sheet/competitor),
+              // folosim data ultimei sincronizări catalog. Asta apare ca badge "📅 azi/ieri/N zile".
+              // Pas 3.0/3.1/3A va suprascrie cu data reală a prețurilor competitor dacă există.
+              _priceDate: _localPret && appSettings.catalogLastSync ? appSettings.catalogLastSync : '',
               validat: false, sursa: _localPret ? 'local' : 'pending', _status: 'searching'
             };
             materiale.push(matItem);
@@ -19564,6 +19582,13 @@ LIMBA: ${lang === 'ro' ? 'Română' : lang === 'en' ? 'English' : 'Auto-detect'}
                 // render as plain spans and user can't open competitor pages)
                 const _tpForUrls = m.sap ? findTrackedProductSafe(m.sap, m.nume, m.mentionat_ca) : null;
                 const _urls = _tpForUrls?.urls || {};
+                
+                // Determină ce competitori AR FI fost fetchuiți (au URL configurat în tracked product)
+                // și verifică dacă Sheet-ul are date pentru TOȚI. Dacă lipsesc, NU revendicăm
+                // ca 'done' — lăsăm materialul să treacă la Pas 3.1/3A pentru completare.
+                const _expectedComps = ['dedeman','leroy','bricodepot','hornbach'].filter(c => _urls[c]);
+                const _missingFromSheet = _expectedComps.filter(c => !sp[c]);
+                
                 ['dedeman','leroy','bricodepot','hornbach'].forEach(c => {
                   if (sp[c]) {
                     materiale[matIdx][c] = { pret: sp[c], link: _urls[c] || null, disponibil: true };
@@ -19577,9 +19602,19 @@ LIMBA: ${lang === 'ro' ? 'Română' : lang === 'en' ? 'English' : 'Auto-detect'}
                   materiale[matIdx].pretOferta = sp.mathaus;
                 }
                 materiale[matIdx].sursa = materiale[matIdx].mathaus?.pret ? 'sheet' : 'sheet';
-                materiale[matIdx]._status = 'done';
                 materiale[matIdx]._priceDate = sp.date || '';
-                _sheetHits++;
+                
+                if (_missingFromSheet.length > 0 && _expectedComps.length > 0) {
+                  // Date PARȚIALE din Sheet — păstrăm ce am găsit, dar trecem materialul la
+                  // Pas 3.1/3A să încerce să completeze restul
+                  console.log(`[Ofertare] ${m.nume}: Sheet are ${_expectedComps.length - _missingFromSheet.length}/${_expectedComps.length} competitori. Lipsește: ${_missingFromSheet.join(', ')} → fetch suplimentar`);
+                  _stillNeedComp.push(m); // permite Pas 3.1/3A să completeze
+                  // NU setăm _status='done' — rămâne 'searching'
+                } else {
+                  // Toate datele Sheet → claim ca done
+                  materiale[matIdx]._status = 'done';
+                  _sheetHits++;
+                }
               } else {
                 _stillNeedComp.push(m);
               }
@@ -19667,8 +19702,14 @@ LIMBA: ${lang === 'ro' ? 'Română' : lang === 'en' ? 'English' : 'Auto-detect'}
                 // Prețul MatHaus e deja în catalog (coloana Pret din Google Sheet) și a fost
                 // setat în Pas 2. Nu există motiv să mergem pe mathaus.ro live — Sheet-ul ESTE
                 // sursa de adevăr. Excepție: forceRefresh și catalog price lipsește.
+                // Plus: skip competitorii care au deja preț din Sheet (Pas 3.0 partial fill).
                 const urlEntries = [];
                 ['dedeman','leroy','bricodepot','hornbach'].forEach(c => {
+                  // Skip dacă avem deja preț valid din Sheet (Pas 3.0 partial fill)
+                  if (materiale[matIdx][c]?.pret) {
+                    console.log(`[Pas 3A] ${tp.nume} → ${c}: deja completat din Sheet (${materiale[matIdx][c].pret} lei) — skip fetch`);
+                    return;
+                  }
                   if (tp.urls[c]) urlEntries.push({ comp: c, url: tp.urls[c] });
                 });
                 // Edge case: re-fetch MH live ONLY if forceRefresh AND catalog price missing
@@ -19677,7 +19718,11 @@ LIMBA: ${lang === 'ro' ? 'Română' : lang === 'en' ? 'English' : 'Auto-detect'}
                   urlEntries.push({ comp: 'mathaus', url: tp.urls.mathaus });
                   console.log(`[Pas 3A] MH live fetch necesar pentru SAP ${tp.sap} (catalog price lipsă)`);
                 }
-                if (urlEntries.length === 0) continue;
+                if (urlEntries.length === 0) {
+                  // Material complet din Sheet — marchez done și sar peste
+                  materiale[matIdx]._status = 'done';
+                  continue;
+                }
 
                 // ── STRATEGIE 1: Direct HTML fetch (no AI cost, no rate limit) ──
                 const fetchedPrices = {};
@@ -20314,10 +20359,51 @@ LIMBA: ${lang === 'ro' ? 'Română' : lang === 'en' ? 'English' : 'Auto-detect'}
         const o = list.find(x => x.id === ofertaId);
         if (!o) return;
         const allValidated = o.materiale.every(m => m.validat);
-        o.materiale.forEach(m => m.validat = !allValidated);
+        // Toggle: dacă tot e validat → invalidează tot, altfel → validează tot
+        const newValidatedState = !allValidated;
+        o.materiale.forEach(m => m.validat = newValidatedState);
         saveOferte(list);
         ofertaShowDetail(ofertaId);
-        toast(allValidated ? 'Validare anulată' : '✅ Toate materialele validate!');
+
+        // CRUCIAL: când validăm, persistăm prețurile curente la cache local + Sheet
+        // ca să fie disponibile la oferte viitoare pentru aceleași produse.
+        // Asta acoperă cazul: agentul a editat manual prețuri sau a verificat le-a confirmat.
+        if (newValidatedState) {
+          // Actualizează data prețurilor la AZI pentru toate materialele —
+          // validarea = "confirm că prețurile sunt corecte ACUM"
+          const _today = new Date().toISOString().split('T')[0];
+          o.materiale.forEach(m => { m._priceDate = _today; });
+          let _persistedCount = 0;
+          let _writebackCount = 0;
+          o.materiale.forEach(m => {
+            if (!m.sap) return; // doar produse cu SAP pot fi persistate
+            const tp = findTrackedProductSafe(m.sap, m.nume, m.mentionat_ca);
+            if (!tp) return; // nu e produs urmărit, nu avem unde salva
+            // Construim obiect prețuri curente
+            const currentPrices = {};
+            ['mathaus','dedeman','leroy','bricodepot','hornbach'].forEach(c => {
+              if (m[c]?.pret > 0) currentPrices[c] = m[c].pret;
+            });
+            if (Object.keys(currentPrices).length === 0) return;
+            try {
+              tpSaveLastPrices(tp.id, currentPrices); // include writeback Sheet
+              _persistedCount++;
+              if (appSettings?.priceWritebackUrl) _writebackCount++;
+            } catch(e) {
+              console.warn(`[Validate] Persist failed for ${m.nume}:`, e.message);
+            }
+          });
+          // Resave oferta cu noile date actualizate
+          saveOferte(list);
+          if (_persistedCount > 0) {
+            const writebackInfo = _writebackCount > 0 ? ` (${_writebackCount} la Sheet)` : '';
+            toast(`✅ ${o.materiale.length} materiale validate · ${_persistedCount} prețuri salvate în cache${writebackInfo}`);
+          } else {
+            toast(`✅ Materiale validate (fără salvare cache — produse fără SAP/tracked)`);
+          }
+        } else {
+          toast('Validare anulată');
+        }
       }
 
       function ofertaUpdateMat(ofertaId, matIdx, field, val) {
