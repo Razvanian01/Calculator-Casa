@@ -3663,7 +3663,6 @@
         // Classify request type
         const u = entry.url.toLowerCase();
         if (u.includes('anthropic.com')) entry.type = 'anthropic';
-        else if (u.includes('openai.com')) entry.type = 'whisper';
         else if (u.includes('tracked-product')) entry.type = 'tracked';
         else if (u.includes('allorigins') || u.includes('corsproxy')) entry.type = 'proxy';
         else if (u.includes('google.com/spreadsheets') || u.includes('docs.google.com')) entry.type = 'sheets';
@@ -3743,8 +3742,8 @@
 
         if (!_debugLog.length) { cont.innerHTML = '<div style="padding:20px;text-align:center;color:var(--txt3);font-size:12px">Niciun request încă. Fă o acțiune (chat, ofertă, sincronizare) și vezi aici rezultatele.</div>'; return; }
 
-        const typeIcons = { anthropic:'🤖', whisper:'🎤', tracked:'🎯', proxy:'🔄', sheets:'📊', other:'🌐' };
-        const typeColors = { anthropic:'#6b21a8', whisper:'#0f6e56', tracked:'#1a73e8', proxy:'#92400e', sheets:'#15803d', other:'#555' };
+        const typeIcons = { anthropic:'🤖', tracked:'🎯', proxy:'🔄', sheets:'📊', other:'🌐' };
+        const typeColors = { anthropic:'#6b21a8', tracked:'#1a73e8', proxy:'#92400e', sheets:'#15803d', other:'#555' };
 
         cont.innerHTML = _debugLog.map(e => {
           const icon = typeIcons[e.type] || '🌐';
@@ -3774,14 +3773,6 @@
       const fmtN = (n) => Number(Math.round(n)).toLocaleString("ro-RO");
       const fmtP = (n) => n % 1 === 0 ? Number(n).toLocaleString("ro-RO") : Number(n).toLocaleString("ro-RO", {minimumFractionDigits: 2, maximumFractionDigits: 2});
       const C = Math.ceil;
-      const debounce = (fn, ms = 60) => {
-        let t;
-        return (...a) => {
-          clearTimeout(t);
-          t = setTimeout(() => fn(...a), ms);
-        };
-      };
-
       function toast(msg, ms = 2600) {
         // Auto-trigger cloud save on any successful admin action
         if (_isAdmin && msg.startsWith('✅')) triggerCloudAutoSave();
@@ -8718,9 +8709,6 @@
         if (count > 0) { saveStageMats(); adminSaveProducts(); }
         return count;
       }
-      function setPret(name, val) {
-        PRICE_TABLE[name] = parseFloat(val) || 0;
-      }
       function savePrices() {
         try {
           localStorage.setItem(PRICE_KEY, JSON.stringify(PRICE_TABLE));
@@ -12669,23 +12657,166 @@ PROGRAM MAGAZINE:
       // ══════════ CACHE PREȚURI TRACKED: salvează ultimul preț per produs ══════════
       // ══════════ VALIDARE PREȚ — anti-an, anti-outlier ══════════
       // Returns {valid:true, price:Number} or {valid:false, reason:'...'}
-      // Common failure modes detected:
-      //  - Year as price (1900-2099 integer): web_search snippet contained a date
-      //  - Too low (<1 lei): truncation or unit confusion
-      //  - Too high (>50000 lei): wrong material, decimal misplacement
       function validatePrice(rawValue, opts) {
         opts = opts || {};
-        const minPrice = opts.minPrice || 0.5;     // sub 0.5 lei e improbabil
-        const maxPrice = opts.maxPrice || 50000;   // peste 50k lei e improbabil pentru materiale construcții
+        const minPrice = opts.minPrice || 0.5;
+        const maxPrice = opts.maxPrice || 50000;
         const n = typeof rawValue === 'number' ? rawValue : parseFloat(String(rawValue || '').replace(',', '.'));
         if (!n || isNaN(n) || n <= 0) return { valid: false, reason: 'Valoare invalidă sau zero' };
-        // Year-as-price detector: integer between 1900-2099 is suspicious
-        if (Number.isInteger(n) && n >= 1900 && n <= 2099) {
-          return { valid: false, reason: `${n} pare a fi un AN, nu un preț — respins automat` };
+        if (Number.isInteger(n)) {
+          const currentYear = new Date().getFullYear();
+          if (n >= currentYear - 3 && n <= currentYear + 3) {
+            return { valid: false, reason: `${n} pare anul curent (${currentYear}±3) — confuzie cu data paginii`, code: 'year' };
+          }
         }
-        if (n < minPrice) return { valid: false, reason: `${n} lei e sub pragul minim (${minPrice})` };
-        if (n > maxPrice) return { valid: false, reason: `${n} lei depășește pragul maxim (${maxPrice})` };
+        if (n < minPrice) return { valid: false, reason: `${n} lei e sub pragul minim (${minPrice})`, code: 'tooLow' };
+        if (n > maxPrice) return { valid: false, reason: `${n} lei depășește pragul maxim (${maxPrice})`, code: 'tooHigh' };
         return { valid: true, price: n };
+      }
+
+      // ══════════ VALIDARE CONTEXTUALĂ — Z-score + ratio față de istoric ══════════
+      // Compares new price against historical prices for SAME tracked product + competitor.
+      // Detects outliers (e.g. fetch returns 350 when historical avg is 35 → 10x ratio).
+      // Strategy: ratio check is primary; z-score only kicks in when stdDev is meaningful.
+      // Otherwise tight clusters (e.g. price stable at 35.94 for months) would reject any
+      // small legitimate movement as "outlier" — which is wrong UX.
+      // Returns {valid, price, suspect?, reason?, stats?, code?}
+      function validatePriceContextual(newPrice, historicalPrices, opts) {
+        opts = opts || {};
+        // First pass: standard sanity check (year, range)
+        const base = validatePrice(newPrice);
+        if (!base.valid) return base;
+
+        const history = (historicalPrices || []).filter(p => typeof p === 'number' && p > 0);
+        if (history.length < 2) {
+          // Not enough data → accept without suspicion
+          return { valid: true, price: base.price };
+        }
+
+        // Compute mean + stdDev
+        const mean = history.reduce((a, b) => a + b, 0) / history.length;
+        const variance = history.reduce((a, b) => a + (b - mean) ** 2, 0) / history.length;
+        const stdDev = Math.sqrt(variance);
+
+        // Ratio check (primary signal — robust regardless of stdDev)
+        const ratio = base.price / mean;
+        const maxRatio = opts.maxRatio || 3;     // accept up to 3x movement
+        const minRatio = opts.minRatio || 0.33;  // accept down to ~33% (e.g. discount)
+
+        // Z-score only meaningful when stdDev is at least 5% of mean.
+        // Below that threshold, history is too tight and z-score becomes hyper-sensitive,
+        // rejecting legitimate ±10-20% price movements.
+        const useZScore = stdDev >= mean * 0.05;
+        const zScore = useZScore ? Math.abs((base.price - mean) / stdDev) : 0;
+        const maxZ = opts.maxZ || 4;
+
+        let suspect = false;
+        let reason = '';
+        if (ratio > maxRatio) {
+          suspect = true;
+          reason = `Preț ${base.price} lei = ${ratio.toFixed(1)}x față de istoric (medie ${mean.toFixed(2)}). Posibil greșit.`;
+        } else if (ratio < minRatio) {
+          suspect = true;
+          reason = `Preț ${base.price} lei = ${(ratio*100).toFixed(0)}% din istoric (medie ${mean.toFixed(2)}). Posibil greșit sau reducere agresivă.`;
+        } else if (useZScore && zScore > maxZ) {
+          suspect = true;
+          reason = `Preț ${base.price} lei la ${zScore.toFixed(1)}σ deviație (medie ${mean.toFixed(2)} ± ${stdDev.toFixed(2)}). Outlier statistic.`;
+        }
+
+        return {
+          valid: !suspect,
+          accepted: !suspect,
+          price: base.price,
+          suspect,
+          reason: suspect ? reason : '',
+          code: suspect ? 'outlier' : null,
+          stats: { mean, stdDev, ratio, zScore, samples: history.length, useZScore }
+        };
+      }
+
+      // ══════════ TELEMETRIE — extracție prețuri ══════════
+      // Tracks: direct fetches (ok/fail), AI fallbacks (ok/fail), rejections by reason.
+      // Per-competitor breakdown + recent error log for debugging silent breakage.
+      // Rolling 30-day window, prunes older entries automatically.
+      const TELEMETRY_KEY = 'mathaus_price_telemetry';
+      const TELEMETRY_MAX_DAYS = 30;
+      const TELEMETRY_MAX_ERRORS = 20; // last N errors per day
+
+      // Local-time YYYY-MM-DD (avoids UTC rollover bug at midnight RO time)
+      function _telDateKey() {
+        const d = new Date();
+        const y = d.getFullYear();
+        const m = String(d.getMonth() + 1).padStart(2, '0');
+        const dd = String(d.getDate()).padStart(2, '0');
+        return `${y}-${m}-${dd}`;
+      }
+      function loadTelemetry() {
+        try { return JSON.parse(localStorage.getItem(TELEMETRY_KEY) || '{}'); }
+        catch(e) { return {}; }
+      }
+      function saveTelemetry(data) {
+        try { localStorage.setItem(TELEMETRY_KEY, JSON.stringify(data)); } catch(e) {}
+      }
+      function _telPruneOld(data) {
+        const cutoff = Date.now() - TELEMETRY_MAX_DAYS * 86400000;
+        Object.keys(data).forEach(dateKey => {
+          if (new Date(dateKey).getTime() < cutoff) delete data[dateKey];
+        });
+        return data;
+      }
+      // Central record function — call this at every extraction/validation point.
+      // event: 'directOk' | 'directFail' | 'aiFallbackOk' | 'aiFallbackFail' | 'rejectedYear' | 'rejectedTooLow' | 'rejectedTooHigh' | 'rejectedOutlier'
+      // comp: 'mathaus' | 'dedeman' | 'leroy' | 'bricodepot' | 'hornbach' | null
+      // detail: { url?, error?, sap?, name?, price?, expected? }
+      function telemetryRecord(event, comp, detail) {
+        try {
+          const data = loadTelemetry();
+          _telPruneOld(data);
+          const today = _telDateKey();
+          if (!data[today]) data[today] = { byEvent: {}, byCompetitor: {}, errors: [] };
+          const day = data[today];
+          // Aggregate counts
+          day.byEvent[event] = (day.byEvent[event] || 0) + 1;
+          if (comp) {
+            if (!day.byCompetitor[comp]) day.byCompetitor[comp] = {};
+            day.byCompetitor[comp][event] = (day.byCompetitor[comp][event] || 0) + 1;
+          }
+          // Log errors (only failures, not successes)
+          if (event !== 'directOk' && event !== 'aiFallbackOk' && detail) {
+            day.errors = day.errors || [];
+            day.errors.push({
+              ts: new Date().toISOString(),
+              event, comp,
+              ...detail
+            });
+            if (day.errors.length > TELEMETRY_MAX_ERRORS) {
+              day.errors = day.errors.slice(-TELEMETRY_MAX_ERRORS);
+            }
+          }
+          saveTelemetry(data);
+        } catch(e) { console.warn('[Telemetry] record failed:', e.message); }
+      }
+      function telemetryGetTodayStats() {
+        const data = loadTelemetry();
+        return data[_telDateKey()] || { byEvent: {}, byCompetitor: {}, errors: [] };
+      }
+      function telemetryGetLastNDays(n) {
+        const data = loadTelemetry();
+        const out = [];
+        for (let i = 0; i < n; i++) {
+          const d = new Date();
+          d.setDate(d.getDate() - i);
+          const y = d.getFullYear(), m = String(d.getMonth()+1).padStart(2,'0'), dd = String(d.getDate()).padStart(2,'0');
+          const key = `${y}-${m}-${dd}`;
+          out.push({ date: key, ...(data[key] || { byEvent: {}, byCompetitor: {}, errors: [] }) });
+        }
+        return out.reverse();
+      }
+      function telemetryClear() {
+        if (!confirm('Ștergi toată telemetria de extracție prețuri (ultimele 30 zile)?')) return;
+        try { localStorage.removeItem(TELEMETRY_KEY); toast('🧹 Telemetrie ștearsă'); }
+        catch(e) {}
+        if (typeof renderAdminAIKB === 'function') renderAdminAIKB();
       }
 
       // ══════════ CURĂȚARE PREȚURI STRICATE (one-time, la încărcare) ══════════
@@ -12990,10 +13121,19 @@ PROGRAM MAGAZINE:
 
       // Main entry point: fetch HTML directly and extract price
       // Returns: { price: Number, source: 'direct-fetch' } or { error: '...' }
+      // Internal throttle: max 1 fetch per 400ms to avoid hitting allorigins.win rate limits
+      let _lastDirectFetchTs = 0;
       async function fetchPriceDirect(url, competitor) {
         if (!url || !competitor || !PRICE_EXTRACTORS[competitor]) {
           return { error: 'URL sau competitor invalid' };
         }
+        // Throttle: ensure ≥400ms between proxy requests
+        const minGap = 400;
+        const sinceLast = Date.now() - _lastDirectFetchTs;
+        if (sinceLast < minGap) {
+          await new Promise(r => setTimeout(r, minGap - sinceLast));
+        }
+        _lastDirectFetchTs = Date.now();
         try {
           // Try direct fetch first (works only for CORS-enabled sites — usually fails)
           let html = '';
@@ -13006,26 +13146,46 @@ PROGRAM MAGAZINE:
             // CORS proxy fallback (same one used for Google Sheets)
             const proxyUrl = 'https://api.allorigins.win/get?url=' + encodeURIComponent(url);
             const pr = await fetch(proxyUrl, { cache: 'no-cache' });
-            if (!pr.ok) return { error: 'Proxy HTTP ' + pr.status };
+            if (pr.status === 429) {
+              telemetryRecord('directFail', competitor, { url, error: 'Proxy rate-limited 429' });
+              return { error: 'Proxy rate-limited (429) — reîncearcă în 1 min' };
+            }
+            if (!pr.ok) {
+              telemetryRecord('directFail', competitor, { url, error: 'Proxy HTTP ' + pr.status });
+              return { error: 'Proxy HTTP ' + pr.status };
+            }
             const pd = await pr.json();
             if (pd.status?.http_code && pd.status.http_code !== 200) {
+              telemetryRecord('directFail', competitor, { url, error: 'Site HTTP ' + pd.status.http_code });
               return { error: 'Site HTTP ' + pd.status.http_code };
             }
             html = pd.contents || '';
           }
           
-          if (!html || html.length < 200) return { error: 'Pagină goală sau redirecționare' };
+          if (!html || html.length < 200) {
+            telemetryRecord('directFail', competitor, { url, error: 'Pagină goală' });
+            return { error: 'Pagină goală sau redirecționare' };
+          }
           
           const rawPrice = PRICE_EXTRACTORS[competitor](html);
           if (rawPrice === null || rawPrice === undefined) {
+            telemetryRecord('directFail', competitor, { url, error: 'Selector neactualizat — preț negăsit' });
             return { error: 'Preț negăsit în HTML (selector neactualizat)' };
           }
           // Apply same sanity check
           const validation = validatePrice(rawPrice);
-          if (!validation.valid) return { error: validation.reason };
+          if (!validation.valid) {
+            // Map rejection reason to telemetry event
+            const evtMap = { year: 'rejectedYear', tooLow: 'rejectedTooLow', tooHigh: 'rejectedTooHigh' };
+            const evt = evtMap[validation.code] || 'directFail';
+            telemetryRecord(evt, competitor, { url, error: validation.reason, rawPrice });
+            return { error: validation.reason };
+          }
           
+          telemetryRecord('directOk', competitor, null);
           return { price: validation.price, source: 'direct-fetch' };
         } catch(e) {
+          telemetryRecord('directFail', competitor, { url, error: 'Excepție: ' + e.message });
           return { error: 'Excepție: ' + e.message };
         }
       }
@@ -13090,20 +13250,36 @@ PROGRAM MAGAZINE:
                 if (jm) {
                   const prices = JSON.parse(jm[0]);
                   const reverseMap = {mh:'mathaus',d:'dedeman',le:'leroy',b:'bricodepot',h:'hornbach'};
+                  const tpHistory = (tp.priceHistory || []);
                   Object.entries(prices).forEach(([k, v]) => {
                     const comp = reverseMap[k];
                     if (!comp || v?.p === undefined || v.p === null) return;
-                    const validation = validatePrice(v.p);
+                    const histForComp = tpHistory
+                      .map(h => h.prices?.[comp])
+                      .filter(p => typeof p === 'number' && p > 0)
+                      .slice(-10);
+                    const validation = validatePriceContextual(v.p, histForComp);
                     if (!validation.valid) {
+                      const evtMap = { year:'rejectedYear', tooLow:'rejectedTooLow', tooHigh:'rejectedTooHigh', outlier:'rejectedOutlier' };
+                      telemetryRecord(evtMap[validation.code] || 'aiFallbackFail', comp, {
+                        url: tp.urls?.[comp] || '', sap: tp.sap, name: tp.nume,
+                        error: validation.reason, rawPrice: v.p
+                      });
                       console.warn(`[Refresh-AI] REJECT ${comp}: ${v.p} — ${validation.reason}`);
                       return;
                     }
                     fetchedPrices[comp] = validation.price;
                     results.push(comp + ': ' + validation.price + ' lei (AI fallback)');
+                    telemetryRecord('aiFallbackOk', comp, null);
                   });
                 }
+              } else {
+                failed.forEach(f => telemetryRecord('aiFallbackFail', f.comp, { url: f.url, error: 'API HTTP ' + resp.status }));
               }
-            } catch(e) { console.warn('[Refresh-AI] Error:', e.message); }
+            } catch(e) {
+              failed.forEach(f => telemetryRecord('aiFallbackFail', f.comp, { url: f.url, error: 'Excepție: ' + e.message }));
+              console.warn('[Refresh-AI] Error:', e.message);
+            }
           }
         }
 
@@ -14277,7 +14453,132 @@ function writePriceRow(sheet, row, prices, urls, date, ensureCol) {
 
         const budget = loadBudget();
 
+        // ─── Telemetrie extracție prețuri (today + 7 day trend) ───
+        const telToday = telemetryGetTodayStats();
+        const tel7 = telemetryGetLastNDays(7);
+        const evt = telToday.byEvent || {};
+        const _telTotal = (evt.directOk||0) + (evt.directFail||0) + (evt.aiFallbackOk||0) + (evt.aiFallbackFail||0);
+        const _telSuccess = (evt.directOk||0) + (evt.aiFallbackOk||0);
+        const _telSuccessRate = _telTotal > 0 ? Math.round(_telSuccess / _telTotal * 100) : null;
+        const _telRejected = (evt.rejectedYear||0) + (evt.rejectedTooLow||0) + (evt.rejectedTooHigh||0) + (evt.rejectedOutlier||0);
+        const _telHealthColor = _telSuccessRate === null ? 'var(--txt3)'
+                              : _telSuccessRate >= 90 ? 'var(--green)'
+                              : _telSuccessRate >= 70 ? 'var(--amber,#f59e0b)'
+                              : 'var(--red,#ef4444)';
+        const _telBadgeBg = _telSuccessRate === null ? 'var(--surface2)'
+                          : _telSuccessRate >= 90 ? '#dcfce7'
+                          : _telSuccessRate >= 70 ? '#fef3c7'
+                          : '#fef2f2';
+
+        // Per-competitor today
+        const _telCompetitors = ['mathaus','dedeman','leroy','bricodepot','hornbach'];
+        const _telCompLabels = { mathaus:'MatHaus', dedeman:'Dedeman', leroy:'Leroy', bricodepot:'Brico', hornbach:'Hornbach' };
+        const _telPerComp = _telCompetitors.map(c => {
+          const cs = telToday.byCompetitor?.[c] || {};
+          const ok = (cs.directOk||0) + (cs.aiFallbackOk||0);
+          const fail = (cs.directFail||0) + (cs.aiFallbackFail||0);
+          const rejected = (cs.rejectedYear||0) + (cs.rejectedTooLow||0) + (cs.rejectedTooHigh||0) + (cs.rejectedOutlier||0);
+          const total = ok + fail + rejected;
+          const rate = total > 0 ? Math.round(ok / total * 100) : null;
+          const color = rate === null ? 'var(--txt3)' : rate >= 90 ? 'var(--green)' : rate >= 70 ? 'var(--amber,#f59e0b)' : 'var(--red,#ef4444)';
+          return { name: _telCompLabels[c], comp: c, ok, fail, rejected, total, rate, color };
+        });
+
+        // 7-day mini bars (for sparkline trend)
+        const _telMaxDay = Math.max(1, ...tel7.map(d => (d.byEvent?.directOk||0) + (d.byEvent?.aiFallbackOk||0) + (d.byEvent?.directFail||0) + (d.byEvent?.aiFallbackFail||0)));
+
+        // Recent errors
+        const _telErrors = (telToday.errors || []).slice(-8).reverse();
+
         return `
+  <!-- TELEMETRIE EXTRACȚIE PREȚURI -->
+  <div class="admin-card" style="margin-bottom:12px;border-left:4px solid ${_telHealthColor}">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px">
+      <div style="font-size:11px;font-weight:700;color:var(--txt3);letter-spacing:1px;text-transform:uppercase;font-family:var(--mono)">🩺 Telemetrie extracție prețuri</div>
+      <div style="display:flex;gap:6px;align-items:center">
+        ${_telSuccessRate !== null ? `<span style="font-size:11px;font-weight:700;background:${_telBadgeBg};color:${_telHealthColor};padding:3px 10px;border-radius:6px">${_telSuccessRate}% succes azi</span>` : '<span style="font-size:11px;color:var(--txt3)">Fără activitate azi</span>'}
+        <button class="btn btn-ghost btn-sm" style="font-size:10px" onclick="telemetryClear()" title="Resetează telemetria (ultimele 30 zile)">🧹 Reset</button>
+      </div>
+    </div>
+
+    <!-- 4 mari counters azi -->
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:14px">
+      <div style="background:#dcfce7;border-radius:var(--r-sm);padding:10px 12px;text-align:center">
+        <div style="font-size:22px;font-weight:900;color:#15803d">${evt.directOk||0}</div>
+        <div style="font-size:9px;color:#15803d;font-weight:700;text-transform:uppercase;margin-top:2px">Direct OK</div>
+        <div style="font-size:9px;color:var(--txt3);margin-top:2px">HTML live extras</div>
+      </div>
+      <div style="background:#e8f0fe;border-radius:var(--r-sm);padding:10px 12px;text-align:center">
+        <div style="font-size:22px;font-weight:900;color:#1a73e8">${evt.aiFallbackOk||0}</div>
+        <div style="font-size:9px;color:#1a73e8;font-weight:700;text-transform:uppercase;margin-top:2px">AI Fallback</div>
+        <div style="font-size:9px;color:var(--txt3);margin-top:2px">Claude a salvat</div>
+      </div>
+      <div style="background:#fef3c7;border-radius:var(--r-sm);padding:10px 12px;text-align:center">
+        <div style="font-size:22px;font-weight:900;color:#92400e">${(evt.directFail||0) + (evt.aiFallbackFail||0)}</div>
+        <div style="font-size:9px;color:#92400e;font-weight:700;text-transform:uppercase;margin-top:2px">Eșecuri</div>
+        <div style="font-size:9px;color:var(--txt3);margin-top:2px">Selector / API</div>
+      </div>
+      <div style="background:#fef2f2;border-radius:var(--r-sm);padding:10px 12px;text-align:center">
+        <div style="font-size:22px;font-weight:900;color:#dc2626">${_telRejected}</div>
+        <div style="font-size:9px;color:#dc2626;font-weight:700;text-transform:uppercase;margin-top:2px">Respinse</div>
+        <div style="font-size:9px;color:var(--txt3);margin-top:2px">${evt.rejectedYear||0} ani · ${evt.rejectedOutlier||0} outliers · ${(evt.rejectedTooLow||0)+(evt.rejectedTooHigh||0)} range</div>
+      </div>
+    </div>
+
+    <!-- Per-competitor -->
+    <div style="font-size:10px;font-weight:700;color:var(--txt3);text-transform:uppercase;margin-bottom:6px;letter-spacing:.06em">Pe competitor (azi)</div>
+    <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin-bottom:14px">
+      ${_telPerComp.map(c => `
+        <div style="background:var(--surface2);border-radius:var(--r-sm);padding:8px 10px;border-left:3px solid ${c.color}">
+          <div style="font-size:10px;font-weight:700;color:var(--navy)">${c.name}</div>
+          <div style="font-size:14px;font-weight:900;color:${c.color};margin-top:3px">${c.rate !== null ? c.rate + '%' : '—'}</div>
+          <div style="font-size:9px;color:var(--txt3);margin-top:2px">✅${c.ok} ⚠${c.fail} 🚫${c.rejected}</div>
+        </div>
+      `).join('')}
+    </div>
+
+    <!-- 7-day trend mini chart -->
+    <div style="font-size:10px;font-weight:700;color:var(--txt3);text-transform:uppercase;margin-bottom:6px;letter-spacing:.06em">Trend 7 zile</div>
+    <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-bottom:14px;align-items:end;height:40px">
+      ${tel7.map(d => {
+        const ok = (d.byEvent?.directOk||0) + (d.byEvent?.aiFallbackOk||0);
+        const fail = (d.byEvent?.directFail||0) + (d.byEvent?.aiFallbackFail||0);
+        const total = ok + fail;
+        const okPct = total > 0 ? (ok / _telMaxDay) * 100 : 0;
+        const failPct = total > 0 ? (fail / _telMaxDay) * 100 : 0;
+        const dateLabel = d.date.slice(5); // MM-DD
+        return `<div style="display:flex;flex-direction:column;justify-content:flex-end;align-items:center;height:40px" title="${d.date}: ${ok} OK, ${fail} fail">
+          <div style="width:100%;background:var(--red,#fca5a5);height:${failPct}%;border-radius:2px 2px 0 0;min-height:${failPct > 0 ? '2px' : '0'}"></div>
+          <div style="width:100%;background:var(--green);height:${okPct}%;border-radius:${failPct > 0 ? '0' : '2px 2px 0 0'};min-height:${okPct > 0 ? '2px' : '0'}"></div>
+          <div style="font-size:8px;color:var(--txt3);margin-top:3px">${dateLabel}</div>
+        </div>`;
+      }).join('')}
+    </div>
+
+    <!-- Erori recente — debugging signal când un site își schimbă HTML -->
+    ${_telErrors.length > 0 ? `
+    <div style="font-size:10px;font-weight:700;color:var(--txt3);text-transform:uppercase;margin-bottom:6px;letter-spacing:.06em">Ultimele ${_telErrors.length} erori azi</div>
+    <div style="background:var(--surface2);border-radius:var(--r-sm);padding:8px 12px;font-family:var(--mono);font-size:10px;line-height:1.6;max-height:160px;overflow-y:auto">
+      ${_telErrors.map(err => {
+        const time = err.ts ? new Date(err.ts).toLocaleTimeString('ro-RO', {hour:'2-digit',minute:'2-digit'}) : '';
+        const compBadge = err.comp ? `<span style="background:#fff;border:1px solid var(--border);border-radius:3px;padding:1px 5px;font-size:9px;font-weight:700;color:var(--navy)">${_telCompLabels[err.comp] || err.comp}</span>` : '';
+        const errType = err.event === 'rejectedYear' ? '📅 AN' :
+                        err.event === 'rejectedOutlier' ? '📊 OUTLIER' :
+                        err.event === 'rejectedTooLow' || err.event === 'rejectedTooHigh' ? '⚠ RANGE' :
+                        err.event === 'directFail' ? '🌐 SITE' :
+                        err.event === 'aiFallbackFail' ? '🤖 AI' : err.event;
+        return `<div style="border-bottom:1px solid var(--border);padding:4px 0">
+          <span style="color:var(--txt3)">${time}</span> ${compBadge} <span style="color:var(--red,#dc2626);font-weight:700">${errType}</span>
+          ${err.rawPrice !== undefined ? `<span style="color:var(--amber,#92400e)">val=${err.rawPrice}</span>` : ''}
+          ${err.historicalMean ? `<span style="color:var(--txt3)">vs medie ${err.historicalMean}</span>` : ''}
+          <div style="color:var(--txt2);font-size:9px;margin-left:8px;word-break:break-word">${err.error || ''}${err.url ? ' — <a href="'+err.url+'" target="_blank" style="color:var(--blue)">link</a>' : ''}</div>
+        </div>`;
+      }).join('')}
+    </div>
+    <div style="font-size:9px;color:var(--txt3);margin-top:6px">💡 Dacă un competitor are eșecuri repetate cu "selector neactualizat" → site-ul și-a schimbat HTML-ul. Raportează pentru fix.</div>
+    ` : '<div style="font-size:11px;color:var(--green);text-align:center;padding:8px;background:#dcfce7;border-radius:var(--r-sm)">✅ Nicio eroare de extracție azi</div>'}
+  </div>
+
   <!-- BUGET LUNAR -->
   <div class="admin-card" style="margin-bottom:12px;border-left:4px solid ${budget.spent >= budget.monthlyLimit ? 'var(--red,#ef4444)' : budget.spent >= budget.monthlyLimit * 0.8 ? 'var(--amber,#f59e0b)' : 'var(--green)'}">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:8px">
@@ -18063,7 +18364,7 @@ LIMBA: ${lang === 'ro' ? 'Română' : lang === 'en' ? 'English' : 'Auto-detect'}
               window._webSpeechRecog.onerror = () => {}; // silent fail
               window._webSpeechRecog.start();
             }
-          } catch(e) {} // Web Speech not available — will use Whisper
+          } catch(e) {} // Web Speech not available — voice input via MediaRecorder fallback
 
           const btn = $('oferta-voice-btn');
           const section = $('oferta-voice-section');
@@ -18568,22 +18869,42 @@ LIMBA: ${lang === 'ro' ? 'Română' : lang === 'en' ? 'English' : 'Auto-detect'}
                       if (jm) {
                         const prices = JSON.parse(jm[0]);
                         const reverseMap = {mh:'mathaus',d:'dedeman',le:'leroy',b:'bricodepot',h:'hornbach'};
+                        // Build per-competitor history for contextual validation
+                        const tpHistory = (tp.priceHistory || []);
                         Object.entries(prices).forEach(([k, v]) => {
                           const comp = reverseMap[k];
                           if (!comp || v?.p === undefined || v.p === null) return;
-                          const validation = validatePrice(v.p);
+                          // Build historical price array for this competitor
+                          const histForComp = tpHistory
+                            .map(h => h.prices?.[comp])
+                            .filter(p => typeof p === 'number' && p > 0)
+                            .slice(-10); // last 10 readings
+                          const validation = validatePriceContextual(v.p, histForComp);
                           if (!validation.valid) {
+                            const evtMap = { year:'rejectedYear', tooLow:'rejectedTooLow', tooHigh:'rejectedTooHigh', outlier:'rejectedOutlier' };
+                            telemetryRecord(evtMap[validation.code] || 'aiFallbackFail', comp, {
+                              url: tp.urls?.[comp] || '', sap: tp.sap, name: tp.nume,
+                              error: validation.reason, rawPrice: v.p,
+                              ...(validation.stats ? { historicalMean: validation.stats.mean.toFixed(2), ratio: validation.stats.ratio.toFixed(2) } : {})
+                            });
                             console.warn(`[AI-Fallback ${ti+1}] REJECT ${comp}: ${v.p} — ${validation.reason}`);
                             return;
                           }
                           materiale[matIdx][comp] = { pret: validation.price, link: tp.urls[comp] || null, disponibil: true };
                           fetchedPrices[comp] = validation.price;
                           if (comp === 'mathaus') materiale[matIdx].pretOferta = validation.price;
+                          telemetryRecord('aiFallbackOk', comp, null);
                           console.log(`[AI-Fallback ${ti+1}] ${comp}: ${validation.price} lei`);
                         });
                       }
+                    } else {
+                      // resp not OK — record failure for each pending competitor
+                      failed.forEach(f => telemetryRecord('aiFallbackFail', f.comp, { url: f.url, error: 'API HTTP ' + resp.status }));
                     }
-                  } catch(e) { console.warn(`[AI-Fallback ${ti+1}] Error:`, e.message); }
+                  } catch(e) {
+                    failed.forEach(f => telemetryRecord('aiFallbackFail', f.comp, { url: f.url, error: 'Excepție: ' + e.message }));
+                    console.warn(`[AI-Fallback ${ti+1}] Error:`, e.message);
+                  }
                 }
 
                 // Mark as done (use direct/mixed source label)
