@@ -13228,10 +13228,46 @@ PROGRAM MAGAZINE:
       // Internal throttle: max 1 fetch per 400ms to avoid hitting allorigins.win rate limits
       let _lastDirectFetchTs = 0;
 
-      // Multiple CORS proxies — if one is down, try next.
-      // Order matters: most reliable first based on availability stats.
+      // Strip tracking parameters from URLs before fetching.
+      // These params (gclid, gad_source, gbraid, _gl, utm_*, fbclid, etc.) come from Google
+      // Ads / Analytics and don't change the product page content. They make URLs longer and
+      // sometimes break proxies that hash the URL or trigger cache misses.
+      function _cleanTrackingUrl(url) {
+        try {
+          const u = new URL(url);
+          const trackingParams = ['gclid','gad_source','gad_campaignid','gbraid','_gl','_ga',
+            'fbclid','mc_eid','mc_cid','ref','referrer','source','msclkid','dclid',
+            'igshid','wbraid','yclid','epik','irclickid'];
+          // Also strip any utm_*
+          [...u.searchParams.keys()].forEach(k => {
+            if (trackingParams.includes(k) || k.startsWith('utm_')) {
+              u.searchParams.delete(k);
+            }
+          });
+          return u.toString();
+        } catch(e) { return url; } // malformed URL → return as-is
+      }
+
+      // Multiple CORS proxies — corsproxy.io is fastest and most reliable based on observed stats.
+      // allorigins.win is kept as fallback because some sites work better through it.
+      // Order matters HEAVILY: first proxy that succeeds wins. Subsequent ones are skipped.
       const CORS_PROXIES = [
-        // allorigins.win — wraps response in JSON {contents, status:{http_code}}
+        // corsproxy.io — usually 200-500ms response, raw HTML, but 1MB limit on free tier
+        { name: 'corsproxy.io', url: (u) => 'https://corsproxy.io/?' + encodeURIComponent(u),
+          parse: async (resp) => {
+            if (resp.status === 413) return { error: 'Page > 1MB (corsproxy free tier limit)', skipNext: false };
+            if (resp.status === 403) {
+              // DataDome / Cloudflare bot block — won't help to try other proxies (server-side decision)
+              const text = await resp.text();
+              if (text.includes('Please enable JS') || text.includes('cmsg') || text.includes('datadome')) {
+                return { error: 'Site blocked by anti-bot (DataDome)', skipNext: true };
+              }
+              return { error: 'HTTP 403' };
+            }
+            if (!resp.ok) return { error: 'HTTP ' + resp.status };
+            return { html: await resp.text() };
+          } },
+        // allorigins.win — slower (1-5s), wraps in JSON, but more reliable for large pages
         { name: 'allorigins', url: (u) => 'https://api.allorigins.win/get?url=' + encodeURIComponent(u),
           parse: async (resp) => {
             if (!resp.ok) return { error: 'HTTP ' + resp.status };
@@ -13239,13 +13275,7 @@ PROGRAM MAGAZINE:
             if (d.status?.http_code && d.status.http_code !== 200) return { error: 'Site HTTP ' + d.status.http_code };
             return { html: d.contents || '' };
           } },
-        // corsproxy.io — returns raw HTML, no wrapper
-        { name: 'corsproxy.io', url: (u) => 'https://corsproxy.io/?' + encodeURIComponent(u),
-          parse: async (resp) => {
-            if (!resp.ok) return { error: 'HTTP ' + resp.status };
-            return { html: await resp.text() };
-          } },
-        // cors.lol — similar pattern, raw HTML response
+        // cors.lol — last resort, slowest
         { name: 'cors.lol', url: (u) => 'https://api.cors.lol/?url=' + encodeURIComponent(u),
           parse: async (resp) => {
             if (!resp.ok) return { error: 'HTTP ' + resp.status };
@@ -13253,22 +13283,45 @@ PROGRAM MAGAZINE:
           } },
       ];
 
+      // Per-proxy timeout: shorter than before (8s vs 15s) to fail fast and try next.
+      // Total worst case: 8s × 3 proxies = 24s instead of 45s.
+      const PROXY_TIMEOUT_MS = 8000;
+
       async function _tryAllProxies(targetUrl, competitor) {
         const lastErrors = [];
+        // Clean URL once before trying
+        const cleanUrl = _cleanTrackingUrl(targetUrl);
+        if (cleanUrl !== targetUrl) {
+          console.log(`[fetchPriceDirect] ${competitor}: stripped tracking params from URL`);
+        }
         for (const proxy of CORS_PROXIES) {
           try {
-            const proxyUrl = proxy.url(targetUrl);
-            const resp = await fetch(proxyUrl, { cache: 'no-cache', signal: AbortSignal.timeout ? AbortSignal.timeout(15000) : undefined });
+            const proxyUrl = proxy.url(cleanUrl);
+            const fetchOpts = { cache: 'no-cache' };
+            if (typeof AbortSignal !== 'undefined' && AbortSignal.timeout) {
+              fetchOpts.signal = AbortSignal.timeout(PROXY_TIMEOUT_MS);
+            }
+            const resp = await fetch(proxyUrl, fetchOpts);
             if (resp.status === 429) { lastErrors.push(`${proxy.name}: 429 rate-limited`); continue; }
             const result = await proxy.parse(resp);
-            if (result.error) { lastErrors.push(`${proxy.name}: ${result.error}`); continue; }
+            if (result.error) {
+              lastErrors.push(`${proxy.name}: ${result.error}`);
+              if (result.skipNext) {
+                // Server-side block (DataDome/Cloudflare) → no point trying other proxies
+                return { error: `Site blocat de anti-bot: ${result.error}. Adaugă manual în Google Sheet.` };
+              }
+              continue;
+            }
             if (result.html && result.html.length > 200) {
               console.log(`[fetchPriceDirect] ${competitor} via ${proxy.name}: HTML ${result.html.length} chars`);
               return { html: result.html, proxy: proxy.name };
             }
             lastErrors.push(`${proxy.name}: empty response`);
           } catch(e) {
-            lastErrors.push(`${proxy.name}: ${e.message || 'fetch failed'}`);
+            const msg = e.name === 'TimeoutError' || (e.message || '').includes('timed out')
+              ? `timeout ${PROXY_TIMEOUT_MS/1000}s`
+              : (e.message || 'fetch failed');
+            lastErrors.push(`${proxy.name}: ${msg}`);
             // Continue to next proxy
           }
         }
@@ -13338,6 +13391,9 @@ PROGRAM MAGAZINE:
         if (!tp) { toast('⚠ Produs negăsit'); return; }
         const urls = tp.urls || {};
         const urlEntries = [];
+        // Manual refresh = user explicit clicked button, includem MH pentru sanity check
+        // (verificare că prețul Sheet e sincronizat cu site-ul live).
+        // Per-cazuri ofertare automată, MH e EXCLUS — vezi ofertaProcessPrices Pas 3A.
         ['mathaus','dedeman','leroy','bricodepot','hornbach'].forEach(c => {
           if (urls[c]) urlEntries.push({ comp: c, url: urls[c] });
         });
@@ -19440,11 +19496,20 @@ LIMBA: ${lang === 'ro' ? 'Română' : lang === 'en' ? 'English' : 'Auto-detect'}
                 
                 toast(`🎯 ${ti+1}/${_tracked.length}: ${m.nume.substring(0,30)}...`);
                 
-                // Build URL list for this material
+                // Build URL list for this material — DOAR competitori, NU MatHaus.
+                // Prețul MatHaus e deja în catalog (coloana Pret din Google Sheet) și a fost
+                // setat în Pas 2. Nu există motiv să mergem pe mathaus.ro live — Sheet-ul ESTE
+                // sursa de adevăr. Excepție: forceRefresh și catalog price lipsește.
                 const urlEntries = [];
-                ['mathaus','dedeman','leroy','bricodepot','hornbach'].forEach(c => {
+                ['dedeman','leroy','bricodepot','hornbach'].forEach(c => {
                   if (tp.urls[c]) urlEntries.push({ comp: c, url: tp.urls[c] });
                 });
+                // Edge case: re-fetch MH live ONLY if forceRefresh AND catalog price missing
+                // (rar, doar pentru produse noi adăugate în Sheet fără Pret completat încă)
+                if (forceRefresh && tp.urls.mathaus && !materiale[matIdx].mathaus?.pret) {
+                  urlEntries.push({ comp: 'mathaus', url: tp.urls.mathaus });
+                  console.log(`[Pas 3A] MH live fetch necesar pentru SAP ${tp.sap} (catalog price lipsă)`);
+                }
                 if (urlEntries.length === 0) continue;
 
                 // ── STRATEGIE 1: Direct HTML fetch (no AI cost, no rate limit) ──
@@ -19488,12 +19553,33 @@ LIMBA: ${lang === 'ro' ? 'Română' : lang === 'en' ? 'English' : 'Auto-detect'}
                       body: JSON.stringify({ model, max_tokens: 600, tools: [{ type: 'web_search_20250305', name: 'web_search' }], messages: [{ role: 'user', content: fetchPrompt }] })
                     });
                     if (resp.status === 429) {
+                      // Rate limit: try to read suggested wait time
+                      let retryAfter = parseInt(resp.headers?.get?.('retry-after')) || 30;
                       const retryCount = m._retries || 0;
-                      if (retryCount < 2) {
+                      // Telemetrie: înregistrează 429 ca eșec global
+                      failEntries.forEach(f => telemetryRecord('aiFallbackFail', f.comp, {
+                        url: f.url, sap: tp.sap, name: tp.nume,
+                        error: `Anthropic 429 rate limit (retry-after ${retryAfter}s)`
+                      }));
+                      if (retryCount < 1) {
+                        // ONE retry only — apoi abandon graceful (nu blocăm UI-ul)
                         m._retries = retryCount + 1;
-                        await new Promise(r => setTimeout(r, (30 + retryCount * 30) * 1000));
+                        toast(`⏳ Rate limit Anthropic — aștept ${retryAfter}s și reîncerc...`);
+                        console.warn(`[Pas 3A] 429 rate limit, waiting ${retryAfter}s before retry`);
+                        await new Promise(r => setTimeout(r, retryAfter * 1000));
                         ti--;
                         continue;
+                      } else {
+                        // Sfârșim cu o eroare clară + sugerăm acțiunea pentru user
+                        toast(`🚫 Limită Anthropic atinsă (30k tokens/min). Așteaptă 1 min și apasă 🔄 Refresh pe materiale.`, 6000);
+                        console.warn(`[Pas 3A] 429 limit reached, abandoning AI fallback for remaining items`);
+                        // Marchez materialele rămase ca "fără preț competitor" — nu blocăm oferta
+                        const remainingMats = materiale.slice(ti);
+                        remainingMats.forEach(rm => {
+                          rm._aiFallbackSkipped = true;
+                          if (!rm.sursa) rm.sursa = 'incomplete';
+                        });
+                        break; // ieșim din toată bucla materialelor
                       }
                     }
                     if (resp.ok) {
