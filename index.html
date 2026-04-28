@@ -8598,36 +8598,95 @@
         if (!_isAdmin) { console.warn('[Cloud] Not admin, skip save'); return false; }
         try {
           const data = collectAllData();
-          const payload = JSON.stringify({ data });
-          console.log('[Cloud] Saving', (payload.length/1024).toFixed(1), 'KB to Drive...');
-          // Use hidden form + iframe — works from file:// protocol
-          return new Promise((resolve) => {
-            const iframe = document.createElement('iframe');
-            iframe.name = 'mh-cloud-frame-' + Date.now();
-            iframe.style.display = 'none';
-            document.body.appendChild(iframe);
-            const form = document.createElement('form');
-            form.method = 'POST';
-            form.action = appSettings.cloudUrl;
-            form.target = iframe.name;
-            const input = document.createElement('textarea');
-            input.name = 'payload';
-            input.value = payload;
-            input.style.display = 'none';
-            form.appendChild(input);
-            document.body.appendChild(form);
-            form.submit();
-            // Can't read cross-origin iframe response, assume success after delay
-            setTimeout(() => {
-              form.remove();
-              iframe.remove();
-              console.log('[Cloud] Save submitted to Drive');
-              appSettings.cloudLastSave = new Date().toISOString();
-              saveSettings();
-              resolve(true);
-            }, 3000);
-          });
-        } catch(e) { console.warn('[Cloud] Save error:', e.message); return false; }
+          const payloadStr = JSON.stringify(data);
+          console.log('[Cloud] Saving', (payloadStr.length/1024).toFixed(1), 'KB to Drive...');
+
+          // STRATEGY 1: Direct fetch with no-cors mode (modern, simple)
+          // Apps Script accepts both JSON body and form-urlencoded data param
+          let success = false;
+          try {
+            const formData = new URLSearchParams();
+            formData.append('data', payloadStr);
+            const response = await fetch(appSettings.cloudUrl, {
+              method: 'POST',
+              mode: 'no-cors', // bypass CORS — we trust Apps Script
+              body: formData
+            });
+            // no-cors response is opaque, but if no exception thrown, request was sent
+            success = true;
+            console.log('[Cloud] Save submitted via fetch');
+          } catch(fetchErr) {
+            console.warn('[Cloud] Direct fetch failed:', fetchErr.message);
+          }
+
+          // STRATEGY 2: Form+iframe fallback (only if fetch failed)
+          if (!success) {
+            console.log('[Cloud] Falling back to form+iframe...');
+            await new Promise((resolve) => {
+              const iframe = document.createElement('iframe');
+              iframe.name = 'mh-cloud-frame-' + Date.now();
+              iframe.style.display = 'none';
+              document.body.appendChild(iframe);
+              const form = document.createElement('form');
+              form.method = 'POST';
+              form.action = appSettings.cloudUrl;
+              form.target = iframe.name;
+              form.enctype = 'application/x-www-form-urlencoded';
+              const input = document.createElement('input');
+              input.type = 'hidden';
+              input.name = 'data';
+              input.value = payloadStr;
+              form.appendChild(input);
+              document.body.appendChild(form);
+              form.submit();
+              setTimeout(() => { form.remove(); iframe.remove(); resolve(); }, 3000);
+            });
+            success = true;
+          }
+
+          // VERIFICATION: wait 2s, then read back from Drive to confirm save worked
+          await new Promise(r => setTimeout(r, 2000));
+          let verified = false;
+          try {
+            const cbName = '_mhVerifyCb_' + Date.now();
+            const verifyPromise = new Promise((res, rej) => {
+              window[cbName] = (resp) => {
+                delete window[cbName];
+                if (resp?.ok && resp?.data) res(resp.data);
+                else rej('Invalid response');
+              };
+              setTimeout(() => { delete window[cbName]; rej('Verify timeout'); }, 8000);
+            });
+            const script = document.createElement('script');
+            script.src = appSettings.cloudUrl + '?callback=' + cbName + '&t=' + Date.now();
+            document.body.appendChild(script);
+            const cloudData = await verifyPromise;
+            script.remove();
+            
+            // Compare: does Drive have what we just saved?
+            const savedUsers = data.users?.map(u => u.username).sort().join(',') || '';
+            const driveUsers = cloudData.users?.map(u => u.username).sort().join(',') || '';
+            verified = savedUsers === driveUsers && savedUsers.length > 0;
+            
+            if (verified) {
+              console.log('[Cloud] ✅ Save VERIFIED on Drive — users:', driveUsers);
+              try { toast('☁ Date salvate și verificate pe Drive (' + (data.users?.length || 0) + ' utilizatori)'); } catch(e) {}
+            } else {
+              console.warn('[Cloud] ⚠ Save unverified — local users:', savedUsers, '| Drive users:', driveUsers);
+              try { toast('⚠ Salvare incompletă — verifică Apps Script. Local: ' + savedUsers + ' | Drive: ' + driveUsers, 8000); } catch(e) {}
+            }
+          } catch(verifyErr) {
+            console.warn('[Cloud] Verification skipped:', verifyErr);
+          }
+
+          appSettings.cloudLastSave = new Date().toISOString();
+          saveSettings();
+          return success;
+        } catch(e) { 
+          console.warn('[Cloud] Save error:', e.message); 
+          try { toast('❌ Eroare la salvare: ' + e.message, 8000); } catch(_) {}
+          return false; 
+        }
       }
 
       function triggerCloudAutoSave() {
