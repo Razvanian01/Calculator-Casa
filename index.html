@@ -2,8 +2,18 @@
 <html lang="ro">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width,initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width,initial-scale=1.0,viewport-fit=cover" />
     <title>MatHaus — Ghid Vânzări Construcție</title>
+    
+    <!-- PWA: Add to Home Screen → opens fullscreen without browser bar -->
+    <meta name="theme-color" content="#1c2b4a" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="MatHaus AI" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="application-name" content="MatHaus AI" />
+    <link rel="manifest" href='data:application/manifest+json,{"name":"MatHaus AI","short_name":"MatHaus","description":"Ghid Vanzari Constructie","start_url":".","display":"fullscreen","display_override":["fullscreen","standalone"],"orientation":"any","background_color":"%231c2b4a","theme_color":"%231c2b4a","icons":[{"src":"data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxOTIgMTkyIj48cmVjdCB3aWR0aD0iMTkyIiBoZWlnaHQ9IjE5MiIgZmlsbD0iIzFjMmI0YSIgcng9IjQwIi8+PHRleHQgeD0iOTYiIHk9IjEyMCIgZm9udC1zaXplPSI4MCIgZmlsbD0iI2ZiYmYyNCIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZm9udC1mYW1pbHk9IkFyaWFsIEJsYWNrIj5NPC90ZXh0Pjwvc3ZnPg==","sizes":"192x192","type":"image/svg+xml"}]}' />
+    
     <link
       href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap"
       rel="stylesheet"
@@ -3018,6 +3028,7 @@
         <button class="nav-btn" onclick="debugOpenPanel()" style="color:var(--txt3);border-color:var(--border);font-size:11px;padding:4px 10px;position:relative" title="Debug Log — vezi toate request-urile API">
           🐛<span id="debug-badge" style="display:none;position:absolute;top:-4px;right:-4px;background:#dc2626;color:#fff;font-size:9px;font-weight:700;width:16px;height:16px;border-radius:50%;align-items:center;justify-content:center"></span>
         </button>
+        <button class="nav-btn" id="fs-toggle-btn" onclick="toggleFullscreen()" title="Intră în fullscreen" style="color:var(--txt2);border-color:var(--border);font-size:14px;padding:4px 10px;min-width:36px">🔳</button>
       </div>
     </header>
 
@@ -8542,7 +8553,99 @@
         try { toast(`👋 Bun venit, ${result.user.username}!`); } catch(e) {}
         // Trigger render-uri care depind de user
         try { renderUserBadge(); } catch(e) {}
+        // 🔳 AUTO FULLSCREEN — trigger pe acțiunea de login (browser-ul permite asta doar pe user gesture)
+        try { enterFullscreen(); } catch(e) { console.warn('[Fullscreen] Auto-enter failed:', e); }
       }
+
+      // ───────────────────────── FULLSCREEN MODE ─────────────────────────
+      // Sistem hibrid: Fullscreen API (browser) + PWA standalone detection
+      let _fsRequested = false;
+      
+      function isFullscreen() {
+        return !!(document.fullscreenElement || document.webkitFullscreenElement || 
+                  document.mozFullScreenElement || document.msFullscreenElement);
+      }
+      
+      function isPWAStandalone() {
+        // Verifică dacă aplicația e deschisă ca PWA "Add to Home Screen"
+        return window.matchMedia('(display-mode: standalone)').matches ||
+               window.matchMedia('(display-mode: fullscreen)').matches ||
+               window.navigator.standalone === true; // iOS
+      }
+      
+      function enterFullscreen() {
+        // Skip dacă e deja în PWA mode (nu are nevoie)
+        if (isPWAStandalone()) {
+          console.log('[Fullscreen] Running as PWA — skip API call');
+          updateFullscreenButton();
+          return;
+        }
+        if (isFullscreen()) { updateFullscreenButton(); return; }
+        const el = document.documentElement;
+        const req = el.requestFullscreen || el.webkitRequestFullscreen || 
+                    el.mozRequestFullScreen || el.msRequestFullscreen;
+        if (!req) { console.warn('[Fullscreen] API not supported'); return; }
+        try {
+          const promise = req.call(el);
+          if (promise && promise.then) {
+            promise.then(() => {
+              _fsRequested = true;
+              console.log('[Fullscreen] Entered');
+              updateFullscreenButton();
+            }).catch(err => {
+              console.warn('[Fullscreen] Permission denied:', err.message);
+            });
+          } else {
+            _fsRequested = true;
+            updateFullscreenButton();
+          }
+        } catch(e) { console.warn('[Fullscreen] Error:', e); }
+      }
+      
+      function exitFullscreen() {
+        if (!isFullscreen()) return;
+        const exit = document.exitFullscreen || document.webkitExitFullscreen ||
+                     document.mozCancelFullScreen || document.msExitFullscreen;
+        if (exit) try { exit.call(document); } catch(e) {}
+      }
+      
+      function toggleFullscreen() {
+        if (isFullscreen()) exitFullscreen();
+        else enterFullscreen();
+      }
+      
+      function updateFullscreenButton() {
+        const btn = document.getElementById('fs-toggle-btn');
+        if (!btn) return;
+        const inFs = isFullscreen() || isPWAStandalone();
+        btn.innerHTML = inFs ? '⛶' : '🔳';
+        btn.title = inFs ? 'Ieși din fullscreen (sau apasă Esc)' : 'Intră în fullscreen';
+      }
+      
+      // Listen for fullscreen changes (user pressed Esc, etc.)
+      ['fullscreenchange','webkitfullscreenchange','mozfullscreenchange','msfullscreenchange'].forEach(ev => {
+        document.addEventListener(ev, () => {
+          updateFullscreenButton();
+          if (!isFullscreen() && _fsRequested) {
+            console.log('[Fullscreen] User exited — showing prompt to re-enter');
+            // Show subtle reminder that they can return to fullscreen
+            try {
+              const u = (typeof getCurrentUser === 'function') ? getCurrentUser() : null;
+              if (u) {
+                toast('💡 Apasă 🔳 pentru fullscreen din nou', 4000);
+              }
+            } catch(e) {}
+          }
+        });
+      });
+      
+      // Keyboard shortcut: F11 alternative — Ctrl+Shift+F
+      document.addEventListener('keydown', (e) => {
+        if (e.ctrlKey && e.shiftKey && e.key === 'F') {
+          e.preventDefault();
+          toggleFullscreen();
+        }
+      });
 
       // Buton de re-sync utilizatori în login screen — pentru cazul când admin a adăugat
       // un utilizator nou și device-ul de test încă nu îl cunoaște.
