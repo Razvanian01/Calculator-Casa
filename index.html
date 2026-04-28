@@ -7114,6 +7114,16 @@
         const det = $("e-stage-detail");
         if (!det) return;
 
+        // Visibility flags — default true if not explicitly false
+        const vis = s.visibility || {};
+        const showIntro      = vis.intro      !== false;
+        const showVideo      = vis.video      !== false;
+        const showScriptShort= vis.scriptShort!== false;
+        const showObiective  = vis.obiective  !== false;
+        const showCalc       = vis.calc       !== false;
+        const showDocs       = vis.docs       !== false;
+        const showTimpi      = vis.timpi      !== false;
+
         // Check for custom rich calculators
         const customCalcHtml = getCustomCalcHtml(id);
         const inputsHtml =
@@ -7164,9 +7174,9 @@
       <button class="btn btn-ghost btn-sm" onclick="activeEtapa=null;$('e-stage-detail').innerHTML='';document.querySelectorAll('.sgcard').forEach(c=>c.classList.remove('active'))">✕ Închide</button>
     </div>
     <div class="sdp-body">
-      <div class="intro-box" style="margin-bottom:12px">${s.intro}</div>
+      ${showIntro && s.intro ? `<div class="intro-box" style="margin-bottom:12px">${s.intro}</div>` : ''}
       ${
-        stageDef.video
+        showVideo && stageDef.video
           ? `<div class="ghid-video-block">
         <div class="ghid-video-label">🎬 Ghid Video <a href="${
           stageDef.video
@@ -7183,7 +7193,7 @@
       }
 
       ${
-        s.scriptShort?.length
+        showScriptShort && s.scriptShort?.length
           ? `<div class="client-expect" style="margin-bottom:14px">
         <div class="ce-title">🧑 Ce caută și așteaptă clientul</div>
         <ul class="expect-list">${s.scriptShort
@@ -7193,7 +7203,7 @@
           : ""
       }
       ${
-        (s.obiective || []).length
+        showObiective && (s.obiective || []).length
           ? `<div class="agent-obj" style="margin-bottom:14px">
         <div class="info-block-title" style="margin-bottom:8px;color:#1E40AF">🎯 Obiective agent — ce ai de făcut în această etapă</div>
         <ul class="obj-list">${(s.obiective || [])
@@ -7202,10 +7212,10 @@
       </div>`
           : ""
       }
-      ${inputsHtml}
+      ${showCalc ? inputsHtml : ''}
       <div class="sdp-grid">
         ${
-          s.docs?.length
+          showDocs && s.docs?.length
             ? `<div class="info-block">
           <div class="info-block-title">📋 Documente & Notificări</div>
           <ul class="info-list">${s.docs
@@ -7215,7 +7225,7 @@
             : ""
         }
         ${
-          s.timpi?.length || stageDef.timpiByTip
+          showTimpi && (s.timpi?.length || stageDef.timpiByTip)
             ? `<div class="info-block timpi-block" id="timpi-dynamic-${id}">
           <div class="info-block-title">⏱ Timpi orientativi — echipă 3–4 muncitori</div>
           <ul class="timpi-list">${(s.timpi || [])
@@ -7553,11 +7563,43 @@
         const s = stagesData.find((x) => x.id === adminActiveStage) || {};
         const def = STAGES_DEFAULT.find((x) => x.id === adminActiveStage) || {};
         const merge = { ...def, ...s };
+        const vis = merge.visibility || {};
+        const cb = (key, label, sublabel) => {
+          const checked = vis[key] !== false;
+          return `<label style="display:flex;align-items:flex-start;gap:8px;padding:10px;border:1px solid var(--bd);border-radius:8px;cursor:pointer;background:${checked?'#F0FDF4':'#FAFAFA'};min-height:44px">
+            <input type="checkbox" id="ae-vis-${key}" ${checked?'checked':''} onchange="adminMarkUnsaved();this.parentElement.style.background=this.checked?'#F0FDF4':'#FAFAFA'" style="margin-top:2px;width:18px;height:18px;flex-shrink:0">
+            <div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:600;color:var(--navy)">${label}</div><div style="font-size:10px;color:var(--txt3);margin-top:2px">${sublabel}</div></div>
+          </label>`;
+        };
         const cont = $("admin-content");
         cont.innerHTML = `<div class="admin-unsaved" id="admin-unsaved-badge">⚠ Modificări nesalvate — apasă Salvează</div>
   <div class="admin-card">
     <h3>${merge.emoji} Etapa ${merge.nr} — ${merge.title}</h3>
     <p>Editează textele vizibile consilierilor.</p>
+    
+    <div style="background:#EFF6FF;border:2px solid #BFDBFE;border-radius:12px;padding:14px;margin-bottom:18px;font-size:12px;line-height:1.6">
+      <div style="font-weight:700;color:#1E40AF;margin-bottom:6px">📖 Unde se folosesc aceste texte?</div>
+      <div style="color:var(--txt2)">
+        <strong>📄 Intro, 🧑 Ce caută clientul, 🎯 Obiective, 📋 Documente, ⏱ Timpi</strong> — apar în <em>pagina etapei</em> (vizibile consilierilor) ȘI sunt trimise la <em>Consultant AI</em> când consilierul deschide această etapă.<br>
+        <strong>📜 Script vânzare, 🪝 Hook-uri</strong> — folosite <em>doar de Consultant AI</em> (briefing intern), NU sunt afișate consilierilor în pagina etapei.<br>
+        <strong>👁 Bifele de mai jos</strong> controlează ce VEDE consilierul — AI-ul folosește toate textele indiferent de bife.
+      </div>
+    </div>
+    
+    <div style="background:#FFF7ED;border:2px solid #FED7AA;border-radius:12px;padding:14px;margin-bottom:18px">
+      <div style="font-size:13px;font-weight:700;color:var(--navy);margin-bottom:4px">👁 Ce văd consilierii când deschid această etapă</div>
+      <div style="font-size:11px;color:var(--txt3);margin-bottom:12px">Bifează doar secțiunile relevante pentru această etapă. Pe teren, mai puțin = mai concentrat.</div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:8px">
+        ${cb('intro',       '📄 Descriere intro',     'Paragraful de prezentare')}
+        ${cb('scriptShort', '🧑 Ce caută clientul',   'Lista verde — emoții & așteptări')}
+        ${cb('obiective',   '🎯 Obiective agent',     'Lista albastră — ce ai de făcut')}
+        ${cb('calc',        '🧮 Calculator + Materiale','Inputuri + necesar materiale')}
+        ${cb('docs',        '📋 Documente & Notificări','Lista de docs/avize/proceduri')}
+        ${cb('timpi',       '⏱ Timpi orientativi',    'Durata estimativă pe operațiune')}
+        ${cb('video',       '🎬 Ghid Video',          'YouTube embed (dacă URL setat)')}
+      </div>
+    </div>
+    
     <div class="edit-field"><label class="label">Titlu</label>
       <input type="text" class="input" id="ae-title" value="${escHtml(
         merge.title
@@ -9340,6 +9382,12 @@
       function adminSaveStage(id) {
         const idx = stagesData.findIndex((s) => s.id === id);
         const def = STAGES_DEFAULT.find((s) => s.id === id) || {};
+        const visKeys = ['intro','scriptShort','obiective','calc','docs','timpi','video'];
+        const visibility = {};
+        visKeys.forEach(k => {
+          const el = document.getElementById('ae-vis-' + k);
+          if (el) visibility[k] = !!el.checked;
+        });
         const updated = {
           ...def,
           title: $("ae-title").value,
@@ -9362,6 +9410,7 @@
             .value.split("\n")
             .filter((l) => l.trim()),
           video: $("ae-video")?.value || '',
+          visibility: visibility,
         };
         if (idx >= 0) stagesData[idx] = updated;
         else stagesData.push(updated);
@@ -18212,11 +18261,31 @@ LIMBA: ${lang === 'ro' ? 'Română' : lang === 'en' ? 'English' : 'Auto-detect'}
         } catch(e) {}
 
         // #3 Stage awareness: tell Consultant which stage the agent is viewing
+        // CRITICAL: read from edited stages (stagesData merged with default), not hardcoded
         try {
           if (typeof activeEtapa === 'string' && activeEtapa && typeof currentMode === 'string' && currentMode === 'etapizat') {
-            const _stageDef = (typeof STAGES_DEFAULT !== 'undefined' ? STAGES_DEFAULT : []).find(s => s.id === activeEtapa);
-            if (_stageDef) {
-              sp += `\n\n🎯 CONTEXT ETAPĂ ${_stageDef.nr} — "${_stageDef.title}". Script: ${_stageDef.script?.substring(0, 150) || ''}`;
+            // getStage() merges STAGES_DEFAULT with stagesData (admin edits)
+            const _se = (typeof getStage === 'function') ? getStage(activeEtapa) : null;
+            if (_se) {
+              sp += `\n\n🎯 CONTEXT ETAPĂ ${_se.nr} — "${_se.title}"`;
+              if (_se.sub) sp += ` (${_se.sub})`;
+              if (_se.intro) sp += `\nDESCRIERE: ${_se.intro}`;
+              if (_se.script) sp += `\nSCRIPT VÂNZARE: ${_se.script}`;
+              if (Array.isArray(_se.hooks) && _se.hooks.length) {
+                sp += `\nHOOK-URI VÂNZARE:\n` + _se.hooks.map((h, i) => `${i+1}. ${h}`).join('\n');
+              }
+              if (Array.isArray(_se.scriptShort) && _se.scriptShort.length) {
+                sp += `\nCE CAUTĂ CLIENTUL ÎN ACEASTĂ ETAPĂ:\n` + _se.scriptShort.map(s => `• ${s}`).join('\n');
+              }
+              if (Array.isArray(_se.obiective) && _se.obiective.length) {
+                sp += `\nOBIECTIVE AGENT (ce ai de făcut):\n` + _se.obiective.map(o => `• ${o}`).join('\n');
+              }
+              if (Array.isArray(_se.docs) && _se.docs.length) {
+                sp += `\nDOCUMENTE/NOTIFICĂRI: ` + _se.docs.slice(0, 6).join('; ');
+              }
+              if (Array.isArray(_se.timpi) && _se.timpi.length) {
+                sp += `\nTIMPI: ` + _se.timpi.slice(0, 5).join('; ');
+              }
             }
           } else if (typeof currentMode === 'string' && currentMode === 'total') {
             sp += `\n🎯 CONTEXT: Calculator Total — estimare completă casă.`;
