@@ -7183,20 +7183,20 @@
       }
 
       ${
-        stageDef.scriptShort?.length
+        s.scriptShort?.length
           ? `<div class="client-expect" style="margin-bottom:14px">
         <div class="ce-title">🧑 Ce caută și așteaptă clientul</div>
-        <ul class="expect-list">${stageDef.scriptShort
+        <ul class="expect-list">${s.scriptShort
           .map((l) => `<li class="expect-item">${l}</li>`)
           .join("")}</ul>
       </div>`
           : ""
       }
       ${
-        (stageDef.obiective || []).length
+        (s.obiective || []).length
           ? `<div class="agent-obj" style="margin-bottom:14px">
         <div class="info-block-title" style="margin-bottom:8px;color:#1E40AF">🎯 Obiective agent — ce ai de făcut în această etapă</div>
-        <ul class="obj-list">${(stageDef.obiective || [])
+        <ul class="obj-list">${(s.obiective || [])
           .map((o) => `<li class="obj-item">${o}</li>`)
           .join("")}</ul>
       </div>`
@@ -7574,6 +7574,22 @@
       <textarea class="input" id="ae-script" rows="4" oninput="adminMarkUnsaved()">${escHtml(
         merge.script
       )}</textarea></div>
+    <div class="edit-field"><label class="label">🧑 Ce caută și așteaptă clientul (câte unul pe linie)</label>
+      <textarea class="input" id="ae-scriptShort" rows="${
+        (merge.scriptShort || []).length + 1
+      }" oninput="adminMarkUnsaved()">${(merge.scriptShort || []).join(
+          "\n"
+        )}</textarea>
+      <div style="font-size:10px;color:var(--txt3);margin-top:4px">Apare în pagina etapei ca lista verde "🧑 Ce caută și așteaptă clientul". Folosește emoji la început.</div>
+    </div>
+    <div class="edit-field"><label class="label">🎯 Obiective agent — ce ai de făcut (câte unul pe linie)</label>
+      <textarea class="input" id="ae-obiective" rows="${
+        (merge.obiective || []).length + 1
+      }" oninput="adminMarkUnsaved()">${(merge.obiective || []).join(
+          "\n"
+        )}</textarea>
+      <div style="font-size:10px;color:var(--txt3);margin-top:4px">Apare în pagina etapei ca lista albastră "🎯 Obiective agent". Folosește emoji la început.</div>
+    </div>
     <div class="edit-field"><label class="label">Hook-uri vânzare (câte unul pe linie)</label>
       <textarea class="input" id="ae-hooks" rows="${
         (merge.hooks || []).length + 1
@@ -9330,6 +9346,12 @@
           sub: $("ae-sub").value,
           intro: $("ae-intro").value,
           script: $("ae-script").value,
+          scriptShort: $("ae-scriptShort")
+            ? $("ae-scriptShort").value.split("\n").filter((l) => l.trim())
+            : (def.scriptShort || []),
+          obiective: $("ae-obiective")
+            ? $("ae-obiective").value.split("\n").filter((l) => l.trim())
+            : (def.obiective || []),
           hooks: $("ae-hooks")
             .value.split("\n")
             .filter((l) => l.trim()),
