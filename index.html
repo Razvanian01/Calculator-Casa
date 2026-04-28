@@ -2996,6 +2996,7 @@
           <div class="logo-text">MatHaus</div>
         </div>
         <div class="logo-badge">Ghid Vânzări v2</div>
+        <div id="user-badge-inline" style="display:none;align-items:center;gap:6px;background:#fbbf24;color:#1c2b4a;padding:4px 4px 4px 10px;border-radius:100px;font-size:11px;font-weight:700;border:1.5px solid #1c2b4a;box-shadow:0 2px 4px rgba(0,0,0,.15);margin-left:4px"></div>
       </div>
       <div class="header-nav">
         <button class="nav-btn" id="nav-total" onclick="switchMode('total')">
@@ -7123,6 +7124,9 @@
         const showCalc       = vis.calc       !== false;
         const showDocs       = vis.docs       !== false;
         const showTimpi      = vis.timpi      !== false;
+        // Script & Hooks — default FALSE (admin opts-in per stage)
+        const showScript     = vis.script     === true;
+        const showHooks      = vis.hooks      === true;
 
         // Check for custom rich calculators
         const customCalcHtml = getCustomCalcHtml(id);
@@ -7208,6 +7212,24 @@
         <div class="info-block-title" style="margin-bottom:8px;color:#1E40AF">🎯 Obiective agent — ce ai de făcut în această etapă</div>
         <ul class="obj-list">${(s.obiective || [])
           .map((o) => `<li class="obj-item">${o}</li>`)
+          .join("")}</ul>
+      </div>`
+          : ""
+      }
+      ${
+        showScript && s.script
+          ? `<div style="margin-bottom:14px;padding:14px;background:#FAF5FF;border:1px solid #DDD6FE;border-left:4px solid #7C3AED;border-radius:8px">
+        <div style="font-size:11px;font-weight:700;color:#6D28D9;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;font-family:var(--mono)">📜 Script de vânzare</div>
+        <div style="font-size:13px;line-height:1.7;color:var(--txt2);white-space:pre-line">${s.script}</div>
+      </div>`
+          : ""
+      }
+      ${
+        showHooks && (s.hooks || []).length
+          ? `<div style="margin-bottom:14px;padding:14px;background:#FFFBEB;border:1px solid #FDE68A;border-left:4px solid #D97706;border-radius:8px">
+        <div style="font-size:11px;font-weight:700;color:#92400E;text-transform:uppercase;letter-spacing:1px;margin-bottom:10px;font-family:var(--mono)">🪝 Hook-uri vânzare — întrebări de pus clientului</div>
+        <ul style="list-style:none;padding:0;margin:0">${(s.hooks || [])
+          .map((h, i) => `<li style="padding:8px 10px;background:#fff;border:1px solid #FEF3C7;border-radius:6px;margin-bottom:6px;font-size:12.5px;line-height:1.6;color:var(--txt2)"><span style="display:inline-block;background:#D97706;color:#fff;width:18px;height:18px;border-radius:50%;text-align:center;line-height:18px;font-size:10px;font-weight:700;margin-right:8px;font-family:var(--mono)">${i+1}</span>${h}</li>`)
           .join("")}</ul>
       </div>`
           : ""
@@ -7564,10 +7586,13 @@
         const def = STAGES_DEFAULT.find((x) => x.id === adminActiveStage) || {};
         const merge = { ...def, ...s };
         const vis = merge.visibility || {};
-        const cb = (key, label, sublabel) => {
-          const checked = vis[key] !== false;
-          return `<label style="display:flex;align-items:flex-start;gap:8px;padding:10px;border:1px solid var(--bd);border-radius:8px;cursor:pointer;background:${checked?'#F0FDF4':'#FAFAFA'};min-height:44px">
-            <input type="checkbox" id="ae-vis-${key}" ${checked?'checked':''} onchange="adminMarkUnsaved();this.parentElement.style.background=this.checked?'#F0FDF4':'#FAFAFA'" style="margin-top:2px;width:18px;height:18px;flex-shrink:0">
+        const cb = (key, label, sublabel, defaultOn) => {
+          const def = defaultOn === false ? false : true;
+          const checked = vis[key] === undefined ? def : vis[key] !== false && vis[key] !== null;
+          // For default-off keys (script, hooks): vis[key] must be === true to show
+          const isOn = (def === false) ? (vis[key] === true) : (vis[key] !== false);
+          return `<label style="display:flex;align-items:flex-start;gap:8px;padding:10px;border:1px solid var(--bd);border-radius:8px;cursor:pointer;background:${isOn?'#F0FDF4':'#FAFAFA'};min-height:44px">
+            <input type="checkbox" id="ae-vis-${key}" ${isOn?'checked':''} onchange="adminMarkUnsaved();this.parentElement.style.background=this.checked?'#F0FDF4':'#FAFAFA'" style="margin-top:2px;width:18px;height:18px;flex-shrink:0">
             <div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:600;color:var(--navy)">${label}</div><div style="font-size:10px;color:var(--txt3);margin-top:2px">${sublabel}</div></div>
           </label>`;
         };
@@ -7577,12 +7602,12 @@
     <h3>${merge.emoji} Etapa ${merge.nr} — ${merge.title}</h3>
     <p>Editează textele vizibile consilierilor.</p>
     
-    <div style="background:#EFF6FF;border:2px solid #BFDBFE;border-radius:12px;padding:14px;margin-bottom:18px;font-size:12px;line-height:1.6">
-      <div style="font-weight:700;color:#1E40AF;margin-bottom:6px">📖 Unde se folosesc aceste texte?</div>
+    <div style="background:#EFF6FF;border:2px solid #BFDBFE;border-radius:12px;padding:14px;margin-bottom:14px;font-size:12px;line-height:1.6">
+      <div style="font-weight:700;color:#1E40AF;margin-bottom:6px">📖 Cum funcționează</div>
       <div style="color:var(--txt2)">
-        <strong>📄 Intro, 🧑 Ce caută clientul, 🎯 Obiective, 📋 Documente, ⏱ Timpi</strong> — apar în <em>pagina etapei</em> (vizibile consilierilor) ȘI sunt trimise la <em>Consultant AI</em> când consilierul deschide această etapă.<br>
-        <strong>📜 Script vânzare, 🪝 Hook-uri</strong> — folosite <em>doar de Consultant AI</em> (briefing intern), NU sunt afișate consilierilor în pagina etapei.<br>
-        <strong>👁 Bifele de mai jos</strong> controlează ce VEDE consilierul — AI-ul folosește toate textele indiferent de bife.
+        Toate textele sunt pentru <strong>consilier</strong>, ca să aibă tot ghidajul când deschide etapa pentru calcul. Bifele de mai jos controlează ce afișezi — bifează doar ce e relevant pentru fiecare etapă.<br>
+        <strong style="color:#7C3AED">📜 Script vânzare</strong> și <strong style="color:#D97706">🪝 Hook-uri</strong> sunt <strong>debifate by default</strong> — bifează-le doar pe etapele unde vrei un brief mai detaliat pentru consilier (ex: prima discuție cu clientul).<br>
+        <em>⚡ Bonus:</em> AI-ul primește toate textele tale ca context când consilierul pune întrebări.
       </div>
     </div>
     
@@ -7593,6 +7618,8 @@
         ${cb('intro',       '📄 Descriere intro',     'Paragraful de prezentare')}
         ${cb('scriptShort', '🧑 Ce caută clientul',   'Lista verde — emoții & așteptări')}
         ${cb('obiective',   '🎯 Obiective agent',     'Lista albastră — ce ai de făcut')}
+        ${cb('script',      '📜 Script de vânzare',   'Paragraf mov — abordare client', false)}
+        ${cb('hooks',       '🪝 Hook-uri vânzare',    'Lista galbenă — întrebări către client', false)}
         ${cb('calc',        '🧮 Calculator + Materiale','Inputuri + necesar materiale')}
         ${cb('docs',        '📋 Documente & Notificări','Lista de docs/avize/proceduri')}
         ${cb('timpi',       '⏱ Timpi orientativi',    'Durata estimativă pe operațiune')}
@@ -8265,6 +8292,57 @@
         location.reload();
       }
 
+      // ───────────────────────── INACTIVITY AUTO-LOGOUT (10 min) ─────────────────────────
+      const INACTIVITY_TIMEOUT_MS = 10 * 60 * 1000; // 10 minutes
+      let _inactivityTimer = null;
+      let _inactivityWarningTimer = null;
+      
+      function _logoutDueToInactivity() {
+        // Show user-friendly message before reload
+        try {
+          const overlay = document.createElement('div');
+          overlay.style.cssText = 'position:fixed;inset:0;z-index:99999;background:rgba(15,23,42,.85);display:flex;align-items:center;justify-content:center;backdrop-filter:blur(8px)';
+          overlay.innerHTML = `<div style="background:#fff;padding:32px;border-radius:16px;max-width:400px;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.4)">
+            <div style="font-size:42px;margin-bottom:12px">⏱</div>
+            <div style="font-size:18px;font-weight:800;color:#1c2b4a;margin-bottom:8px">Sesiune expirată</div>
+            <div style="font-size:13px;color:#64748b;margin-bottom:18px;line-height:1.5">Ai fost inactiv mai mult de 10 minute.<br>Pentru securitate, te-am deconectat automat.</div>
+            <button onclick="location.reload()" style="background:#1c2b4a;color:#fbbf24;border:2px solid #fbbf24;border-radius:8px;padding:10px 24px;font-size:13px;font-weight:700;cursor:pointer">🔑 Re-loghează-te</button>
+          </div>`;
+          document.body.appendChild(overlay);
+        } catch(e) {}
+        const u = getCurrentUser();
+        if (u) { try { telemetryRecord('user_inactivity_logout', null, { username: u.username }); } catch(e) {} }
+        clearSession();
+        _currentUser = null;
+        // Auto reload after 5 seconds if user doesn't click
+        setTimeout(() => location.reload(), 5000);
+      }
+      
+      function resetInactivityTimer() {
+        // Only run if user is logged in
+        if (!getCurrentUser()) return;
+        if (_inactivityTimer) clearTimeout(_inactivityTimer);
+        _inactivityTimer = setTimeout(_logoutDueToInactivity, INACTIVITY_TIMEOUT_MS);
+      }
+      
+      function startInactivityTracking() {
+        // Activity events that reset the timer
+        const events = ['mousemove', 'mousedown', 'keydown', 'touchstart', 'scroll', 'click'];
+        // Throttle: don't reset more than once per 5 seconds
+        let lastReset = 0;
+        const throttledReset = () => {
+          const now = Date.now();
+          if (now - lastReset > 5000) {
+            lastReset = now;
+            resetInactivityTimer();
+          }
+        };
+        events.forEach(ev => document.addEventListener(ev, throttledReset, { passive: true }));
+        // Start initial timer
+        resetInactivityTimer();
+        console.log('[Auth] Inactivity tracking active — 10 min timeout');
+      }
+
       // Admin UI helpers — apelabile din butoanele din dashboard
       async function adminAddUserPrompt() {
         const username = prompt('Username pentru noul consilier:');
@@ -8276,6 +8354,15 @@
         if (r.ok) {
           toast(`✅ Utilizator ${username} (${role}) adăugat`);
           if (typeof renderAdminAIKB === 'function') renderAdminAIKB();
+          // FORȚAT: salvare imediată pe Drive (nu așteaptă debounce + nu depinde de cloudAutoSave flag)
+          // Așa nu mai e nevoie de butonul "Re-sincronizează" pe login screen
+          if (appSettings.cloudUrl && _isAdmin) {
+            toast('☁ Sincronizare imediată pe Drive...', 3000);
+            try {
+              const ok = await cloudSave();
+              if (ok) toast(`✅ ${username} sincronizat pe Drive — consilierii pot deja să se logheze`, 5000);
+            } catch(e) { console.warn('[Auth] Force cloud save failed:', e); }
+          }
         } else {
           alert('❌ ' + r.error);
         }
@@ -8287,15 +8374,23 @@
         if (r.ok) {
           toast(`🔑 Parolă actualizată pentru ${username}`);
           if (typeof renderAdminAIKB === 'function') renderAdminAIKB();
+          // FORȚAT: sync imediat pe Drive după change password
+          if (appSettings.cloudUrl && _isAdmin) {
+            try { await cloudSave(); toast('☁ Parolă sincronizată pe Drive', 3000); } catch(e) {}
+          }
         } else {
           alert('❌ ' + r.error);
         }
       }
-      function adminDeleteUserConfirm(username) {
-        if (!confirm(`Ștergi utilizatorul "${username}"?\n\nSesiunea lui curentă rămâne activă până expiră (max 30 zile) sau până dă logout.\nIstoricul apelurilor AI rămâne în log pentru audit.`)) return;
+      async function adminDeleteUserConfirm(username) {
+        if (!confirm(`Ștergi utilizatorul "${username}"?\n\nSesiunea lui curentă rămâne activă până expiră sau până dă logout.\nIstoricul apelurilor AI rămâne în log pentru audit.`)) return;
         authDeleteUser(username);
         toast(`🗑 Utilizator ${username} șters`);
         if (typeof renderAdminAIKB === 'function') renderAdminAIKB();
+        // FORȚAT: sync imediat pe Drive după delete
+        if (appSettings.cloudUrl && _isAdmin) {
+          try { await cloudSave(); toast('☁ Sincronizat pe Drive', 3000); } catch(e) {}
+        }
       }
 
       // Adaugă/șterge utilizator (doar admin)
@@ -8407,10 +8502,6 @@
                   INTRĂ ÎN APLICAȚIE →
                 </button>
               </form>
-              <button type="button" onclick="loginForceSyncUsers()"
-                style="width:100%;margin-top:10px;padding:9px;background:transparent;color:#6b7280;border:1px dashed #d1d5db;border-radius:8px;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;letter-spacing:.03em">
-                🔄 Re-sincronizează lista utilizatorilor
-              </button>
             </div>
 
             <!-- Motivational footer -->
@@ -8436,12 +8527,7 @@
         const result = await authLogin(u, p);
         if (!result.ok) {
           if (err) {
-            // Mesaj mai clar — sugerează re-sync dacă utilizatorul nu există
-            if (result.error === 'Utilizator inexistent' && appSettings?.cloudUrl) {
-              err.innerHTML = '❌ Utilizator inexistent.<br><span style="font-size:11px;font-weight:400">Apasă <strong>"Re-sincronizează lista utilizatorilor"</strong> mai jos dacă l-ai creat recent.</span>';
-            } else {
-              err.textContent = '❌ ' + result.error;
-            }
+            err.textContent = '❌ ' + result.error;
             err.style.display = 'block';
           }
           // Mic delay anti-bruteforce (1.5s între încercări)
@@ -8485,21 +8571,21 @@
       // User badge în header (afișează username + buton Logout)
       function renderUserBadge() {
         const u = getCurrentUser();
-        if (!u) return;
-        const existing = document.getElementById('user-badge');
-        if (existing) existing.remove();
-        const badge = document.createElement('div');
-        badge.id = 'user-badge';
-        badge.style.cssText = 'position:fixed;top:8px;right:12px;z-index:9000;display:flex;gap:6px;align-items:center;background:rgba(255,255,255,.95);border:1px solid rgba(0,0,0,.08);border-radius:20px;padding:4px 4px 4px 12px;font-size:11px;font-weight:600;box-shadow:0 2px 8px rgba(0,0,0,.08);pointer-events:auto';
-        const roleColor = u.role === 'admin' ? '#15803d' : '#1d4ed8';
+        // Hide and clean any old floating badge
+        const oldFloat = document.getElementById('user-badge');
+        if (oldFloat) oldFloat.remove();
+        const inline = document.getElementById('user-badge-inline');
+        if (!inline) return;
+        if (!u) { inline.style.display = 'none'; return; }
         const roleLabel = u.role === 'admin' ? '👑 Admin' : '👤 Agent';
-        badge.innerHTML = `
-          <span style="color:${roleColor};font-weight:700">${escHtml ? escHtml(u.username) : u.username}</span>
-          <span style="font-size:9px;color:#6b7280;background:#f3f4f6;padding:1px 6px;border-radius:8px">${roleLabel}</span>
+        const safeName = (typeof escHtml === 'function') ? escHtml(u.username) : u.username;
+        inline.innerHTML = `
+          <span style="font-weight:800;letter-spacing:-.2px">${safeName}</span>
+          <span style="font-size:9px;font-weight:700;background:#1c2b4a;color:#fbbf24;padding:2px 7px;border-radius:8px;letter-spacing:.3px">${roleLabel}</span>
           <button onclick="if(confirm('Logout?'))authLogout()" title="Ieșire"
-            style="background:#fee;color:#dc2626;border:none;border-radius:50%;width:24px;height:24px;cursor:pointer;font-size:11px;display:flex;align-items:center;justify-content:center">⏻</button>
+            style="background:#1c2b4a;color:#fbbf24;border:1.5px solid #fbbf24;border-radius:50%;width:22px;height:22px;cursor:pointer;font-size:11px;display:flex;align-items:center;justify-content:center;font-weight:700;padding:0;line-height:1">⏻</button>
         `;
-        document.body.appendChild(badge);
+        inline.style.display = 'flex';
       }
 
 
@@ -9382,7 +9468,7 @@
       function adminSaveStage(id) {
         const idx = stagesData.findIndex((s) => s.id === id);
         const def = STAGES_DEFAULT.find((s) => s.id === id) || {};
-        const visKeys = ['intro','scriptShort','obiective','calc','docs','timpi','video'];
+        const visKeys = ['intro','scriptShort','obiective','script','hooks','calc','docs','timpi','video'];
         const visibility = {};
         visKeys.forEach(k => {
           const el = document.getElementById('ae-vis-' + k);
@@ -17821,6 +17907,8 @@ function writePriceRow(sheet, row, prices, urls, date, ensureCol) {
         }
         // De aici încolo, getCurrentUser() returnează user-ul logat
         setTimeout(renderUserBadge, 100);
+        // Start auto-logout tracker (10 min inactivity)
+        try { startInactivityTracking(); } catch(e) { console.warn('[Auth] Inactivity tracker failed:', e); }
         loadAdmin();
         loadProducts();
         loadPrices();
@@ -18261,31 +18349,11 @@ LIMBA: ${lang === 'ro' ? 'Română' : lang === 'en' ? 'English' : 'Auto-detect'}
         } catch(e) {}
 
         // #3 Stage awareness: tell Consultant which stage the agent is viewing
-        // CRITICAL: read from edited stages (stagesData merged with default), not hardcoded
         try {
           if (typeof activeEtapa === 'string' && activeEtapa && typeof currentMode === 'string' && currentMode === 'etapizat') {
-            // getStage() merges STAGES_DEFAULT with stagesData (admin edits)
-            const _se = (typeof getStage === 'function') ? getStage(activeEtapa) : null;
-            if (_se) {
-              sp += `\n\n🎯 CONTEXT ETAPĂ ${_se.nr} — "${_se.title}"`;
-              if (_se.sub) sp += ` (${_se.sub})`;
-              if (_se.intro) sp += `\nDESCRIERE: ${_se.intro}`;
-              if (_se.script) sp += `\nSCRIPT VÂNZARE: ${_se.script}`;
-              if (Array.isArray(_se.hooks) && _se.hooks.length) {
-                sp += `\nHOOK-URI VÂNZARE:\n` + _se.hooks.map((h, i) => `${i+1}. ${h}`).join('\n');
-              }
-              if (Array.isArray(_se.scriptShort) && _se.scriptShort.length) {
-                sp += `\nCE CAUTĂ CLIENTUL ÎN ACEASTĂ ETAPĂ:\n` + _se.scriptShort.map(s => `• ${s}`).join('\n');
-              }
-              if (Array.isArray(_se.obiective) && _se.obiective.length) {
-                sp += `\nOBIECTIVE AGENT (ce ai de făcut):\n` + _se.obiective.map(o => `• ${o}`).join('\n');
-              }
-              if (Array.isArray(_se.docs) && _se.docs.length) {
-                sp += `\nDOCUMENTE/NOTIFICĂRI: ` + _se.docs.slice(0, 6).join('; ');
-              }
-              if (Array.isArray(_se.timpi) && _se.timpi.length) {
-                sp += `\nTIMPI: ` + _se.timpi.slice(0, 5).join('; ');
-              }
+            const _stageDef = (typeof STAGES_DEFAULT !== 'undefined' ? STAGES_DEFAULT : []).find(s => s.id === activeEtapa);
+            if (_stageDef) {
+              sp += `\n\n🎯 CONTEXT ETAPĂ ${_stageDef.nr} — "${_stageDef.title}". Script: ${_stageDef.script?.substring(0, 150) || ''}`;
             }
           } else if (typeof currentMode === 'string' && currentMode === 'total') {
             sp += `\n🎯 CONTEXT: Calculator Total — estimare completă casă.`;
