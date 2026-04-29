@@ -8770,8 +8770,11 @@
 
       // ── Cloud Sync (Google Drive via Apps Script) ──
       function collectAllData() {
+        // Citește prețuri sheet (cache competitori) ca să fie sincronizate
+        let sheetPrices = {};
+        try { sheetPrices = JSON.parse(localStorage.getItem('mathaus_sheet_comp_prices') || '{}'); } catch(e) {}
         return {
-          version: '3.1',
+          version: '3.2',
           savedAt: new Date().toISOString(),
           stagesData: stagesData,
           products: { BCA_DB, CAR_DB, TVG, GC_SYSTEMS },
@@ -8782,6 +8785,8 @@
           aiKnowledgeBase: loadAIKB(),
           chatApiKey: getChatApiKey() || '',
           users: loadUsers(),  // 🔐 utilizatori (cu hash parole) — sincronizați la toate device-urile
+          trackedProducts: loadTrackedProducts(), // 💰 prețuri validate concurenți (împărtășite la toți consilierii)
+          sheetCompPrices: sheetPrices, // 📊 cache prețuri competitori (write-back la sheet)
         };
       }
 
@@ -8842,6 +8847,55 @@
               localStorage.setItem(USERS_KEY, JSON.stringify(data.users));
               console.log('[Cloud] Users restored:', data.users.length, 'utilizatori');
             } catch(e) { console.warn('[Cloud] Users restore failed:', e.message); }
+          }
+          // 💰 Restore tracked products — prețuri validate concurenți (împărtășite la toți consilierii)
+          // Strategy: MERGE cu prețurile locale, păstrează cele mai noi
+          if (data.trackedProducts && Array.isArray(data.trackedProducts) && data.trackedProducts.length > 0) {
+            try {
+              const localList = loadTrackedProducts();
+              const cloudList = data.trackedProducts;
+              const merged = [];
+              const seenIds = new Set();
+              
+              // Pentru fiecare produs din cloud, compară cu local (după id sau sap)
+              cloudList.forEach(cloudP => {
+                const localP = localList.find(lp => 
+                  (cloudP.id && lp.id === cloudP.id) || 
+                  (cloudP.sap && lp.sap === cloudP.sap)
+                );
+                if (localP) {
+                  // Există local — păstrează versiunea mai nouă (după lastPriceDate)
+                  const cloudDate = cloudP.lastPriceDate || '0';
+                  const localDate = localP.lastPriceDate || '0';
+                  const winner = cloudDate > localDate ? cloudP : localP;
+                  merged.push(winner);
+                  seenIds.add(localP.id);
+                  if (cloudP.id) seenIds.add(cloudP.id);
+                } else {
+                  // Doar în cloud — adaugă
+                  merged.push(cloudP);
+                  if (cloudP.id) seenIds.add(cloudP.id);
+                }
+              });
+              
+              // Adaugă produsele care există DOAR local (validate offline, nesincronizate încă)
+              localList.forEach(lp => {
+                if (!seenIds.has(lp.id) && (!lp.sap || !cloudList.find(cp => cp.sap === lp.sap))) {
+                  merged.push(lp);
+                }
+              });
+              
+              saveTrackedProducts(merged);
+              console.log('[Cloud] Tracked products merged:', merged.length, '(local:', localList.length, '+ cloud:', cloudList.length, ')');
+            } catch(e) { console.warn('[Cloud] Tracked products restore failed:', e.message); }
+          }
+          // 📊 Restore sheet competitor prices cache (write-back data)
+          if (data.sheetCompPrices && typeof data.sheetCompPrices === 'object') {
+            try {
+              localStorage.setItem('mathaus_sheet_comp_prices', JSON.stringify(data.sheetCompPrices));
+              const count = Object.keys(data.sheetCompPrices).length;
+              if (count > 0) console.log('[Cloud] Sheet competitor prices restored:', count, 'produse');
+            } catch(e) { console.warn('[Cloud] Sheet prices restore failed:', e.message); }
           }
           return true;
         } catch(e) { console.error('[Cloud] Apply failed:', e); return false; }
@@ -14199,6 +14253,8 @@ PROGRAM MAGAZINE:
         saveTrackedProducts(list);
         // Write back to Google Sheet (prices + URLs)
         tpWritePricesToSheet(list[idx].sap, list[idx].nume, prices, list[idx].urls || {});
+        // 💰 Trigger auto-save Cloud — prețurile validate ajung la TOȚI consilierii
+        try { triggerCloudAutoSave(); } catch(e) {}
       }
 
       // ══════════ WRITEBACK: Salvează prețuri în Google Sheet ══════════
