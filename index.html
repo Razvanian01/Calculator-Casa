@@ -19912,13 +19912,77 @@ Pentru produse specifice, recomanzi catalogul MatHaus (mathaus.ro).
       let _ofertaIsRecording = false;
       let _ofertaSelectedId = null;
 
+      // Per-user offer key — fiecare consilier vede doar ofertele lui
+      // Admin (Razvan) vede toate ofertele (din toate cheile + cea globală veche)
+      function getOferteKey() {
+        try {
+          const u = (typeof getCurrentUser === 'function') ? getCurrentUser() : null;
+          if (u && u.username) {
+            return OFERTE_STORE + '_' + u.username.toLowerCase();
+          }
+        } catch(e) {}
+        return OFERTE_STORE;
+      }
+
       function loadOferte() {
-        try { return JSON.parse(localStorage.getItem(OFERTE_STORE) || '[]'); }
-        catch(e) { return []; }
+        try {
+          const u = (typeof getCurrentUser === 'function') ? getCurrentUser() : null;
+          // ADMIN vede TOATE ofertele (de la toți consilierii)
+          if (u && u.role === 'admin') {
+            const all = [];
+            const seen = new Set();
+            // Iterează toate cheile de oferte din localStorage
+            for (let i = 0; i < localStorage.length; i++) {
+              const k = localStorage.key(i);
+              if (k === OFERTE_STORE || (k && k.startsWith(OFERTE_STORE + '_'))) {
+                try {
+                  const list = JSON.parse(localStorage.getItem(k) || '[]');
+                  // Marchează cui aparține fiecare ofertă (pentru afișare)
+                  const ownerName = k === OFERTE_STORE ? '?' : k.replace(OFERTE_STORE + '_', '');
+                  list.forEach(o => {
+                    if (!seen.has(o.id)) {
+                      seen.add(o.id);
+                      all.push({ ...o, _owner: o._owner || ownerName });
+                    }
+                  });
+                } catch(e) {}
+              }
+            }
+            // Sortează cronologic descendent (cele mai noi sus)
+            all.sort((a, b) => (b.ts || 0) - (a.ts || 0));
+            return all;
+          }
+          // AGENT vede doar ofertele lui
+          return JSON.parse(localStorage.getItem(getOferteKey()) || '[]');
+        } catch(e) { return []; }
       }
 
       function saveOferte(list) {
-        localStorage.setItem(OFERTE_STORE, JSON.stringify(list));
+        try {
+          const u = (typeof getCurrentUser === 'function') ? getCurrentUser() : null;
+          // ADMIN: scrierea trebuie să meargă în cheia corectă a fiecărei oferte
+          // (fiecare ofertă păstrează cheia ei originală)
+          if (u && u.role === 'admin') {
+            // Grupează ofertele după owner
+            const byOwner = {};
+            list.forEach(o => {
+              const owner = o._owner || (u.username || '').toLowerCase();
+              if (!byOwner[owner]) byOwner[owner] = [];
+              byOwner[owner].push(o);
+            });
+            // Salvează în cheia fiecărui owner
+            for (const owner in byOwner) {
+              const key = OFERTE_STORE + '_' + owner;
+              localStorage.setItem(key, JSON.stringify(byOwner[owner]));
+            }
+          } else {
+            // AGENT: scrie doar în cheia lui
+            // Adaugă _owner la oferte noi care nu-l au
+            const username = (u?.username || '').toLowerCase();
+            const enriched = list.map(o => ({ ...o, _owner: o._owner || username }));
+            localStorage.setItem(getOferteKey(), JSON.stringify(enriched));
+          }
+        } catch(e) { console.warn('[Oferte] Save failed:', e); }
         // #7 Feedback loop: cache validated materials for Consultant training
         cacheFeedbackFromOferte(list);
       }
@@ -21692,11 +21756,18 @@ Pentru produse specifice, recomanzi catalogul MatHaus (mathaus.ro).
           const meta = `${o.data}${o.adresa ? ' · 📍 ' + o.adresa.substring(0,22) : ''}`;
           const isAI = o.tip !== 'notita';
           const icon = o.status === 'processing' ? '⏳' : isAI ? '🤖' : '📝';
+          // Pentru admin: arată numele ownerului în card
+          const u = (typeof getCurrentUser === 'function') ? getCurrentUser() : null;
+          const showOwner = u && u.role === 'admin' && o._owner;
+          const ownerBadge = showOwner 
+            ? `<span style="background:#fbbf24;color:#1c2b4a;font-size:9px;font-weight:800;padding:1px 6px;border-radius:6px;text-transform:uppercase;letter-spacing:.03em">👤 ${escHtml(o._owner)}</span>` 
+            : '';
           return `<div class="oferta-card ${_ofertaSelectedId === o.id ? 'active' : ''}" onclick="ofertaShowDetail('${o.id}')">
             <div style="flex:1;min-width:0">
               <div style="display:flex;align-items:center;gap:5px;margin-bottom:2px">
                 <span style="font-size:13px">${icon}</span>
                 <div class="oferta-client" style="flex:1">${escHtml(o.client)}</div>
+                ${ownerBadge}
               </div>
               <div class="oferta-meta">${escHtml(meta)}</div>
             </div>
