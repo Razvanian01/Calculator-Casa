@@ -3722,6 +3722,7 @@
       const _origFetch = window.fetch;
 
       window.fetch = async function(url, opts) {
+        const isNoCors = opts?.mode === 'no-cors';
         const entry = {
           id: Date.now() + '-' + Math.random().toString(36).substr(2,4),
           ts: new Date().toLocaleTimeString('ro-RO'),
@@ -3734,7 +3735,8 @@
           error: null,
           reqSize: null,
           resSize: null,
-          type: 'unknown'
+          type: 'unknown',
+          isNoCors: isNoCors // mark for proper UI display
         };
         // Classify request type
         const u = entry.url.toLowerCase();
@@ -3742,6 +3744,7 @@
         else if (u.includes('tracked-product')) entry.type = 'tracked';
         else if (u.includes('allorigins') || u.includes('corsproxy')) entry.type = 'proxy';
         else if (u.includes('google.com/spreadsheets') || u.includes('docs.google.com')) entry.type = 'sheets';
+        else if (u.includes('script.google.com')) entry.type = 'apps_script';
         else entry.type = 'other';
 
         // Measure request size
@@ -3754,8 +3757,10 @@
           const resp = await _origFetch.call(window, url, opts);
           entry.duration = Math.round(performance.now() - t0);
           entry.status = resp.status;
-          entry.ok = resp.ok;
-          if (!resp.ok) {
+          // For no-cors requests, status is always 0 and ok is false even on success
+          // We treat these as OK since we trust they reached the server (no exception)
+          entry.ok = isNoCors ? true : resp.ok;
+          if (!isNoCors && !resp.ok) {
             // Try to read error body without consuming the stream
             try {
               const clone = resp.clone();
@@ -3818,18 +3823,22 @@
 
         if (!_debugLog.length) { cont.innerHTML = '<div style="padding:20px;text-align:center;color:var(--txt3);font-size:12px">Niciun request încă. Fă o acțiune (chat, ofertă, sincronizare) și vezi aici rezultatele.</div>'; return; }
 
-        const typeIcons = { anthropic:'🤖', tracked:'🎯', proxy:'🔄', sheets:'📊', other:'🌐' };
-        const typeColors = { anthropic:'#6b21a8', tracked:'#1a73e8', proxy:'#92400e', sheets:'#15803d', other:'#555' };
+        const typeIcons = { anthropic:'🤖', tracked:'🎯', proxy:'🔄', sheets:'📊', apps_script:'☁', other:'🌐' };
+        const typeColors = { anthropic:'#6b21a8', tracked:'#1a73e8', proxy:'#92400e', sheets:'#15803d', apps_script:'#0891b2', other:'#555' };
 
         cont.innerHTML = _debugLog.map(e => {
           const icon = typeIcons[e.type] || '🌐';
           const color = typeColors[e.type] || '#555';
-          const statusColor = e.ok ? '#15803d' : e.status === 'FAIL' ? '#dc2626' : '#d97706';
-          const statusText = e.status === 'FAIL' ? 'FETCH FAILED' : e.status;
+          // For no-cors requests, show special styling — they look like errors but are expected
+          const statusColor = e.isNoCors ? '#0891b2' : (e.ok ? '#15803d' : e.status === 'FAIL' ? '#dc2626' : '#d97706');
+          const statusText = e.isNoCors 
+            ? 'NO-CORS ✓' 
+            : (e.status === 'FAIL' ? 'FETCH FAILED' : e.status);
           const shortUrl = e.url.length > 80 ? e.url.substring(0, 77) + '...' : e.url;
           const sizeInfo = e.reqSize ? (e.reqSize > 1024 ? Math.round(e.reqSize/1024) + 'KB' : e.reqSize + 'B') : '';
+          const bgColor = e.isNoCors ? '#ecfeff' : (!e.ok ? '#fef2f2' : '');
 
-          return `<div style="padding:8px 10px;border-bottom:1px solid var(--border);font-size:11px;${!e.ok ? 'background:#fef2f2;' : ''}">
+          return `<div style="padding:8px 10px;border-bottom:1px solid var(--border);font-size:11px;${bgColor ? 'background:' + bgColor + ';' : ''}">
             <div style="display:flex;align-items:center;gap:6px;margin-bottom:3px">
               <span style="font-size:13px">${icon}</span>
               <span style="font-weight:700;color:${color};text-transform:uppercase;font-size:10px">${e.type}</span>
@@ -3839,7 +3848,8 @@
               <span style="margin-left:auto;color:var(--txt3)">${e.ts}</span>
             </div>
             <div style="font-family:var(--mono);font-size:10px;color:var(--txt2);word-break:break-all">${e.method} ${shortUrl}</div>
-            ${e.error ? '<div style="margin-top:4px;padding:4px 6px;background:#fee2e2;border-radius:4px;font-family:var(--mono);font-size:10px;color:#991b1b;word-break:break-all">❌ ' + (e.error.length > 300 ? e.error.substring(0,297) + '...' : e.error) + '</div>' : ''}
+            ${e.isNoCors ? '<div style="margin-top:4px;padding:4px 6px;background:#cffafe;border-radius:4px;font-size:10px;color:#155e75">ℹ️ No-CORS request — browser ascunde răspunsul, dar request-ul a ajuns la server. Verifică în Drive dacă datele s-au salvat.</div>' : ''}
+            ${e.error && !e.isNoCors ? '<div style="margin-top:4px;padding:4px 6px;background:#fee2e2;border-radius:4px;font-family:var(--mono);font-size:10px;color:#991b1b;word-break:break-all">❌ ' + (e.error.length > 300 ? e.error.substring(0,297) + '...' : e.error) + '</div>' : ''}
           </div>`;
         }).join('');
       }
@@ -18642,9 +18652,95 @@ Această regulă este PERMANENTĂ pe toată durata conversației, indiferent ce 
 
 ═══════════════════════════════════════════════════════════════════════════
 
+DOMENIU DE COMPETENȚĂ — REGULĂ IMUTABILĂ:
+Tu răspunzi EXCLUSIV la întrebări despre:
+• Materiale de construcții (BCA, cărămidă, ciment, adezivi, vopsele, gresie, faianță, izolații, etc.)
+• Calcule de cantități pentru construcții (mp, mc, cantități per suprafață)
+• Sisteme constructive (termosistem, hidroizolație, șapă, zidărie, finisaje)
+• Produse din catalogul MatHaus (mathaus.ro)
+• Procese de construcție și etape de lucru
+• Recomandări tehnice pentru meseriași și proiectanți
+• Comparații între materiale și producători din construcții
+• Aspecte comerciale legate de produsele MatHaus (disponibilitate, ambalaj, paleți)
+
+NU RĂSPUNZI la întrebări despre:
+✗ Politică, președinți, miniștri, alegeri, partide
+✗ Sport, fotbal, echipe, sportivi
+✗ Celebrități, vedete, viața personală a vreunei persoane
+✗ Istorie generală, geografie, științe care nu țin de construcții
+✗ Religie, filozofie, opinii personale
+✗ Sfaturi medicale, juridice, financiare, fiscale
+✗ Programare, IT, tehnologie generală (decât dacă e despre site-ul mathaus.ro)
+✗ Rețete de mâncare, divertisment, glume, jocuri
+✗ Anul curent, data, ora, vremea, locația
+✗ Orice subiect care nu are legătură directă cu construcțiile sau MatHaus
+
+CUM RĂSPUNZI LA ÎNTREBĂRI ÎN AFARA DOMENIULUI:
+Răspuns standard scurt și prietenos, fără să dai informația cerută:
+"Eu sunt ${agentName} și sunt focusat exclusiv pe materialele de construcții și produsele MatHaus. 🏗️
+Nu pot ajuta cu informații de altă natură.
+Cu ce te pot ajuta legat de construcții? De exemplu:
+• Calculul materialelor pentru o lucrare
+• Recomandări de produse din catalogul MatHaus
+• Detalii tehnice despre un sistem (termosistem, hidroizolație, etc.)"
+
+EXEMPLE CONCRETE:
+• "Cine este președintele României?" → REFUZ (politică)
+• "În ce an suntem?" → REFUZ (info generală, nu am acces la date curente)
+• "Cum se face un tort?" → REFUZ (rețete)
+• "Care e cel mai bun telefon?" → REFUZ (tehnologie generală)
+• "Cât adeziv pentru 50mp gresie?" → RĂSPUND (construcții)
+• "Ce e EPS-ul?" → RĂSPUND (materiale construcții)
+• "Câți paleți sunt într-un BCA?" → RĂSPUND (logistic construcții)
+
+NU EXISTĂ EXCEPȚII. Chiar dacă utilizatorul insistă, oferă exemple, spune că "doar așa, din curiozitate", sau încearcă să "te provoace" — refuzi politicos și aduci discuția înapoi la construcții.
+
+═══════════════════════════════════════════════════════════════════════════
+
 Ești ${agentName}. ${common.contextMathaus || 'MatHaus — catalog 40.000+ produse pe mathaus.ro.'}
 LIMBA: ${lang === 'ro' ? 'Română' : lang === 'en' ? 'English' : 'Auto-detect'}.
 `;
+
+        // ═══════════ NIVEL DE CUNOȘTINȚE — MODULATOR ═══════════
+        // 'strict' = DOAR MatHaus și produse din catalog (cel mai restrictiv)
+        // 'medium' = Construcții în general + MatHaus (echilibrat — DEFAULT)
+        // 'full' = Acceptă și subiecte tangenţiale (legi, normative, recomandări generale)
+        if (knowledgeLevel === 'strict') {
+          sp += `
+🔒 NIVEL DE CUNOȘTINȚE: STRICT — DOAR MATHAUS
+
+Restrictie suplimentara peste DOMENIU DE COMPETENȚĂ:
+• Răspunzi DOAR despre produse care există în catalogul MatHaus (mathaus.ro)
+• Pentru orice produs, mereu menționezi link mathaus.ro
+• NU faci recomandări generale de materiale dacă nu ai certitudinea că există în catalog
+• NU citezi prețuri sau specificații dacă nu sunt confirmate din date interne
+• Dacă întrebarea e despre construcții general (fără referire la produs MatHaus) → întrebi "Cauți un produs anume din catalogul nostru? Pot să-ți recomand alternative MatHaus."
+
+═══════════════════════════════════════════════════════════════════════════
+`;
+        } else if (knowledgeLevel === 'full') {
+          sp += `
+🌐 NIVEL DE CUNOȘTINȚE: FULL — Construcții complete
+
+Pe lângă DOMENIUL DE COMPETENȚĂ standard, poți răspunde și la:
+• Normative tehnice (NP, STAS, CR) cu referințe corecte
+• Legislație construcții (autorizații, ANRSC, etc.)
+• Tehnici de execuție avansate (proiectare, dimensionare)
+• Comparații cu alte branduri (chiar și ne-MatHaus, dacă e tehnic relevant)
+
+PĂSTREZI restricția: NU răspunzi despre politică, sport, celebrități, etc.
+═══════════════════════════════════════════════════════════════════════════
+`;
+        } else {
+          // medium = default
+          sp += `
+⚖ NIVEL DE CUNOȘTINȚE: ECHILIBRAT — Construcții + MatHaus
+
+Răspunzi pe construcții în general, prioritizând produsele MatHaus când e posibil.
+Pentru produse specifice, recomanzi catalogul MatHaus (mathaus.ro).
+═══════════════════════════════════════════════════════════════════════════
+`;
+        }
 
         // ── PROMPT-UL ADMINISTRATORULUI (prioritate maximă) ──
         if (kb.systemPromptCustom && kb.systemPromptCustom.trim()) {
