@@ -18295,6 +18295,59 @@ function writePriceRow(sheet, row, prices, urls, date, ensureCol) {
         } catch(e) {}
         
         loadChatHistory();
+        
+        // 👋 WELCOME MESSAGE — afișează mesaj prietenos doar dacă nu există istoric
+        // Mesajul e personalizat pe ora zilei + numele consilierului
+        if (chatConversation.length === 0) {
+          showWelcomeMessage();
+        }
+        
+        // ⏰ Pornește temporizatorul de inactivitate chat (3 min)
+        startChatInactivityTimer();
+      }
+      
+      // ── WELCOME MESSAGE ──
+      function showWelcomeMessage() {
+        try {
+          const u = (typeof getCurrentUser === 'function') ? getCurrentUser() : null;
+          const name = u?.username || 'coleg';
+          const cKb = loadConsultantKB();
+          const agentName = cKb.agentName || 'Consultant MatHaus';
+          
+          // Personalizare după ora zilei
+          const hour = new Date().getHours();
+          let greeting;
+          if (hour < 11) greeting = `Bună dimineața, ${name}! ☕`;
+          else if (hour < 17) greeting = `Salut, ${name}! 👋`;
+          else if (hour < 21) greeting = `Bună seara, ${name}! 🌅`;
+          else greeting = `Salut, ${name}! 🌙`;
+          
+          // Mesaje varia (random) ca să nu fie monotonia
+          const helpers = [
+            `Sunt **${agentName}**, asistentul tău pentru orice întrebare despre materiale și calcule.\n\nCu ce te ajut? Poți să mă întrebi despre:\n• Cantități pentru o suprafață anume\n• Sisteme complete (termosistem, hidroizolație, șapă)\n• Recomandări de produse MatHaus\n• Consum și prețuri\n\n*Scrie întrebarea sau apasă pe una din sugestiile de mai jos.* ✨`,
+            
+            `Sunt **${agentName}**, gata să te ajut cu calculele și recomandările.\n\nDacă ai un client în față, spune-mi ce vrea să facă (zidărie, izolație, finisaje) și **pun întâi câteva întrebări** ca să-ți dau lista corectă completă.\n\n*Cu ce începem?* 🏗️`,
+            
+            `Sunt **${agentName}**, partenerul tău pentru ofertare rapidă.\n\nDacă mă întrebi de un sistem (termosistem, hidroizolație) **te voi întreba câteva detalii** ca să fie totul corect — grosime, tip izolant, finisaj. Apoi îți dau lista completă cu cantități, paleți și link-uri mathaus.ro.\n\n*Spune-mi cu ce te confrunți!* 💪`
+          ];
+          const helper = helpers[Math.floor(Math.random() * helpers.length)];
+          
+          const fullMessage = `${greeting}\n\n${helper}`;
+          
+          // Adaug mesaj fără să-l salvez în history (e doar greeting, nu vrem să fie trimis înapoi la AI)
+          const container = document.getElementById('chat-messages');
+          if (!container) return;
+          const div = document.createElement('div');
+          div.className = 'chat-msg bot chat-welcome';
+          div.innerHTML = `
+            <div class="chat-msg-avatar">🤖</div>
+            <div style="flex:1;min-width:0">
+              <div class="chat-bubble" style="background:linear-gradient(135deg,#fff8e1 0%,#fffbeb 100%);border:1.5px solid #fde68a">${chatMarkdown(fullMessage)}</div>
+            </div>
+          `;
+          container.appendChild(div);
+          scrollChatBottom();
+        } catch(e) { console.warn('[Chat Welcome] failed:', e); }
       }
 
       // Ecran "Se sincronizează..." pentru consilieri în timpul cloud re-sync
@@ -18413,7 +18466,135 @@ function writePriceRow(sheet, row, prices, urls, date, ensureCol) {
           scrollChatBottom();
         }, 350);
       }
+      // ── CHAT INACTIVITY TIMER ──
+      // Dacă utilizatorul nu mai scrie nimic timp de 3 minute, AI-ul întreabă "mai pot ajuta?"
+      // Dacă tace încă 2 minute → închide chat-ul automat
+      const CHAT_IDLE_PROMPT_MS = 3 * 60 * 1000;     // 3 min — întreabă dacă mai are nevoie
+      const CHAT_IDLE_CLOSE_MS = 2 * 60 * 1000;       // încă 2 min → închide chat
+      let _chatIdleTimer = null;
+      let _chatIdlePrompted = false;
+      
+      function startChatInactivityTimer() {
+        clearChatInactivityTimer();
+        // Skip dacă chat-ul nu e deschis
+        const overlay = document.getElementById('chat-overlay');
+        if (!overlay || !overlay.classList.contains('active')) return;
+        _chatIdleTimer = setTimeout(() => {
+          showChatIdlePrompt();
+        }, CHAT_IDLE_PROMPT_MS);
+      }
+      
+      function clearChatInactivityTimer() {
+        if (_chatIdleTimer) {
+          clearTimeout(_chatIdleTimer);
+          _chatIdleTimer = null;
+        }
+      }
+      
+      function resetChatInactivityTimer() {
+        // Apelat la fiecare interacțiune cu chat-ul
+        _chatIdlePrompted = false;
+        // Șterge prompt-ul de "mai pot ajuta?" dacă e pe ecran
+        const prompt = document.getElementById('chat-idle-prompt');
+        if (prompt) prompt.remove();
+        startChatInactivityTimer();
+      }
+      
+      function showChatIdlePrompt() {
+        if (_chatIdlePrompted) return;
+        // Skip dacă AI încă răspunde
+        if (chatIsProcessing) {
+          // Re-amână cu 30s
+          _chatIdleTimer = setTimeout(showChatIdlePrompt, 30000);
+          return;
+        }
+        const overlay = document.getElementById('chat-overlay');
+        if (!overlay || !overlay.classList.contains('active')) return;
+        const container = document.getElementById('chat-messages');
+        if (!container) return;
+        
+        _chatIdlePrompted = true;
+        
+        // Mesaje variate ca să nu fie identice de fiecare dată
+        const prompts = [
+          'Mai am ceva ce te interesează? 🤔',
+          'Te mai pot ajuta cu ceva? 💬',
+          'Mai vrei să discutăm despre ceva? 🏗️',
+          'Mai ai vreo întrebare pentru mine? ✨'
+        ];
+        const msg = prompts[Math.floor(Math.random() * prompts.length)];
+        
+        const div = document.createElement('div');
+        div.id = 'chat-idle-prompt';
+        div.className = 'chat-msg bot';
+        div.innerHTML = `
+          <div class="chat-msg-avatar">🤖</div>
+          <div style="flex:1;min-width:0">
+            <div class="chat-bubble" style="background:#eff6ff;border:1.5px solid #bfdbfe">
+              <p>${msg}</p>
+              <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
+                <button onclick="chatIdleResponse(true)" 
+                  style="background:var(--green);color:#fff;border:none;border-radius:8px;padding:8px 18px;font-size:13px;font-weight:700;cursor:pointer;min-height:40px">
+                  ✅ Da, mai am o întrebare
+                </button>
+                <button onclick="chatIdleResponse(false)"
+                  style="background:#fff;color:var(--txt2);border:1.5px solid var(--border);border-radius:8px;padding:8px 18px;font-size:13px;font-weight:600;cursor:pointer;min-height:40px">
+                  ❌ Nu, mulțumesc
+                </button>
+              </div>
+              <div style="font-size:11px;color:var(--txt3);margin-top:8px">
+                <em>Chat-ul se va închide automat în 2 minute dacă nu răspunzi.</em>
+              </div>
+            </div>
+          </div>
+        `;
+        container.appendChild(div);
+        scrollChatBottom();
+        
+        // Timer-ul de auto-close (2 min)
+        _chatIdleTimer = setTimeout(() => {
+          chatIdleResponse(false);
+        }, CHAT_IDLE_CLOSE_MS);
+      }
+      
+      function chatIdleResponse(wantsMore) {
+        clearChatInactivityTimer();
+        const prompt = document.getElementById('chat-idle-prompt');
+        if (prompt) prompt.remove();
+        _chatIdlePrompted = false;
+        
+        if (wantsMore) {
+          // Continuă conversația — focus pe input + restart timer
+          setTimeout(() => {
+            const inp = document.getElementById('chat-input');
+            if (inp) inp.focus();
+            startChatInactivityTimer();
+          }, 100);
+        } else {
+          // Închide chat-ul cu un mesaj de adio
+          const container = document.getElementById('chat-messages');
+          if (container) {
+            const div = document.createElement('div');
+            div.className = 'chat-msg bot';
+            div.innerHTML = `
+              <div class="chat-msg-avatar">🤖</div>
+              <div style="flex:1;min-width:0">
+                <div class="chat-bubble" style="background:#f0fdf4;border:1.5px solid #bbf7d0">
+                  <p>Cu plăcere! Pe curând! 👋<br><em>Chat-ul se închide în 3 secunde...</em></p>
+                </div>
+              </div>
+            `;
+            container.appendChild(div);
+            scrollChatBottom();
+          }
+          setTimeout(() => {
+            try { closeChat(); } catch(e) {}
+          }, 3000);
+        }
+      }
+      
       function closeChat() {
+        clearChatInactivityTimer();
         const overlay = document.getElementById('chat-overlay');
         const fab = document.getElementById('chat-fab');
         if (overlay) overlay.classList.remove('active');
@@ -18821,6 +19002,9 @@ LIMBA: ${lang === 'ro' ? 'Română' : lang === 'en' ? 'English' : 'Auto-detect'}
         const apiKey = getChatApiKey();
         if (!apiKey) return;
 
+        // 🔄 Reset timer de inactivitate la fiecare mesaj
+        try { resetChatInactivityTimer(); } catch(e) {}
+
         const sugs = document.getElementById('chat-suggestions');
         if (sugs) sugs.style.display = 'none';
 
@@ -18906,6 +19090,8 @@ LIMBA: ${lang === 'ro' ? 'Română' : lang === 'en' ? 'English' : 'Auto-detect'}
           chatConversation.push({ role: 'assistant', content: fullText });
           saveChatHistory();
           playNotifSound();
+          // 🔄 Reset timer de inactivitate după ce AI a terminat
+          try { resetChatInactivityTimer(); } catch(e) {}
           // Budget tracking (estimate tokens from text lengths)
           const _spLen = (body.system || '').length;
           const _msgLen = JSON.stringify(body.messages).length;
