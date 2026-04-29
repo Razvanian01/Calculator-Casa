@@ -3662,6 +3662,21 @@
     <script>
       "use strict";
       // ═══════════════════════════════════════════════════════
+      // PRODUCTION MODE — silence verbose logs for performance
+      // Activate debug: set localStorage.mh_debug = '1' or add ?debug to URL
+      // ═══════════════════════════════════════════════════════
+      (function(){
+        const isDebug = (localStorage.getItem('mh_debug') === '1') || /[?&]debug/.test(location.search);
+        if (!isDebug) {
+          // Keep console.error and console.warn for critical messages
+          // Silence console.log (verbose) — saves CPU + memory in long sessions
+          window.console.log = function(){};
+        } else {
+          console.log('[MatHaus] 🐛 Debug mode ON — all logs visible');
+        }
+      })();
+      
+      // ═══════════════════════════════════════════════════════
       // SAP LINK LOOKUP — extrage link-uri corecte din baza de materiale
       // ═══════════════════════════════════════════════════════
       let _sapLinkMap = null; // lazy init
@@ -8232,17 +8247,23 @@
         return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
       }
 
+      // Cache for users to avoid repeated localStorage hits + JSON.parse
+      let _usersCache = null;
+      
       function loadUsers() {
+        if (_usersCache) return _usersCache;
         try {
           const raw = localStorage.getItem(USERS_KEY);
-          if (raw) return JSON.parse(raw);
+          if (raw) { _usersCache = JSON.parse(raw); return _usersCache; }
         } catch(e) {}
         // First boot: seed defaults
         try { localStorage.setItem(USERS_KEY, JSON.stringify(DEFAULT_USERS)); } catch(e) {}
-        return DEFAULT_USERS.slice();
+        _usersCache = DEFAULT_USERS.slice();
+        return _usersCache;
       }
       function saveUsers(users) {
         try { localStorage.setItem(USERS_KEY, JSON.stringify(users)); } catch(e) {}
+        _usersCache = null; // invalidate cache after write
       }
 
       function loadSession() {
@@ -11626,26 +11647,54 @@
       };
 
       // ── LOAD / SAVE per KB ──
+      // Memory cache — invalidated on save. Reduces 76+ JSON.parse calls per session.
+      let _commonKBCache = null;
+      let _consultantKBCache = null;
+      let _ofertareKBCache = null;
+      let _aiKBCache = null;
+      let _migrationDone = false;
+      
       function loadCommonKB() {
-        try { const s = localStorage.getItem(KB_COMMON_STORE); return s ? { ...KB_COMMON_DEFAULTS, ...JSON.parse(s) } : { ...KB_COMMON_DEFAULTS }; }
-        catch(e) { return { ...KB_COMMON_DEFAULTS }; }
+        if (_commonKBCache) return _commonKBCache;
+        try { 
+          const s = localStorage.getItem(KB_COMMON_STORE); 
+          _commonKBCache = s ? { ...KB_COMMON_DEFAULTS, ...JSON.parse(s) } : { ...KB_COMMON_DEFAULTS }; 
+          return _commonKBCache;
+        }
+        catch(e) { _commonKBCache = { ...KB_COMMON_DEFAULTS }; return _commonKBCache; }
       }
       function saveCommonKB(data) {
         try { localStorage.setItem(KB_COMMON_STORE, JSON.stringify(data)); } catch(e){}
+        _commonKBCache = null;
+        _aiKBCache = null;
       }
       function loadConsultantKB() {
-        try { const s = localStorage.getItem(KB_CONSULTANT_STORE); return s ? { ...KB_CONSULTANT_DEFAULTS, ...JSON.parse(s) } : { ...KB_CONSULTANT_DEFAULTS }; }
-        catch(e) { return { ...KB_CONSULTANT_DEFAULTS }; }
+        if (_consultantKBCache) return _consultantKBCache;
+        try { 
+          const s = localStorage.getItem(KB_CONSULTANT_STORE); 
+          _consultantKBCache = s ? { ...KB_CONSULTANT_DEFAULTS, ...JSON.parse(s) } : { ...KB_CONSULTANT_DEFAULTS }; 
+          return _consultantKBCache;
+        }
+        catch(e) { _consultantKBCache = { ...KB_CONSULTANT_DEFAULTS }; return _consultantKBCache; }
       }
       function saveConsultantKB(data) {
         try { localStorage.setItem(KB_CONSULTANT_STORE, JSON.stringify(data)); } catch(e){}
+        _consultantKBCache = null;
+        _aiKBCache = null;
       }
       function loadOfertareKB() {
-        try { const s = localStorage.getItem(KB_OFERTARE_STORE); return s ? { ...KB_OFERTARE_DEFAULTS, ...JSON.parse(s) } : { ...KB_OFERTARE_DEFAULTS }; }
-        catch(e) { return { ...KB_OFERTARE_DEFAULTS }; }
+        if (_ofertareKBCache) return _ofertareKBCache;
+        try { 
+          const s = localStorage.getItem(KB_OFERTARE_STORE); 
+          _ofertareKBCache = s ? { ...KB_OFERTARE_DEFAULTS, ...JSON.parse(s) } : { ...KB_OFERTARE_DEFAULTS }; 
+          return _ofertareKBCache;
+        }
+        catch(e) { _ofertareKBCache = { ...KB_OFERTARE_DEFAULTS }; return _ofertareKBCache; }
       }
       function saveOfertareKB(data) {
         try { localStorage.setItem(KB_OFERTARE_STORE, JSON.stringify(data)); } catch(e){}
+        _ofertareKBCache = null;
+        _aiKBCache = null;
       }
 
       // ── BACKWARD COMPAT: migrate old single KB → 3 separate ──
@@ -11690,11 +11739,15 @@
       // ── COMPATIBILITY LAYER: loadAIKB/saveAIKB merge all 3 ──
       // This keeps ALL existing admin UI working without changes
       function loadAIKB() {
-        migrateOldKB();
+        if (_aiKBCache) return _aiKBCache;
+        if (!_migrationDone) {
+          migrateOldKB();
+          _migrationDone = true;
+        }
         const common = loadCommonKB();
         const consultant = loadConsultantKB();
         const ofertare = loadOfertareKB();
-        return {
+        _aiKBCache = {
           ...common,
           ...consultant,
           ...ofertare,
@@ -11703,6 +11756,7 @@
           ofertaContextProdus: common.contextProdus,
           language: common.language,
         };
+        return _aiKBCache;
       }
       function saveAIKB(data) {
         // Split incoming data back into 3 stores
