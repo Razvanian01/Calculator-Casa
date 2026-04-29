@@ -11106,10 +11106,35 @@
         Generează un link special care include configurarea Cloud. Colegii deschid link-ul → aplicația se sincronizează automat → AI-ul e gata de utilizat, cu cheia API, prompt-ul și toate setările tale.
       </div>
       ${appSettings.cloudUrl ? `
-        <div style="display:flex;gap:8px;align-items:center">
+        <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px">
           <input class="input" id="team-link-output" readonly value="${window.location.origin + window.location.pathname + '?cloud=' + encodeURIComponent(sanitizeAppsScriptUrl(appSettings.cloudUrl||''))}" style="flex:1;font-family:var(--mono);font-size:11px;min-height:40px;background:var(--surface)" />
-          <button class="btn btn-primary btn-sm" onclick="copyTeamLink()">📋 Copiază</button>
+          <button class="btn btn-primary btn-sm" onclick="copyTeamLink()" title="Copiază link-ul lung">📋 Copiază</button>
         </div>
+        
+        <!-- LINK SCURT -->
+        <div style="background:linear-gradient(135deg,#f0fdf4 0%,#ecfdf5 100%);border:1.5px solid #86efac;border-radius:10px;padding:12px;margin-bottom:10px">
+          <div style="font-size:12px;font-weight:700;color:#15803d;margin-bottom:6px">⚡ Link Scurt — perfect pentru WhatsApp/SMS</div>
+          <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+            <input class="input" id="team-link-short" readonly placeholder="Apasă 'Generează link scurt' →" style="flex:1;min-width:200px;font-family:var(--mono);font-size:13px;font-weight:700;min-height:38px;background:#fff;color:#15803d" />
+            <button class="btn btn-sm" id="btn-gen-short" onclick="generateShortTeamLink()" style="background:#15803d;color:#fff;border:none;font-size:12px">🪄 Generează</button>
+            <button class="btn btn-sm" id="btn-copy-short" onclick="copyShortLink()" style="background:#fff;color:#15803d;border:1.5px solid #15803d;font-size:12px;display:none">📋 Copiază</button>
+          </div>
+          <div style="font-size:10px;color:#166534;margin-top:6px">
+            💡 Folosește TinyURL (gratuit, fără cont). Link-ul scurt nu expiră.
+          </div>
+        </div>
+        
+        <!-- QR CODE -->
+        <div style="background:#fafafa;border:1.5px solid var(--border);border-radius:10px;padding:12px">
+          <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px">
+            <div>
+              <div style="font-size:12px;font-weight:700;color:var(--navy);margin-bottom:4px">📱 Cod QR — pentru scanare directă pe tabletă</div>
+              <div style="font-size:11px;color:var(--txt3);line-height:1.5">Consilierul deschide camera telefonului/tabletei, scanează codul, intră direct în aplicație. Zero tastare.</div>
+            </div>
+            <button class="btn btn-sm" onclick="showTeamQR()" style="background:#1c2b4a;color:#fbbf24;border:2px solid #fbbf24;white-space:nowrap">📱 Arată QR</button>
+          </div>
+        </div>
+        
         <div style="font-size:11px;color:var(--txt3);margin-top:8px">
           ⚠ Salvează mai întâi pe Drive (☁ Salvează Acum) ca să fie datele actualizate. Colegii primesc totul: materiale, prețuri, setări AI, cheie API.
         </div>
@@ -11141,6 +11166,177 @@
           document.execCommand('copy');
           toast('✅ Link copiat!');
         });
+      }
+
+      // ── SHORT LINK via TinyURL (free, no auth required) ──
+      async function generateShortTeamLink() {
+        const longInput = $('team-link-output');
+        const shortInput = $('team-link-short');
+        const genBtn = $('btn-gen-short');
+        const copyBtn = $('btn-copy-short');
+        if (!longInput || !shortInput) return;
+        
+        const longUrl = longInput.value;
+        if (!longUrl || longUrl.length < 30) {
+          toast('❌ Link-ul lung nu e disponibil. Verifică Cloud Backup.');
+          return;
+        }
+        
+        // Verifică dacă am deja un short link salvat pentru acest URL
+        const cached = localStorage.getItem('mh_team_short_link');
+        if (cached) {
+          try {
+            const c = JSON.parse(cached);
+            if (c.long === longUrl && c.short) {
+              shortInput.value = c.short;
+              if (copyBtn) copyBtn.style.display = 'inline-block';
+              toast('✅ Link scurt deja generat (din cache)');
+              return;
+            }
+          } catch(e) {}
+        }
+        
+        if (genBtn) {
+          genBtn.disabled = true;
+          genBtn.textContent = '⏳ Generez...';
+        }
+        
+        try {
+          // TinyURL API (gratuit, nu necesită cont)
+          const apiUrl = 'https://tinyurl.com/api-create.php?url=' + encodeURIComponent(longUrl);
+          const response = await fetch(apiUrl);
+          if (!response.ok) throw new Error('API error: ' + response.status);
+          const shortUrl = await response.text();
+          if (!shortUrl || !shortUrl.startsWith('http')) throw new Error('Răspuns invalid: ' + shortUrl);
+          
+          shortInput.value = shortUrl;
+          if (copyBtn) copyBtn.style.display = 'inline-block';
+          
+          // Salvează în cache
+          localStorage.setItem('mh_team_short_link', JSON.stringify({
+            long: longUrl,
+            short: shortUrl,
+            created: Date.now()
+          }));
+          
+          toast('✅ Link scurt generat: ' + shortUrl, 5000);
+        } catch(err) {
+          toast('❌ Eroare: ' + (err.message || 'TinyURL nu e accesibil'), 5000);
+          // Fallback: sugerează manual
+          shortInput.value = '';
+          shortInput.placeholder = 'Eroare TinyURL — copiază link-ul lung';
+        } finally {
+          if (genBtn) {
+            genBtn.disabled = false;
+            genBtn.textContent = '🪄 Generează';
+          }
+        }
+      }
+      
+      function copyShortLink() {
+        const inp = $('team-link-short');
+        if (!inp || !inp.value) return;
+        inp.select();
+        navigator.clipboard.writeText(inp.value).then(() => {
+          toast('✅ Link scurt copiat! Trimite pe WhatsApp/SMS.');
+        }).catch(() => {
+          document.execCommand('copy');
+          toast('✅ Copiat!');
+        });
+      }
+
+      // ── QR CODE pentru link echipă ──
+      function showTeamQR() {
+        const longInput = $('team-link-output');
+        const shortInput = $('team-link-short');
+        if (!longInput) return;
+        
+        // Folosește link-ul scurt dacă există, altfel cel lung
+        const url = (shortInput && shortInput.value) ? shortInput.value : longInput.value;
+        if (!url) {
+          toast('❌ Link-ul nu e disponibil');
+          return;
+        }
+        
+        // QR Code generator gratuit (api.qrserver.com — fără cont, fără limite)
+        const qrUrl = 'https://api.qrserver.com/v1/create-qr-code/?size=400x400&data=' + encodeURIComponent(url) + '&margin=10&color=1c2b4a&bgcolor=ffffff';
+        
+        // Modal cu QR
+        const modal = document.createElement('div');
+        modal.id = 'qr-modal';
+        modal.style.cssText = 'position:fixed;inset:0;z-index:99999;background:rgba(15,23,42,.85);display:flex;align-items:center;justify-content:center;padding:20px;backdrop-filter:blur(8px)';
+        modal.innerHTML = `
+          <div style="background:#fff;padding:24px;border-radius:16px;max-width:480px;width:100%;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.4);position:relative">
+            <button onclick="document.getElementById('qr-modal').remove()" 
+              style="position:absolute;top:12px;right:12px;background:#f3f4f6;border:none;border-radius:50%;width:32px;height:32px;font-size:18px;cursor:pointer;color:#6b7280;display:flex;align-items:center;justify-content:center">✕</button>
+            
+            <div style="font-size:18px;font-weight:800;color:#1c2b4a;margin-bottom:8px">📱 Cod QR — Echipă MatHaus</div>
+            <div style="font-size:12px;color:#6b7280;margin-bottom:16px">Consilierul scanează cu camera tabletei/telefonului → intră direct în aplicație</div>
+            
+            <div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:12px;padding:16px;margin-bottom:14px">
+              <img src="${qrUrl}" alt="QR Code" style="width:100%;max-width:300px;height:auto;display:block;margin:0 auto" />
+            </div>
+            
+            <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:10px;font-size:11px;color:#1e40af;margin-bottom:12px;text-align:left">
+              <strong>📌 Cum se folosește:</strong><br>
+              1. Pe tableta consilierului: deschide camera<br>
+              2. Îndreaptă camera spre acest cod QR<br>
+              3. Apasă pe notificarea "Deschide în Chrome"<br>
+              4. Login cu credentiale → gata!
+            </div>
+            
+            <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap">
+              <button onclick="downloadQR()" style="background:#1c2b4a;color:#fbbf24;border:2px solid #fbbf24;border-radius:8px;padding:8px 18px;font-size:12px;font-weight:700;cursor:pointer">⬇ Descarcă QR (PNG)</button>
+              <button onclick="printQR()" style="background:#fff;color:#1c2b4a;border:1.5px solid #1c2b4a;border-radius:8px;padding:8px 18px;font-size:12px;font-weight:700;cursor:pointer">🖨 Print QR</button>
+            </div>
+            
+            <div style="font-size:10px;color:#9ca3af;margin-top:10px;font-family:var(--mono);word-break:break-all">${url.length > 60 ? url.substring(0, 60) + '...' : url}</div>
+          </div>
+        `;
+        document.body.appendChild(modal);
+        
+        // Save URL pentru download/print
+        modal.dataset.qrUrl = qrUrl;
+        modal.dataset.linkUrl = url;
+      }
+      
+      function downloadQR() {
+        const modal = document.getElementById('qr-modal');
+        if (!modal) return;
+        const qrUrl = modal.dataset.qrUrl;
+        // Forțează download prin link cu attribute
+        const a = document.createElement('a');
+        a.href = qrUrl;
+        a.download = 'mathaus-team-qr.png';
+        a.target = '_blank';
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        toast('✅ Imagine deschisă — apasă click dreapta → Salvează');
+      }
+      
+      function printQR() {
+        const modal = document.getElementById('qr-modal');
+        if (!modal) return;
+        const qrUrl = modal.dataset.qrUrl;
+        const linkUrl = modal.dataset.linkUrl;
+        const printWin = window.open('', '_blank', 'width=600,height=700');
+        if (!printWin) { toast('❌ Browser-ul a blocat fereastra de print'); return; }
+        printWin.document.write(`
+          <!DOCTYPE html><html><head><title>QR MatHaus</title>
+          <style>body{font-family:Arial;text-align:center;padding:40px;color:#1c2b4a}
+          h1{color:#fbbf24;background:#1c2b4a;display:inline-block;padding:8px 24px;border-radius:8px}
+          img{width:300px;height:300px;border:2px solid #1c2b4a;padding:10px;margin:20px auto;display:block}
+          .info{margin-top:20px;font-size:12px;color:#6b7280}</style>
+          </head><body>
+          <h1>MATHAUS</h1>
+          <h2>Echipa AI Vânzări</h2>
+          <img src="${qrUrl}" alt="QR" />
+          <div class="info">Scanează cu camera tabletei pentru a accesa aplicația</div>
+          </body></html>
+        `);
+        printWin.document.close();
+        setTimeout(() => printWin.print(), 500);
       }
 
       // 🧹 Sanitizare URL Apps Script — strip orice e după /exec
