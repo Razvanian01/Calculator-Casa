@@ -19440,14 +19440,47 @@ LIMBA: ${lang === 'ro' ? 'Română' : lang === 'en' ? 'English' : 'Auto-detect'}
         btn.disabled = false;
       }
 
-      function resetChatConversation() {
+      // Pentru admin: șterge TOT istoricul de chat al TUTUROR utilizatorilor
+      // (folosit de butonul "🗑 Șterge istoric chat" din Admin)
+      function clearChatHistory() {
+        try {
+          // Șterge cheia globală veche
+          localStorage.removeItem(CHAT_HISTORY_STORE);
+          // Iterează toate cheile de chat per-user și șterge-le
+          const keysToRemove = [];
+          for (let i = 0; i < localStorage.length; i++) {
+            const k = localStorage.key(i);
+            if (k && k.startsWith(CHAT_HISTORY_STORE + '_')) {
+              keysToRemove.push(k);
+            }
+          }
+          keysToRemove.forEach(k => localStorage.removeItem(k));
+          console.log('[Chat] Cleared chat history for', keysToRemove.length, 'users');
+        } catch(e) { console.warn('[Chat] clearChatHistory failed:', e); }
+        // Reset memory state
         chatConversation = [];
-        localStorage.removeItem(CHAT_HISTORY_STORE);
+      }
+
+      function resetChatConversation() {
+        // Stop active timer (era pe vechea conversație)
+        try { clearChatInactivityTimer(); } catch(e) {}
+        
+        chatConversation = [];
+        // FIX: șterge cheia per-user (nu cea globală veche)
+        try {
+          localStorage.removeItem(getChatHistoryKey());
+          // Curățenie suplimentară pentru cheia globală veche (dacă mai există)
+          localStorage.removeItem(CHAT_HISTORY_STORE);
+        } catch(e) {}
+        
         const container = document.getElementById('chat-messages');
         if (container) {
-          // Remove all messages except the welcome one (first child)
+          // Remove ALL messages (inclusiv welcome) ca să fie complet curat
           const msgs = container.querySelectorAll('.chat-msg');
-          msgs.forEach((m, i) => { if (i > 0) m.remove(); });
+          msgs.forEach(m => m.remove());
+          // Șterge și prompt-ul de inactivitate dacă era afișat
+          const idlePrompt = document.getElementById('chat-idle-prompt');
+          if (idlePrompt) idlePrompt.remove();
         }
         // Show suggestions again
         const sugs = document.getElementById('chat-suggestions');
@@ -19455,6 +19488,13 @@ LIMBA: ${lang === 'ro' ? 'Română' : lang === 'en' ? 'English' : 'Auto-detect'}
         // Focus input
         const inp = document.getElementById('chat-input');
         if (inp) { inp.value = ''; inp.focus(); }
+        
+        // Re-afișează welcome message (e o conversație nouă, salută din nou)
+        try { showWelcomeMessage(); } catch(e) {}
+        // Re-pornește timer-ul de inactivitate
+        try { startChatInactivityTimer(); } catch(e) {}
+        
+        try { toast('🔄 Conversație nouă pornită'); } catch(e) {}
       }
 
       // ── Dynamic Conversation Starters ──
