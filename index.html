@@ -7616,7 +7616,9 @@
             window[cbName] = (json) => {
               delete window[cbName];
               if (!json || !json.ok || !json.data) { resolve(false); return; }
-              const applied = applyCloudData(json.data);
+              // compatibil cu scripturi care salvează datele „împachetate” ca { data: {...} }
+              const cdata = (json.data.data && !json.data.stagesData) ? json.data.data : json.data;
+              const applied = applyCloudData(cdata);
               if (applied) { migrateFormuleV22(); migratePricesV21(); migrateTexteV23(); }
               if (applied) console.log('[Cloud] Data loaded from Drive');
               resolve(applied);
@@ -9896,7 +9898,8 @@
             setTimeout(() => { if (window[cbName]) { delete window[cbName]; resolve({ok:false, error:'Timeout — scriptul nu răspunde.'}); } }, 10000);
           });
           if (result.ok) {
-            const hasData = result.data !== null;
+            if (result.data && result.data.data && !result.data.stagesData) result.data = result.data.data;
+            const hasData = !!result.data;
             el.innerHTML = '<div style="padding:8px;background:var(--green-l);border:1px solid #bbf7d0;border-radius:6px;font-size:11px;color:var(--green)">✅ Conexiune reușită! ' + (hasData ? 'Date găsite — ultima salvare: <strong>' + (result.data.savedAt || '?') + '</strong>' : 'Nicio salvare anterioară — prima salvare va crea fișierul.') + '</div>';
           } else {
             el.innerHTML = '<div style="padding:8px;background:#FEE2E2;border:1px solid #FECACA;border-radius:6px;font-size:11px;color:var(--red)">❌ ' + (result.error || 'Eroare necunoscută') + '</div>';
