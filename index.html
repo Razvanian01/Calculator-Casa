@@ -2798,7 +2798,7 @@
         <div>
           <div class="logo-text">MatHaus</div>
         </div>
-        <div class="logo-badge">Ghid Vânzări v3.0</div>
+        <div class="logo-badge">Ghid Vânzări v3.4</div>
       </div>
       <div class="header-nav">
         <button class="nav-btn" id="nav-total" onclick="switchMode('total')">
@@ -3415,6 +3415,7 @@
               <div class="cl-h" style="margin-top:12px">🔎 Cuvinte în denumire <span class="cl-muted">(opțional, separate prin virgulă)</span></div>
               <input type="text" class="input" id="cl-kw" placeholder="ex: construct, renov, hidro, termo, instal"/>
               <label class="cl-check" style="margin-top:8px"><input type="checkbox" id="cl-kw-or" checked/> Cuvintele se adaugă la tipurile CAEN (sau) — debifează ca să filtrezi strict</label>
+              <label class="cl-check" style="margin-top:6px"><input type="checkbox" id="cl-only-active" checked/> <b>Doar firmele active</b> <span class="cl-muted">(în funcțiune — fără radiate, dizolvate, în insolvență sau suspendate)</span></label>
             </div>
           </div>
           <div class="cl-loc">
@@ -3485,7 +3486,28 @@
       const fmtP = (n) => n % 1 === 0 ? Number(n).toLocaleString("ro-RO") : Number(n).toLocaleString("ro-RO", {minimumFractionDigits: 2, maximumFractionDigits: 2});
       const C = Math.ceil;
 
+      // ── Jurnal erori: avertismentele (⚠) și erorile neprevăzute se păstrează pe dispozitiv (ultimele 200) ──
+      function errLogList() { try { return JSON.parse(localStorage.getItem("mathaus_errlog") || "[]"); } catch (e) { return []; } }
+      const errFmt = t => new Date(t).toLocaleString("ro-RO", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit", second: "2-digit" });
+      function errLogText() { return errLogList().map(x => `${errFmt(x.t)} [${x.s || "-"}] ${x.m}`).join("\n") || "Jurnal gol"; }
+      function errLogHtml() {
+        const l = errLogList();
+        if (!l.length) return '<div style="padding:12px;color:var(--txt3)">✅ Nicio eroare înregistrată.</div>';
+        return l.map(x => `<div style="padding:6px 10px;border-bottom:1px solid var(--border2)"><span style="color:var(--txt3)">${errFmt(x.t)}</span> <span style="color:var(--blue)">[${escHtml(x.s || "-")}]</span> ${escHtml(x.m)}</div>`).join("");
+      }
+      function logErr(msg, src) {
+        try {
+          const k = "mathaus_errlog", arr = JSON.parse(localStorage.getItem(k) || "[]");
+          const txt = String(msg || "").replace(/<[^>]+>/g, "").slice(0, 600);
+          if (arr.length && arr[0].m === txt && Date.now() - arr[0].t < 3000) return;
+          arr.unshift({ t: Date.now(), m: txt, s: src || (typeof currentMode !== "undefined" ? currentMode : "") });
+          localStorage.setItem(k, JSON.stringify(arr.slice(0, 200)));
+        } catch (e) {}
+      }
+      window.addEventListener("error", e => logErr("Eroare JS: " + (e.message || e) + (e.lineno ? " (linia " + e.lineno + ")" : ""), "sistem"));
+      window.addEventListener("unhandledrejection", e => logErr("Eroare JS (async): " + ((e.reason && e.reason.message) || e.reason), "sistem"));
       function toast(msg, ms = 2600) {
+        if (/^\s*(⚠|❌)/.test(String(msg))) logErr(msg);
         // Auto-trigger cloud save on any successful admin action
         if (_isAdmin && msg.startsWith('✅')) triggerCloudAutoSave();
         const el = $("toast");
@@ -9803,6 +9825,15 @@
       `}
     </div>
     <div class="admin-card" style="margin-top:16px">
+      <h3>🧾 Jurnal erori (pe acest dispozitiv)</h3>
+      <p style="font-size:12px;color:var(--txt2);margin-bottom:8px">Toate avertismentele (⚠) și erorile apărute în aplicație, cu data și ora — chiar dacă mesajul a dispărut de pe ecran. Pentru erorile scripturilor Google vezi și <b>script.google.com → proiect → Executions</b>.</p>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px">
+        <button class="btn btn-secondary btn-sm" onclick="safeCopy(errLogText()).then(()=>toast('✅ Jurnal copiat — îl poți lipi într-un mesaj'))">📋 Copiază jurnalul</button>
+        <button class="btn btn-ghost btn-sm" onclick="safeConfirm('Golești jurnalul de erori?').then(ok=>{if(ok){localStorage.removeItem('mathaus_errlog');renderAdminSetari();}})">🗑 Golește</button>
+      </div>
+      <div style="max-height:260px;overflow-y:auto;border:1px solid var(--border2);border-radius:var(--r-sm);font-size:11.5px;font-family:var(--mono)">${errLogHtml()}</div>
+    </div>
+    <div class="admin-card" style="margin-top:16px">
       <h3>🎯 Clienți în Zonă — bază firme pe Google Drive</h3>
       <p style="font-size:12px;color:var(--txt2);margin-bottom:10px;line-height:1.6">Adminul importă o dată fișierele ONRC și le publică pe Drive; colegii primesc automat firmele din județele pe care le caută. Folosește un <b>proiect Apps Script separat</b> de cel de backup (nu se atinge backup-ul existent).</p>
       <ol style="font-size:12px;color:var(--txt2);line-height:1.8;margin:0 0 10px 18px">
@@ -10210,6 +10241,7 @@
 
         // Tab bar
         const tabs = [
+          { id: 'settings', icon: '⚙', label: 'Model AI + cheie API' },
           { id: 'persona', icon: '🎭', label: 'Consultant — Persona' },
           { id: 'training', icon: '📚', label: 'Consultant — Training' },
           { id: 'custom-answers', icon: '💬', label: 'Consultant — Răspunsuri' },
@@ -10218,7 +10250,7 @@
           { id: 'usage', icon: '📊', label: 'Utilizare' },
         ];
         const tabBar = tabs.map((t, ti) => {
-          const separator = (ti === 3) ? '<span style="display:inline-block;width:1px;height:28px;background:var(--border2);margin:0 6px;vertical-align:middle"></span>' : '';
+          const separator = (ti === 4) ? '<span style="display:inline-block;width:1px;height:28px;background:var(--border2);margin:0 6px;vertical-align:middle"></span>' : '';
           return separator + `<div class="admin-nav-item ${aiKBTab === t.id ? 'active' : ''}" style="display:inline-flex;gap:6px;align-items:center;padding:8px 14px;font-size:12px;cursor:pointer;border-radius:8px;white-space:nowrap" onclick="aiKBTab='${t.id}';renderAdminAIKB()">${t.icon} ${t.label}</div>`;
         }).join('');
 
@@ -16462,6 +16494,19 @@ RETURNEAZĂ STRICT JSON:
         "7111": "Arhitectură", "7112": "Inginerie, consultanță tehnică",
       };
       const CL_ALL_CODES = new Set(CL_CATS.flatMap(c => c.codes));
+      // Stări ONRC: 1048 = „funcțiune”. O firmă e considerată ACTIVĂ doar dacă are „funcțiune” și nicio stare de încetare/insolvență.
+      const CL_STARE_RE_INACTIV = /radi|dizolv|lichid|insolv|falim|suspend|reorganiz|inchis|închis|intrerup|întrerup|anulat|inactiv|nul|transfer|divizare|fuziune|absorb|desfiint|desființ|retras|expirat|deces/i;
+      let _clStLabels = {};
+      function clIsActive(st, labels) {
+        if (!st || !st.length) return false;
+        if (!st.includes("1048")) return false;
+        const others = st.filter(c => c !== "1048");
+        if (!others.length) return true;
+        // cu nomenclator: decidem după denumire; fără nomenclator: orice altă stare în afară de „funcțiune” = neactivă
+        if (labels && Object.keys(labels).length) return !others.some(c => CL_STARE_RE_INACTIV.test(labels[c] || "inactiv"));
+        return false;
+      }
+      const clStareTxt = f => !f.s || !f.s.length ? "necunoscută" : f.s.map(c => _clStLabels[c] || (c === "1048" ? "funcțiune" : "cod " + c)).join(", ");
       const CL_PF_FORMS = /^(PFA|II|IF|PF|ÎI|ÎF)$/i;
       const clNorm = s => String(s || "").normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[ŞşȘș]/g, "s").replace(/[ŢţȚț]/g, "t")
         .toUpperCase().replace(/^(JUDETUL|JUD\.?|MUNICIPIUL|MUN\.?)\s+/, "").replace(/[^A-Z0-9]+/g, " ").trim();
@@ -16608,7 +16653,8 @@ RETURNEAZĂ STRICT JSON:
           for (const f of files) {
             const nm = f.name.toLowerCase();
             if (/\.json(\.gz)?$|\.gz$/.test(nm)) { typed.push({ f, kind: "pack" }); continue; }
-            if (/^n_/.test(nm)) continue; // nomenclatoare ONRC — nu sunt necesare
+            if (/^n_.*stare/.test(nm)) { typed.push({ f, kind: "nstare" }); continue; } // nomenclator stări (opțional, pentru denumiri exacte)
+            if (/^n_/.test(nm)) continue; // celelalte nomenclatoare ONRC nu sunt necesare
             const head = (await f.slice(0, 4096).text()).split(/\r?\n/)[0] || "";
             typed.push({ f, kind: clKind(f, head) });
           }
@@ -16620,12 +16666,19 @@ RETURNEAZĂ STRICT JSON:
           else await clImportOnrc(typed);
           await clRefreshDbStatus(); clRenderJudete();
         } catch (e) {
-          console.error(e); clImportMsg(null, "⚠ Eroare la import: " + e.message); toast("⚠ Import eșuat: " + e.message);
+          console.error(e); logErr("Import firme: " + e.message, "Clienți în Zonă"); clImportMsg(null, "⚠ Eroare la import: " + e.message); toast("⚠ Import eșuat: " + e.message);
         } finally { _cl.busy = false; clRefreshDbStatus(); }
       }
 
       async function clImportOnrc(typed) {
-        const fCaen = typed.find(t => t.kind === "caen")?.f, fFirme = typed.find(t => t.kind === "firme")?.f, fStare = typed.find(t => t.kind === "stare")?.f;
+        const fCaen = typed.find(t => t.kind === "caen")?.f, fFirme = typed.find(t => t.kind === "firme")?.f, fStare = typed.find(t => t.kind === "stare")?.f, fNst = typed.find(t => t.kind === "nstare")?.f;
+        // nomenclator stări: cod → denumire (dacă a fost încărcat)
+        const stLabels = {};
+        if (fNst) {
+          let sp = null, fst = true;
+          await clEachLines(fNst, lines => { for (const line of lines) { if (!line) continue; if (fst) { sp = clDetectSep(line); fst = false; if (/COD|DENUMIRE/i.test(line)) continue; } const q = clSplit(line, sp); if (q[0]) stLabels[q[0]] = q[1] || ""; } });
+          await clPut("meta", { k: "stari", labels: stLabels });
+        }
         if (!fCaen || !fFirme) throw new Error("Lipsește " + (!fFirme ? "od_firme.csv" : "od_caen_autorizat.csv") + ". Selectează fișierele ONRC împreună.");
         const inclPF = !!$("cl-imp-pf")?.checked;
         const totalBytes = fCaen.size + fFirme.size + (fStare ? fStare.size : 0);
@@ -16644,21 +16697,27 @@ RETURNEAZĂ STRICT JSON:
         } }, n => clImportMsg((doneBytes + n) / totalBytes * 100, `Pas 1/3 · coduri CAEN… ${caenMap.size.toLocaleString("ro-RO")} firme de interes găsite`));
         doneBytes += fCaen.size;
         // 2) stare (1048 = funcțiune)
-        let active = null;
+        // o firmă poate avea mai multe stări înregistrate (ex. „funcțiune” + „radiată” / „insolvență”) — le păstrăm pe toate
+        let stari = null;
         if (fStare) {
-          active = new Set(); first = true;
+          stari = new Map(); first = true;
           await clEachLines(fStare, lines => { for (const line of lines) {
             if (!line) continue;
             if (first) { sep = clDetectSep(line); first = false; if (/COD|STARE/i.test(line)) continue; }
-            if (line.indexOf("1048") < 0) continue;
-            const p = clSplit(line, sep);
-            if (p[1] === "1048" && caenMap.has(p[0])) active.add(p[0]);
+            const i1 = line.indexOf(sep); if (i1 < 0) continue;
+            const id = line.slice(0, i1).replace(/"/g, "").trim();
+            if (!caenMap.has(id)) continue;
+            const i2 = line.indexOf(sep, i1 + 1);
+            const code = line.slice(i1 + 1, i2 < 0 ? undefined : i2).replace(/\D/g, "");
+            if (!code) continue;
+            const a = stari.get(id); if (a) { if (!a.includes(code)) a.push(code); } else stari.set(id, [code]);
           } }, n => clImportMsg((doneBytes + n) / totalBytes * 100, `Pas 2/3 · stare firme…`));
           doneBytes += fStare.size;
         }
+        const active = stari ? { has: id => { const a = stari.get(id); return !!(a && a.includes("1048")); } } : null;
         // 3) firme
         await clTx("firme", "readwrite", st => { st.clear(); });
-        let cols = null, kept = 0; const counts = {}; first = true; const ck = clChunker();
+        let cols = null, kept = 0, inactiv = 0; const counts = {}; first = true; const ck = clChunker();
         const pos = { n: 0, cui: 1, id: 2, di: 3, fj: 5, j: 7, l: 8, str: 9, nr: 10, bl: 11, sc: 12, et: 13, ap: 14, cp: 15, sect: 16, w: 18 };
         await clEachLines(fFirme, async lines => { for (const line of lines) {
           if (!line) continue;
@@ -16684,8 +16743,10 @@ RETURNEAZĂ STRICT JSON:
           const fj = (p[cols.fj] || "").toUpperCase();
           if (!inclPF && CL_PF_FORMS.test(fj)) continue;
           const jk = clJudKey(p[cols.j]);
-          const adr = [p[cols.str], p[cols.nr] && "nr. " + p[cols.nr], p[cols.bl] && "bl. " + p[cols.bl], p[cols.sc] && "sc. " + p[cols.sc], p[cols.et] && "et. " + p[cols.et], p[cols.ap] && "ap. " + p[cols.ap], p[cols.sect] && "sector " + p[cols.sect]].filter(Boolean).join(", ");
-          ck.add({ id, cui: (p[cols.cui] || "").replace(/\D/g, ""), n: p[cols.n] || "", fj, di: p[cols.di] || "", j: (CL_JUD_BY_KEY[jk] || {}).n || p[cols.j] || "", jk, l: p[cols.l] || "", a: adr, cp: p[cols.cp] || "", w: p[cols.w] || "", c: codes });
+          const adr = [p[cols.str], p[cols.nr] && "nr. " + p[cols.nr], p[cols.bl] && "bl. " + p[cols.bl], p[cols.sc] && "sc. " + p[cols.sc], p[cols.et] && "et. " + p[cols.et], p[cols.ap] && "ap. " + p[cols.ap], /^[1-6]$/.test(p[cols.sect] || "") && "sector " + p[cols.sect]].filter(Boolean).join(", ");
+          const st = stari ? stari.get(id) || [] : [];
+          if (stari && !clIsActive(st, stLabels)) { inactiv++; continue; }   // păstrăm doar firmele active
+          ck.add({ id, cui: (p[cols.cui] || "").replace(/\D/g, ""), n: p[cols.n] || "", fj, di: p[cols.di] || "", j: (CL_JUD_BY_KEY[jk] || {}).n || p[cols.j] || "", jk, l: p[cols.l] || "", a: adr, cp: p[cols.cp] || "", w: p[cols.w] || "", c: codes, s: st, act: clIsActive(st, stLabels) ? 1 : 0 });
           counts[jk] = (counts[jk] || 0) + 1; kept++;
         }
         await ck.flush(false);
@@ -16695,7 +16756,7 @@ RETURNEAZĂ STRICT JSON:
         await clPut("meta", { k: "info", total: kept, counts, ts: impTs, src: "ONRC " + fFirme.name, activeFilter: !!active, inclPF });
         await clPutMany("meta", Object.keys(counts).map(jk => ({ k: "jud_" + jk, ts: impTs })));
         setTimeout(() => { const bx = $("cl-import-box"); if (bx) bx.style.display = "none"; }, 4000);
-        clImportMsg(100, `✅ Gata: ${kept.toLocaleString("ro-RO")} firme ${active ? "active" : "(fără filtru de stare — adaugă și od_stare_firma.csv)"} salvate pe acest dispozitiv.` + (clDriveUrl() ? " Apasă „☁ Publică baza pe Drive” ca să le primească și colegii." : ""));
+        clImportMsg(100, `✅ Gata: ${kept.toLocaleString("ro-RO")} firme ${active ? "active" : "(fără filtru de stare — adaugă și od_stare_firma.csv)"} salvate pe acest dispozitiv${inactiv ? ` (${inactiv.toLocaleString("ro-RO")} radiate / în insolvență / suspendate au fost excluse)` : ""}.` + (clDriveUrl() ? " Apasă „☁ Publică baza pe Drive” ca să le primească și colegii." : ""));
         toast("✅ Baza de firme a fost importată");
       }
 
@@ -16767,7 +16828,11 @@ RETURNEAZĂ STRICT JSON:
           return d && d[0] ? { lat: +d[0].lat, lon: +d[0].lon } : null;
         } catch (e) { return null; }
       }
-      const clLocClean = l => String(l || "").replace(/^(MUN\.?|MUNICIPIUL|ORS\.?|ORAS(UL)?|ORAȘ(UL)?|COM\.?|COMUNA|SAT(UL)?|SAT\s+COMPONENT)\s+/i, "").replace(/\s*\(.*\)\s*/g, " ").trim();
+      const CL_LOC_PREFIX = /^(MUN\.?|MUNICIPIUL|ORS\.?|OR\.|ORAS(UL)?|ORAȘ(UL)?|ORAŞ(UL)?|COM\.?|COMUNA|SAT(UL)?\s+COMPONENT|SAT(UL)?|LOC\.?|LOCALITATEA)\s+/i;
+      const clLocClean = l => String(l || "").split(",")[0].replace(CL_LOC_PREFIX, "").replace(CL_LOC_PREFIX, "").replace(/\s*\(.*\)\s*/g, " ").trim();
+      // adresă curată pentru hartă: fără bloc/scară/etaj/apartament/cameră și fără „sector 0”
+      const clAdrClean = a => String(a || "").replace(/,?\s*sector\s*0\b/gi, "").replace(/,?\s*(bl|sc|et|ap|cam|camera|corp|birou)\.?\s+[^,]*/gi, "").replace(/,?\s*\bnr\.?\s*/i, " ").replace(/(\d+)\s+([A-Z])\b/i, "$1$2").replace(/\s{2,}/g, " ").trim().replace(/,$/, "");
+      const clMapsAddr = f => { const loc = clLocClean(f.l), jud = (CL_JUD_BY_KEY[f.jk] || {}).n || f.j; return [clAdrClean(f.a), loc, clNorm(loc) === clNorm(jud) ? "" : jud, "România"].filter(Boolean).join(", "); };
       const clGeoKey = f => clNorm(clLocClean(f.l)) + "|" + f.jk;
       async function clGeocodeResults() {
         const need = new Map();
@@ -16808,7 +16873,8 @@ RETURNEAZĂ STRICT JSON:
         const f = _cl.results[idx]; if (!f) return;
         toast("📍 Caut adresa exactă…");
         const jud = (CL_JUD_BY_KEY[f.jk] || {}).n || f.j;
-        const r = await clNominatim({ q: [f.a.replace(/,?\s*(bl|sc|et|ap)\.[^,]*/gi, ""), clLocClean(f.l), jud, "Romania"].filter(Boolean).join(", ") });
+        let r = await clNominatim({ street: clAdrClean(f.a).replace(/^(str\.?|strada)\s+/i, ""), city: clLocClean(f.l), county: jud, country: "Romania" });
+        if (!r) r = await clNominatim({ q: clMapsAddr(f) });
         if (!r) { toast("⚠ Adresa exactă nu a fost găsită — rămâne distanța până la localitate"); return; }
         f._addr = { lat: r.lat, lon: r.lon, ok: 1 }; clComputeDist(); clRenderTable();
       }
@@ -16833,7 +16899,11 @@ RETURNEAZĂ STRICT JSON:
           for (const jk of _cl.judete) all = all.concat(await clFirmeByJud(jk));
         } catch (e) { $("cl-search-msg").textContent = "⚠ Baza nu este încărcată"; return; }
         if (!all.length) { $("cl-search-msg").textContent = "Nu există firme în baza locală pentru județele alese. Încarcă baza ONRC."; $("cl-results-card").style.display = "none"; return; }
+        const onlyActive = $("cl-only-active")?.checked !== false;
+        const hasStatus = all.some(f => Array.isArray(f.s));
+        try { const ls = await clGet("meta", "stari"); _clStLabels = (ls && ls.labels) || {}; } catch (e) {}
         _cl.results = all.filter(f => {
+          if (onlyActive && hasStatus && !f.act) return false;
           const byCode = f.c.some(c => codes.has(c));
           const nm = clNorm(f.n); const byKw = kws.length ? kws.some(k => nm.includes(k)) : false;
           if (!kws.length) return byCode;
@@ -16842,7 +16912,7 @@ RETURNEAZĂ STRICT JSON:
         // date financiare deja în cache
         for (const f of _cl.results) { if (f.cui) { const fin = await clGet("fin", f.cui); if (fin) f._fin = fin; } }
         _cl.page = 0; _cl.sort = _cl.me ? "dist" : "name"; _cl.dir = 1; _cl.cancel = false;
-        $("cl-search-msg").textContent = "";
+        $("cl-search-msg").innerHTML = onlyActive && !hasStatus ? "⚠ Baza a fost importată înainte de filtrul de stare — <b>reimportă cele 3 fișiere ONRC</b> (și publică din nou pe Drive) ca să vezi doar firmele active." : "";
         $("cl-results-card").style.display = "block";
         clComputeDist(); clRenderTable();
         if (_cl.me) clGeocodeResults(); else $("cl-res-progress").innerHTML = "ℹ Setează poziția ta (GPS sau adresă) ca să vezi distanța în km.";
@@ -16874,12 +16944,12 @@ RETURNEAZĂ STRICT JSON:
         t.innerHTML = `<thead><tr><th>#</th>${th("dist", "Distanță")}${th("name", "Firmă")}${th("loc", "Localitate / adresă")}${th("caen", "Activitate (CAEN)")}${th("ang", "Angajați")}${th("ca", "Cifră de afaceri")}${th("profit", "Profit net")}${th("vech", "Vechime")}<th>Acțiuni</th></tr></thead><tbody>` +
           slice.map((f, i) => {
             const idx = _cl.results.indexOf(f), n = _cl.page * _cl.per + i + 1, v = clVechime(f.di), fin = f._fin;
-            const maps = _cl.me ? `https://www.google.com/maps/dir/?api=1&origin=${_cl.me.lat},${_cl.me.lon}&destination=${encodeURIComponent([f.a, f.l, f.j, "Romania"].filter(Boolean).join(", "))}` : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent([f.n, f.l, f.j].join(", "))}`;
+            const maps = _cl.me ? `https://www.google.com/maps/dir/?api=1&origin=${_cl.me.lat},${_cl.me.lon}&destination=${encodeURIComponent(clMapsAddr(f))}` : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(clMapsAddr(f))}`;
             return `<tr>
               <td class="cl-muted">${n}</td>
               <td class="cl-km">${f._km != null ? (f._approx ? "≈ " : "") + f._km.toFixed(f._km < 10 ? 1 : 0).replace(".", ",") + " km" : "—"}</td>
-              <td><div class="cl-name">${escHtml(f.n)}</div><div class="cl-sub">CUI ${escHtml(f.cui || "—")} · ${escHtml(f.fj || "")}${f.w ? ` · <a href="${escHtml(safeUrl(/^https?:/i.test(f.w) ? f.w : "https://" + f.w))}" target="_blank" rel="noopener">site</a>` : ""}</div></td>
-              <td><div>${escHtml(f.l)}, ${escHtml(f.j)}</div><div class="cl-sub">${escHtml(f.a)}${f.cp ? " · " + escHtml(f.cp) : ""}</div></td>
+              <td><div class="cl-name">${escHtml(f.n)}</div><div class="cl-sub">CUI ${escHtml(f.cui || "—")} · ${escHtml(f.fj || "")} · <span style="color:${f.act ? "var(--green)" : "var(--red)"}">${f.act ? "● activă" : "● " + escHtml(clStareTxt(f))}</span>${f.w ? ` · <a href="${escHtml(safeUrl(/^https?:/i.test(f.w) ? f.w : "https://" + f.w))}" target="_blank" rel="noopener">site</a>` : ""}</div></td>
+              <td><div>${escHtml(f.l)}, ${escHtml(f.j)}</div><div class="cl-sub">${escHtml(String(f.a || "").replace(/,?\s*sector\s*0\b/gi, ""))}${f.cp ? " · " + escHtml(f.cp) : ""}</div></td>
               <td>${f.c.map(c => `<span class="cl-tag" title="${escHtml(CL_CAEN_LABEL[c] || "")}">${c}</span>`).join("")}<div class="cl-sub">${escHtml(f.c.map(c => CL_CAEN_LABEL[c]).filter(Boolean).slice(0, 2).join(", "))}</div></td>
               <td class="cl-num">${fin ? (fin.ang ?? "—") : "—"}</td>
               <td class="cl-num">${fin ? clMoney(fin.ca) : "—"}${fin?.an ? `<div class="cl-sub">${fin.an}</div>` : ""}</td>
@@ -16966,8 +17036,8 @@ RETURNEAZĂ STRICT JSON:
       // Adminul publică firmele pe județe; agenții descarcă automat doar județele căutate.
       const clDriveUrl = () => String(appSettings.firmeUrl || "").trim();
       const CL_PART = 12000;
-      const clRow = f => [f.id, f.cui, f.n, f.fj, f.di, f.l, f.a, f.cp, f.w, f.c.join(" ")];
-      const clUnrow = (r, jk) => ({ id: r[0], cui: r[1] || "", n: r[2] || "", fj: r[3] || "", di: r[4] || "", l: r[5] || "", a: r[6] || "", cp: r[7] || "", w: r[8] || "", c: String(r[9] || "").split(" ").filter(Boolean), jk, j: (CL_JUD_BY_KEY[jk] || {}).n || jk });
+      const clRow = f => [f.id, f.cui, f.n, f.fj, f.di, f.l, f.a, f.cp, f.w, f.c.join(" "), (f.s || []).join(" "), f.act ? 1 : 0];
+      const clUnrow = (r, jk) => ({ id: r[0], cui: r[1] || "", n: r[2] || "", fj: r[3] || "", di: r[4] || "", l: r[5] || "", a: r[6] || "", cp: r[7] || "", w: r[8] || "", c: String(r[9] || "").split(" ").filter(Boolean), ...(r.length > 10 ? { s: String(r[10] || "").split(" ").filter(Boolean), act: +r[11] || 0 } : {}), jk, j: (CL_JUD_BY_KEY[jk] || {}).n || jk });
       function clJsonp(params, timeout = 90000) {
         const base = clDriveUrl(); if (!base) return Promise.resolve(null);
         return new Promise(resolve => {
@@ -17060,7 +17130,7 @@ RETURNEAZĂ STRICT JSON:
         if (!token) return;
         try { localStorage.setItem("mathaus_firme_token", token); } catch (e) {}
         _cl.busy = true;
-        const msg = m => { const el = $("cl-drive-msg"); if (el) el.textContent = m; };
+        const msg = m => { const el = $("cl-drive-msg"); if (el) el.textContent = m; if (/^⚠/.test(m)) logErr(m, "Publicare Drive"); };
         try {
           const ts = meta.ts || Date.now();
           msg("☁ Pregătesc Drive-ul…");
@@ -17095,8 +17165,8 @@ RETURNEAZĂ STRICT JSON:
       function clExportCSV() {
         const rows = _cl._view || clSorted();
         const esc = v => { const s = String(v ?? ""); return /[;"\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
-        const head = ["Firmă", "CUI", "Formă juridică", "Județ", "Localitate", "Adresă", "Cod poștal", "Coduri CAEN", "Activitate", "Distanță km", "Angajați", "Cifră de afaceri (lei)", "Profit net (lei)", "An bilanț", "Data înmatriculării", "Site"];
-        const lines = [head.join(";")].concat(rows.map(f => [f.n, f.cui, f.fj, f.j, f.l, f.a, f.cp, f.c.join(" "), f.c.map(c => CL_CAEN_LABEL[c]).filter(Boolean).join(", "), f._km != null ? f._km.toFixed(1).replace(".", ",") : "", f._fin?.ang ?? "", f._fin?.ca ?? "", f._fin?.profit ?? "", f._fin?.an ?? "", f.di, f.w].map(esc).join(";")));
+        const head = ["Firmă", "CUI", "Formă juridică", "Județ", "Localitate", "Adresă", "Cod poștal", "Coduri CAEN", "Activitate", "Distanță km", "Angajați", "Cifră de afaceri (lei)", "Profit net (lei)", "An bilanț", "Data înmatriculării", "Site", "Stare ONRC"];
+        const lines = [head.join(";")].concat(rows.map(f => [f.n, f.cui, f.fj, f.j, f.l, String(f.a || "").replace(/,?\s*sector\s*0\b/gi, ""), f.cp, f.c.join(" "), f.c.map(c => CL_CAEN_LABEL[c]).filter(Boolean).join(", "), f._km != null ? f._km.toFixed(1).replace(".", ",") : "", f._fin?.ang ?? "", f._fin?.ca ?? "", f._fin?.profit ?? "", f._fin?.an ?? "", f.di, f.w, f.act ? "activă" : clStareTxt(f)].map(esc).join(";")));
         const blob = new Blob(["﻿" + lines.join("\r\n")], { type: "text/csv;charset=utf-8" });
         const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = `clienti_${[..._cl.judete].join("-").toLowerCase().replace(/\s+/g, "")}_${new Date().toISOString().slice(0, 10)}.csv`;
         document.body.appendChild(a); a.click(); a.remove();
