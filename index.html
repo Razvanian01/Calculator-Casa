@@ -2705,7 +2705,54 @@
         text-transform: uppercase; letter-spacing: .04em; display: block; margin-bottom: 6px;
       }
 
-    </style>
+          /* ── Identifică Clienți în Zonă ── */
+      .cl-wrap { padding: 0 24px 40px; display: flex; flex-direction: column; gap: 16px; max-width: 1500px; margin: 0 auto; }
+      .cl-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r); padding: 18px 20px; box-shadow: var(--shadow-sm, 0 1px 3px rgba(0,0,0,.06)); }
+      .cl-h { font-size: 13px; font-weight: 800; color: var(--navy); margin-bottom: 8px; }
+      .cl-muted { font-size: 11px; color: var(--txt3); font-weight: 500; }
+      .cl-link { font-size: 11px; color: var(--blue); font-weight: 600; text-decoration: none; }
+      .cl-db-row { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
+      .cl-db-status { font-size: 12px; color: var(--txt2); }
+      .cl-db-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+      .cl-import { margin-top: 14px; padding-top: 14px; border-top: 1px dashed var(--border); }
+      .cl-steps { margin: 0 0 10px 18px; font-size: 12px; color: var(--txt2); line-height: 1.6; }
+      .cl-steps a { color: var(--blue); font-weight: 600; }
+      .cl-check { display: flex; align-items: flex-start; gap: 6px; font-size: 12px; color: var(--txt2); cursor: pointer; }
+      .cl-import-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 10px; }
+      .cl-progress { margin-top: 10px; }
+      .cl-bar { height: 8px; background: var(--surface2); border-radius: 99px; overflow: hidden; }
+      .cl-bar > div { height: 100%; width: 0; background: var(--orange); transition: width .2s; }
+      .cl-grid { display: grid; grid-template-columns: 1fr 1.25fr; gap: 22px; }
+      @media (max-width: 900px) { .cl-grid { grid-template-columns: 1fr; } }
+      .cl-chips { display: flex; flex-wrap: wrap; gap: 6px; max-height: 210px; overflow-y: auto; }
+      .cl-chip { font-size: 12px; padding: 5px 11px; border-radius: 99px; border: 1.5px solid var(--border); background: transparent; color: var(--txt2); cursor: pointer; font-weight: 600; }
+      .cl-chip.on { background: var(--orange); border-color: var(--orange); color: #fff; }
+      .cl-chip small { opacity: .7; font-weight: 500; margin-left: 3px; }
+      .cl-cats { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 4px 12px; }
+      .cl-cats label { display: flex; gap: 6px; align-items: flex-start; font-size: 12px; color: var(--txt2); cursor: pointer; line-height: 1.35; }
+      .cl-cats code { font-size: 10px; color: var(--txt3); font-family: var(--mono); }
+      .cl-loc { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--border2); }
+      .cl-actions { display: flex; gap: 12px; align-items: center; margin-top: 14px; flex-wrap: wrap; }
+      .cl-res-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
+      .cl-res-tools { display: flex; gap: 8px; flex-wrap: wrap; }
+      .cl-table-wrap { overflow-x: auto; margin-top: 10px; border: 1px solid var(--border2); border-radius: var(--r-sm); }
+      .cl-table { width: 100%; border-collapse: collapse; font-size: 12px; min-width: 1100px; }
+      .cl-table th { background: var(--surface2); text-align: left; padding: 8px 10px; font-size: 10px; letter-spacing: .05em; text-transform: uppercase; color: var(--txt3); cursor: pointer; white-space: nowrap; user-select: none; position: sticky; top: 0; }
+      .cl-table th.sorted { color: var(--orange); }
+      .cl-table td { padding: 8px 10px; border-top: 1px solid var(--border2); vertical-align: top; color: var(--txt2); }
+      .cl-table tr:hover td { background: var(--surface2); }
+      .cl-name { font-weight: 700; color: var(--navy); font-size: 12.5px; }
+      .cl-sub { font-size: 10.5px; color: var(--txt3); margin-top: 2px; }
+      .cl-num { font-family: var(--mono); white-space: nowrap; text-align: right; }
+      .cl-km { font-family: var(--mono); font-weight: 800; color: var(--navy); white-space: nowrap; }
+      .cl-tag { display: inline-block; font-size: 10px; padding: 1px 6px; border-radius: 4px; background: var(--blue-l); color: var(--blue); margin: 1px 2px 1px 0; font-family: var(--mono); }
+      .cl-act { display: flex; gap: 4px; flex-wrap: wrap; }
+      .cl-act a, .cl-act button { font-size: 11px; padding: 3px 7px; border-radius: 6px; border: 1px solid var(--border); background: var(--surface); color: var(--txt2); text-decoration: none; cursor: pointer; white-space: nowrap; }
+      .cl-act a:hover, .cl-act button:hover { border-color: var(--orange); color: var(--orange); }
+      .cl-pager { display: flex; gap: 6px; align-items: center; justify-content: center; margin-top: 12px; flex-wrap: wrap; font-size: 12px; }
+      .cl-foot { font-size: 10.5px; color: var(--txt3); margin-top: 12px; line-height: 1.5; }
+      @media (max-width: 768px) { .cl-wrap { padding: 0 10px 90px; } }
+</style>
   </head>
   <body>
     <!-- ═══════════════ MOBILE BOTTOM NAV ═══════════════ -->
@@ -2725,6 +2772,10 @@
       <button class="mob-nav-btn" id="mob-nav-oferte" onclick="switchMode('oferte')" aria-label="Oferte AI">
         <span class="mob-nav-icon">🗂</span>
         <span>Oferte</span>
+      </button>
+      <button class="mob-nav-btn" id="mob-nav-clienti" onclick="switchMode('clienti')" aria-label="Clienți în zonă">
+        <span class="mob-nav-icon">🎯</span>
+        <span>Clienți</span>
       </button>
       <button class="mob-nav-btn mob-ai-btn" id="mob-nav-chat" onclick="openChat()" aria-label="Consultant AI">
         <span class="mob-nav-icon">🤖</span>
@@ -2747,7 +2798,7 @@
         <div>
           <div class="logo-text">MatHaus</div>
         </div>
-        <div class="logo-badge">Ghid Vânzări v2.8</div>
+        <div class="logo-badge">Ghid Vânzări v3.0</div>
       </div>
       <div class="header-nav">
         <button class="nav-btn" id="nav-total" onclick="switchMode('total')">
@@ -2766,6 +2817,7 @@
         <span id="cloud-status-badge" title="Backup cloud" style="font-size:12px;color:var(--txt3);align-self:center"></span>
         <button class="nav-btn" onclick="window.print()">🖨 Print</button>
         <button class="nav-btn" onclick="switchMode('oferte')" style="color:var(--blue);border-color:#BFDBFE" id="nav-oferte">🗂 Oferte AI</button>
+        <button class="nav-btn" onclick="switchMode('clienti')" id="nav-clienti">🎯 Clienți în Zonă</button>
         <button class="nav-btn" onclick="openChat()" style="color:var(--orange);border-color:var(--orange-m)">🤖 Consultant AI</button>
       </div>
     </header>
@@ -3005,7 +3057,7 @@
             <li>Ideal pentru clienți deja în construcție</li>
             <li>Calculator dedicat per etapă</li>
             <li>Link-uri directe mathaus.ro la toate produsele</li>
-            <li>Script de vânzare și tips pentru fiecare etapă</li>
+            <li>Obiective agent, documente și timpi pentru fiecare etapă</li>
           </ul>
         </div>
         <div class="mode-card chat-card orange" onclick="openChat()">
@@ -3013,6 +3065,13 @@
           <div class="chat-card-text">
             <h2>Consultant MatHaus AI</h2>
             <p>Întreabă orice despre materiale, calcule cantități, recomandări produse sau etape de construcție. Răspunsuri instant cu căutare pe mathaus.ro.</p>
+          </div>
+        </div>
+        <div class="mode-card chat-card" style="border-color:#bbf7d0;background:linear-gradient(135deg,var(--surface) 0%,#f0fdf4 100%);grid-column:1/-1" onclick="switchMode('clienti')">
+          <div class="mode-icon" style="background:#dcfce7">🎯</div>
+          <div class="chat-card-text">
+            <h2>Identifică Clienți în Zonă</h2>
+            <p>Alegi unul sau mai multe județe și vezi firmele de construcții, instalații și finisaje din zonă (după codul CAEN), cu distanța față de tine, cifra de afaceri și numărul de angajați.</p>
           </div>
         </div>
         <div class="mode-card chat-card" style="border-color:#BFDBFE;background:linear-gradient(135deg,var(--surface) 0%,var(--blue-l) 100%);grid-column:1/-1" onclick="switchMode('oferte')">
@@ -3299,6 +3358,92 @@
       <div class="etapizat-content">
         <div class="stage-grid" id="e-stage-grid"></div>
         <div id="e-stage-detail"></div>
+      </div>
+    </div>
+
+    <!-- ═══════════════ IDENTIFICĂ CLIENȚI ÎN ZONĂ ═══════════════ -->
+    <div id="screen-clienti" class="screen">
+      <div class="screen-header">
+        <div>
+          <div class="screen-title">🎯 Identifică Clienți în Zonă</div>
+          <div class="screen-sub">Firme active din județele alese, filtrate după codul CAEN — cu distanța față de tine, cifra de afaceri și numărul de angajați</div>
+        </div>
+        <button class="btn btn-ghost btn-sm" onclick="showLanding()">← Înapoi la meniu</button>
+      </div>
+      <div class="cl-wrap">
+        <!-- Baza de date -->
+        <div class="cl-card" id="cl-db-card">
+          <div class="cl-db-row">
+            <div>
+              <div class="cl-h">🗄 Baza de firme</div>
+              <div class="cl-db-status" id="cl-db-status">Se verifică…</div>
+              <div class="cl-db-status" id="cl-drive-status" style="margin-top:3px"></div>
+              <div class="cl-muted" id="cl-drive-msg" style="margin-top:3px"></div>
+            </div>
+            <div class="cl-db-actions">
+              <button class="btn btn-secondary btn-sm" onclick="clToggleImport()">⬆ Încarcă / actualizează baza</button>
+              <button class="btn btn-primary btn-sm" id="cl-publish-btn" onclick="clPublishDrive()" style="display:none">☁ Publică baza pe Drive</button>
+              <button class="btn btn-ghost btn-sm" id="cl-export-pack-btn" onclick="clExportPack()" style="display:none">📦 Exportă pachet (fișier)</button>
+            </div>
+          </div>
+          <div id="cl-import-box" class="cl-import" style="display:none">
+            <ol class="cl-steps">
+              <li>Descarcă gratuit de pe <a href="https://data.gov.ro/dataset?organization=onrc" target="_blank" rel="noopener">data.gov.ro — Registrul Comerțului (ONRC)</a> (alege cel mai recent set „Firme înregistrate la Registrul Comerțului până la data de …”) fișierele <b>od_firme.csv</b>, <b>od_caen_autorizat.csv</b> și <b>od_stare_firma.csv</b>.</li>
+              <li>Selectează-le pe toate trei aici. Aplicația păstrează doar firmele <b>active</b> cu coduri CAEN de interes (construcții, instalații, finisaje) — restul nu se salvează.</li>
+              <li>Apasă apoi <b>„☁ Publică baza pe Drive”</b> — colegii primesc automat firmele, fără să importe nimic. (Alternativ: un <b>pachet .json.gz</b> exportat de aici.)</li>
+            </ol>
+            <label class="cl-check"><input type="checkbox" id="cl-imp-pf"/> Include și PFA / Întreprinderi Individuale / Familiale <span class="cl-muted">(numele sunt date personale — folosește-le doar conform GDPR)</span></label>
+            <div class="cl-import-row">
+              <input type="file" id="cl-files" multiple accept=".csv,.txt,.gz,.json" class="input" style="max-width:520px"/>
+              <button class="btn btn-primary btn-sm" onclick="clStartImport()">Importă</button>
+            </div>
+            <div id="cl-import-progress" class="cl-progress" style="display:none"><div class="cl-bar"><div id="cl-import-bar"></div></div><div id="cl-import-msg" class="cl-muted"></div></div>
+          </div>
+        </div>
+
+        <!-- Filtre -->
+        <div class="cl-card" id="cl-filters">
+          <div class="cl-grid">
+            <div>
+              <div class="cl-h">📍 Județe <span class="cl-muted" id="cl-jud-count"></span></div>
+              <input type="text" class="input" id="cl-jud-search" placeholder="Caută județ…" oninput="clRenderJudete()" style="margin-bottom:8px"/>
+              <div class="cl-chips" id="cl-judete"></div>
+            </div>
+            <div>
+              <div class="cl-h">🏗 Tip client (cod CAEN) <a href="#" class="cl-link" onclick="clCatAll(true);return false">toate</a> · <a href="#" class="cl-link" onclick="clCatAll(false);return false">niciunul</a></div>
+              <div class="cl-cats" id="cl-cats"></div>
+              <div class="cl-h" style="margin-top:12px">🔎 Cuvinte în denumire <span class="cl-muted">(opțional, separate prin virgulă)</span></div>
+              <input type="text" class="input" id="cl-kw" placeholder="ex: construct, renov, hidro, termo, instal"/>
+              <label class="cl-check" style="margin-top:8px"><input type="checkbox" id="cl-kw-or" checked/> Cuvintele se adaugă la tipurile CAEN (sau) — debifează ca să filtrezi strict</label>
+            </div>
+          </div>
+          <div class="cl-loc">
+            <div class="cl-h" style="margin:0">🧭 Poziția ta</div>
+            <button class="btn btn-secondary btn-sm" onclick="clLocateGPS()">📡 Localizează-mă (GPS)</button>
+            <input type="text" class="input" id="cl-loc-addr" placeholder="sau scrie localitatea / adresa ta (ex: Cluj-Napoca, str. Fabricii 1)" style="flex:1;min-width:240px"/>
+            <button class="btn btn-ghost btn-sm" onclick="clLocateAddress()">Caută adresa</button>
+            <span id="cl-loc-status" class="cl-muted"></span>
+          </div>
+          <div class="cl-actions">
+            <button class="btn btn-primary" onclick="clSearch()">🎯 Identifică clienții</button>
+            <span id="cl-search-msg" class="cl-muted"></span>
+          </div>
+        </div>
+
+        <!-- Rezultate -->
+        <div class="cl-card" id="cl-results-card" style="display:none">
+          <div class="cl-res-head">
+            <div class="cl-h" id="cl-res-title" style="margin:0"></div>
+            <div class="cl-res-tools">
+              <button class="btn btn-secondary btn-sm" id="cl-fin-btn" onclick="clLoadFinancials()">💰 Încarcă cifra de afaceri și angajații (ANAF)</button>
+              <button class="btn btn-ghost btn-sm" onclick="clExportCSV()">⬇ Export Excel (CSV)</button>
+            </div>
+          </div>
+          <div id="cl-res-progress" class="cl-muted" style="margin:6px 0"></div>
+          <div class="cl-table-wrap"><table class="cl-table" id="cl-table"></table></div>
+          <div class="cl-pager" id="cl-pager"></div>
+          <div class="cl-foot">Sursă: Registrul Comerțului (ONRC, date deschise) · Date financiare: bilanțurile publice ANAF · Distanța este în linie dreaptă, calculată de la poziția ta la centrul localității firmei (sau la adresa exactă, dacă o localizezi cu 📍). Pentru distanța rutieră folosește butonul 🗺.</div>
+        </div>
       </div>
     </div>
 
@@ -5911,14 +6056,14 @@
       // ── Mobile bottom nav sync ──
       function syncMobileNav(mode) {
         document.querySelectorAll('.mob-nav-btn').forEach(b => b.classList.remove('active'));
-        const map = { landing: 'mob-nav-landing', total: 'mob-nav-total', etapizat: 'mob-nav-etapizat', admin: 'mob-nav-admin', oferte: 'mob-nav-oferte' };
+        const map = { landing: 'mob-nav-landing', total: 'mob-nav-total', etapizat: 'mob-nav-etapizat', admin: 'mob-nav-admin', oferte: 'mob-nav-oferte', clienti: 'mob-nav-clienti' };
         const target = map[mode];
         if (target) document.getElementById(target)?.classList.add('active');
       }
 
       function showLanding() {
         // Ascunde toate ecranele (inclusiv cele cu display:block din switchMode)
-        ['total','etapizat','admin','oferte'].forEach(m => {
+        ['total','etapizat','admin','oferte','clienti'].forEach(m => {
           const el = document.getElementById('screen-' + m);
           if (el) el.style.display = 'none';
         });
@@ -5934,7 +6079,7 @@
         if (mode !== 'admin') _isAdmin = false;
         // Oferte screen
         if (mode === 'oferte') {
-          ['landing','total','etapizat','admin','oferte'].forEach(m => {
+          ['landing','total','etapizat','admin','oferte','clienti'].forEach(m => {
             const el = document.getElementById('screen-' + m);
             if (el) el.style.display = (m === 'oferte') ? 'block' : 'none';
           });
@@ -6016,6 +6161,7 @@
         if (mode === "total") { totalCalc(); }
         if (mode === "etapizat") { renderEtapizatGrid(); }
         if (mode === "admin") { renderAdmin(); }
+        if (mode === "clienti") { clRender(); }
       }
 
       // ─────────────────────────── TOTAL MODE ─────────────────────────────
@@ -9653,6 +9799,32 @@
           ⚠ Configurează mai întâi Cloud Backup (mai sus) pentru a genera link-ul de echipă.
         </div>
       `}
+    </div>
+    <div class="admin-card" style="margin-top:16px">
+      <h3>🎯 Clienți în Zonă — bază firme pe Google Drive</h3>
+      <p style="font-size:12px;color:var(--txt2);margin-bottom:10px;line-height:1.6">Adminul importă o dată fișierele ONRC și le publică pe Drive; colegii primesc automat firmele din județele pe care le caută. Folosește un <b>proiect Apps Script separat</b> de cel de backup (nu se atinge backup-ul existent).</p>
+      <ol style="font-size:12px;color:var(--txt2);line-height:1.8;margin:0 0 10px 18px">
+        <li>Mergi la <a href="https://script.google.com" target="_blank" rel="noopener">script.google.com</a> → <b>New project</b> → nume „MatHaus Baza Firme”.</li>
+        <li>Șterge codul existent, lipește codul de mai jos și <b>schimbă PAROLA</b> din primul rând.</li>
+        <li><b>Deploy → New deployment → Web app</b> · Execute as: <b>Me</b> · Who has access: <b>Anyone</b> → Deploy → autorizează → copiază URL-ul care se termină în <code>/exec</code>.</li>
+        <li>Lipește URL-ul aici și salvează. Apoi, în „🎯 Clienți în Zonă”, importă fișierele ONRC și apasă <b>☁ Publică baza pe Drive</b> (îți cere parola).</li>
+      </ol>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
+        <input type="url" class="input" id="set-firme-url" value="${escHtml(appSettings.firmeUrl || '')}" placeholder="https://script.google.com/macros/s/.../exec" style="flex:1;min-width:260px;font-family:var(--mono);font-size:12px"/>
+        <button class="btn btn-primary btn-sm" onclick="appSettings.firmeUrl=$('set-firme-url').value.trim();saveSettings();triggerCloudAutoSave();_clRemote=null;toast('✅ Salvat — colegii primesc adresa la următoarea sincronizare')">💾 Salvează</button>
+      </div>
+      <details><summary style="font-size:12px;font-weight:700;color:var(--navy);cursor:pointer">📋 Codul scriptului Google (copiază și lipește)</summary>
+        <textarea class="input" readonly rows="14" style="width:100%;font-family:var(--mono);font-size:10.5px;margin-top:8px;white-space:pre">${escHtml(CL_DRIVE_SCRIPT)}</textarea>
+        <button class="btn btn-secondary btn-sm" style="margin-top:6px" onclick="safeCopy(CL_DRIVE_SCRIPT).then(()=>toast('✅ Cod copiat'))">📋 Copiază codul</button>
+      </details>
+    </div>
+    <div class="admin-card" style="margin-top:16px">
+      <h3>🎯 Clienți în Zonă — date financiare ANAF</h3>
+      <p style="font-size:12px;color:var(--txt2);margin-bottom:10px">Cifra de afaceri și angajații vin din bilanțurile publice ANAF. Browserul nu poate cere direct de la ANAF, așa că aplicația trece printr-un intermediar public gratuit (allorigins). Dacă acela nu merge, poți pune aici adresa unui intermediar propriu (ex. un Cloudflare Worker al companiei), cu <code>{url}</code> în locul adresei ANAF.</p>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <input type="text" class="input" id="set-anaf-proxy" value="${escHtml(appSettings.anafProxy || '')}" placeholder="https://proxy.firma.ro/?u={url}" style="flex:1;min-width:260px;font-family:var(--mono);font-size:12px"/>
+        <button class="btn btn-primary btn-sm" onclick="appSettings.anafProxy=$('set-anaf-proxy').value.trim();saveSettings();toast('✅ Salvat')">💾 Salvează</button>
+      </div>
     </div>
   </div>`;
       }
@@ -16242,7 +16414,703 @@ RETURNEAZĂ STRICT JSON:
         document.title = origTitle;
       }
 
-      </script>
+            // ══════════════════════════════════════════════════════════════
+      // IDENTIFICĂ CLIENȚI ÎN ZONĂ
+      // Sursa: date deschise ONRC (od_firme / od_caen_autorizat / od_stare_firma)
+      // Stocare locală: IndexedDB (doar firmele de interes), date financiare: bilanț ANAF
+      // ══════════════════════════════════════════════════════════════
+      const CL_JUDETE = [
+        ["Alba", 46.067, 23.570], ["Arad", 46.176, 21.319], ["Argeș", 44.857, 24.869], ["Bacău", 46.567, 26.914],
+        ["Bihor", 47.072, 21.921], ["Bistrița-Năsăud", 47.133, 24.500], ["Botoșani", 47.748, 26.669], ["Brașov", 45.652, 25.606],
+        ["Brăila", 45.271, 27.957], ["București", 44.435, 26.103], ["Buzău", 45.150, 26.833], ["Caraș-Severin", 45.300, 21.889],
+        ["Călărași", 44.200, 27.333], ["Cluj", 46.771, 23.594], ["Constanța", 44.180, 28.634], ["Covasna", 45.867, 25.783],
+        ["Dâmbovița", 44.925, 25.457], ["Dolj", 44.319, 23.800], ["Galați", 45.435, 28.008], ["Giurgiu", 43.900, 25.967],
+        ["Gorj", 45.036, 23.275], ["Harghita", 46.358, 25.802], ["Hunedoara", 45.877, 22.912], ["Ialomița", 44.564, 27.363],
+        ["Iași", 47.158, 27.601], ["Ilfov", 44.535, 26.125], ["Maramureș", 47.659, 23.581], ["Mehedinți", 44.633, 22.656],
+        ["Mureș", 46.542, 24.557], ["Neamț", 46.928, 26.370], ["Olt", 44.430, 24.364], ["Prahova", 44.940, 26.020],
+        ["Satu Mare", 47.790, 22.886], ["Sălaj", 47.192, 23.057], ["Sibiu", 45.793, 24.152], ["Suceava", 47.651, 26.255],
+        ["Teleorman", 43.968, 25.333], ["Timiș", 45.756, 21.229], ["Tulcea", 45.172, 28.791], ["Vaslui", 46.640, 27.728],
+        ["Vâlcea", 45.104, 24.375], ["Vrancea", 45.696, 27.186],
+      ];
+      // Categorii: coduri CAEN Rev.3 + codurile Rev.2 încă folosite (actualizarea la Rev.3 are termen martie 2027)
+      const CL_CATS = [
+        { id: "constr", label: "Construcții case și clădiri", codes: ["4100", "4120"], on: true },
+        { id: "dezv", label: "Dezvoltatori imobiliari", codes: ["6812", "4110"], on: true },
+        { id: "izol", label: "Termoizolații și hidroizolații", codes: ["4323", "4329"], on: true },
+        { id: "acop", label: "Acoperișuri, învelitori, terase / zidărie", codes: ["4341", "4391"], on: true },
+        { id: "electr", label: "Instalații electrice", codes: ["4321"], on: true },
+        { id: "sanit", label: "Instalații sanitare, termice, climatizare", codes: ["4322"], on: true },
+        { id: "alteinst", label: "Alte instalații în clădiri", codes: ["4324"], on: false },
+        { id: "tenc", label: "Tencuieli, ipsoserie", codes: ["4331"], on: true },
+        { id: "tamp", label: "Tâmplărie și dulgherie", codes: ["4332"], on: true },
+        { id: "pard", label: "Pardoseli și placări (gresie, parchet)", codes: ["4333"], on: true },
+        { id: "vops", label: "Vopsitorie, zugrăveli", codes: ["4334"], on: true },
+        { id: "finis", label: "Alte finisaje / renovări", codes: ["4335", "4339"], on: true },
+        { id: "spec", label: "Alte lucrări speciale de construcții", codes: ["4342", "4399"], on: true },
+        { id: "demol", label: "Demolări și pregătirea terenului", codes: ["4311", "4312"], on: false },
+        { id: "proiect", label: "Arhitecți și ingineri proiectanți", codes: ["7111", "7112"], on: false },
+      ];
+      const CL_CAEN_LABEL = {
+        "4100": "Construcții clădiri", "4120": "Construcții clădiri (Rev.2)", "6812": "Dezvoltare imobiliară", "4110": "Dezvoltare imobiliară (Rev.2)",
+        "4323": "Izolații (termo/hidro)", "4329": "Alte instalații/izolații (Rev.2)", "4341": "Învelitori, șarpante, terase", "4391": "Zidărie (Rev.3) / Acoperișuri (Rev.2)",
+        "4321": "Instalații electrice", "4322": "Instalații sanitare/termice", "4324": "Alte instalații", "4331": "Ipsoserie, tencuieli",
+        "4332": "Tâmplărie", "4333": "Pardoseli, placări", "4334": "Vopsitorie", "4335": "Alte finisaje", "4339": "Alte finisaje (Rev.2)",
+        "4342": "Alte lucrări speciale", "4399": "Alte lucrări speciale", "4311": "Demolări", "4312": "Pregătirea terenului",
+        "7111": "Arhitectură", "7112": "Inginerie, consultanță tehnică",
+      };
+      const CL_ALL_CODES = new Set(CL_CATS.flatMap(c => c.codes));
+      const CL_PF_FORMS = /^(PFA|II|IF|PF|ÎI|ÎF)$/i;
+      const clNorm = s => String(s || "").normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[ŞşȘș]/g, "s").replace(/[ŢţȚț]/g, "t")
+        .toUpperCase().replace(/^(JUDETUL|JUD\.?|MUNICIPIUL|MUN\.?)\s+/, "").replace(/[^A-Z0-9]+/g, " ").trim();
+      const CL_JUD_BY_KEY = Object.fromEntries(CL_JUDETE.map(([n, la, lo]) => [clNorm(n), { n, la, lo }]));
+      function clJudKey(raw) {
+        const k = clNorm(raw);
+        if (CL_JUD_BY_KEY[k]) return k;
+        if (/BUCURESTI|SECTOR/.test(k)) return "BUCURESTI";
+        const hit = Object.keys(CL_JUD_BY_KEY).find(x => k.startsWith(x) || x.startsWith(k));
+        return hit || k;
+      }
+
+      // ── IndexedDB ──
+      let _clDB = null;
+      function clDB() {
+        if (_clDB) return Promise.resolve(_clDB);
+        return new Promise((res, rej) => {
+          const rq = indexedDB.open("mathaus_clienti", 2);
+          rq.onupgradeneeded = () => {
+            const db = rq.result;
+            // v2: firmele se salvează în „pachete” de câte ~3000 pe județ (mult mai rapid decât câte o înregistrare)
+            if (db.objectStoreNames.contains("firme")) db.deleteObjectStore("firme");
+            const f = db.createObjectStore("firme", { keyPath: "id" }); f.createIndex("jk", "jk");
+            if (!db.objectStoreNames.contains("geo")) db.createObjectStore("geo", { keyPath: "k" });
+            if (!db.objectStoreNames.contains("fin")) db.createObjectStore("fin", { keyPath: "cui" });
+            if (!db.objectStoreNames.contains("meta")) db.createObjectStore("meta", { keyPath: "k" });
+          };
+          rq.onsuccess = () => { _clDB = rq.result; res(_clDB); };
+          rq.onerror = () => rej(rq.error);
+        });
+      }
+      async function clTx(store, mode, fn) {
+        const db = await clDB();
+        return new Promise((res, rej) => {
+          const tx = db.transaction(store, mode); const st = tx.objectStore(store);
+          let out; Promise.resolve(fn(st)).then(v => out = v);
+          tx.oncomplete = () => res(out); tx.onerror = () => rej(tx.error); tx.onabort = () => rej(tx.error);
+        });
+      }
+      const clReq = rq => new Promise((res, rej) => { rq.onsuccess = () => res(rq.result); rq.onerror = () => rej(rq.error); });
+      const clGet = (store, key) => clTx(store, "readonly", st => clReq(st.get(key)));
+      const clPut = (store, val) => clTx(store, "readwrite", st => { st.put(val); });
+      async function clPutMany(store, arr) { if (!arr.length) return; await clTx(store, "readwrite", st => { arr.forEach(v => st.put(v)); }); }
+      // scriere firme grupate pe județ
+      function clChunker() {
+        const buf = {}, seq = {}; const pending = [];
+        return {
+          add(f) { (buf[f.jk] = buf[f.jk] || []).push(f); if (buf[f.jk].length >= 3000) pending.push(this.take(f.jk)); },
+          take(jk) { seq[jk] = (seq[jk] || 0) + 1; const arr = buf[jk]; buf[jk] = []; return { id: jk + "#" + seq[jk], jk, arr }; },
+          async flush(all) { if (all) Object.keys(buf).forEach(jk => { if (buf[jk].length) pending.push(this.take(jk)); }); const p = pending.splice(0); if (p.length) await clPutMany("firme", p); },
+        };
+      }
+      async function clFirmeByJud(jk) { const chunks = await clTx("firme", "readonly", st => clReq(st.index("jk").getAll(jk))); return chunks.flatMap(c => c.arr || []); }
+
+      // ── stare UI ──
+      const _cl = { judete: new Set(), cats: new Set(CL_CATS.filter(c => c.on).map(c => c.id)), counts: {}, results: [], page: 0, per: 50, sort: "dist", dir: 1, me: null, busy: false, cancel: false };
+      try { const s = JSON.parse(localStorage.getItem("mathaus_cl_prefs") || "{}"); if (s.judete) _cl.judete = new Set(s.judete); if (s.cats) _cl.cats = new Set(s.cats); if (s.me) _cl.me = s.me; } catch (e) {}
+      function clSavePrefs() { try { localStorage.setItem("mathaus_cl_prefs", JSON.stringify({ judete: [..._cl.judete], cats: [..._cl.cats], me: _cl.me })); } catch (e) {} }
+
+      async function clRender() {
+        clRenderCats(); await clRefreshDbStatus(); clRenderJudete(); clRenderLoc();
+      }
+      async function clRefreshDbStatus() {
+        const el = $("cl-db-status"); if (!el) return;
+        const remote = clDriveUrl() ? await clRemoteInfo() : null;
+        const ds = $("cl-drive-status");
+        if (ds) ds.innerHTML = !clDriveUrl() ? "" : remote && remote.ts
+          ? `☁ Pe Drive: <b>${Object.values(remote.counts).reduce((a, b) => a + b, 0).toLocaleString("ro-RO")}</b> firme în ${Object.keys(remote.counts).length} județe · publicată la ${new Date(remote.ts).toLocaleDateString("ro-RO")} — județele căutate se descarcă automat`
+          : remote ? "☁ Drive conectat, dar baza nu a fost încă publicată" : "☁ Drive-ul cu baza de firme nu răspunde acum";
+        let meta = null;
+        try { meta = await clGet("meta", "info"); } catch (e) { el.innerHTML = "⚠ Browserul nu permite stocarea locală (IndexedDB). Deschide aplicația direct, nu în modul privat."; return; }
+        _cl.counts = { ...((meta && meta.counts) || {}), ...((remote && remote.counts) || {}) };
+        const pb = $("cl-publish-btn"); if (pb) pb.style.display = clDriveUrl() && meta && meta.total && /ONRC/.test(meta.src || "") ? "" : "none";
+        const dm = $("cl-drive-msg");
+        const needPub = clDriveUrl() && meta && /ONRC/.test(meta.src || "") && (!remote || !remote.ts || remote.ts < meta.ts);
+        if (dm && !_cl.busy) { if (needPub) dm.textContent = "ℹ Baza importată pe acest dispozitiv nu e încă pe Drive — apasă „☁ Publică baza pe Drive” ca s-o primească și colegii."; else if (dm.textContent.startsWith("ℹ")) dm.textContent = ""; }
+        if ((!meta || !meta.total) && remote && remote.ts) {
+          el.innerHTML = "Pe acest dispozitiv se descarcă doar județele pe care le cauți.";
+          $("cl-import-box").style.display = "none"; $("cl-export-pack-btn").style.display = "none";
+        } else if (!meta || !meta.total) {
+          el.innerHTML = "<b>Baza nu este încă încărcată pe acest dispozitiv.</b> Apasă „Încarcă / actualizează baza” (o singură dată; durează 1–3 minute).";
+          $("cl-import-box").style.display = "block"; $("cl-export-pack-btn").style.display = "none";
+        } else {
+          el.innerHTML = `✅ <b>${meta.total.toLocaleString("ro-RO")}</b> firme de interes, active · importat la ${new Date(meta.ts).toLocaleDateString("ro-RO")} din ${escHtml(meta.src || "ONRC")}`;
+          $("cl-export-pack-btn").style.display = "";
+        }
+      }
+      function clToggleImport() { const b = $("cl-import-box"); b.style.display = b.style.display === "none" ? "block" : "none"; }
+      function clRenderJudete() {
+        const box = $("cl-judete"); if (!box) return;
+        const q = clNorm($("cl-jud-search")?.value || "");
+        box.innerHTML = CL_JUDETE.filter(([n]) => !q || clNorm(n).includes(q)).map(([n]) => {
+          const k = clNorm(n), c = _cl.counts[k];
+          return `<button class="cl-chip ${_cl.judete.has(k) ? "on" : ""}" onclick="clToggleJud('${k}')">${n}${c ? `<small>${c.toLocaleString("ro-RO")}</small>` : ""}</button>`;
+        }).join("");
+        const cnt = $("cl-jud-count"); if (cnt) cnt.textContent = _cl.judete.size ? `(${_cl.judete.size} selectate)` : "";
+      }
+      function clToggleJud(k) { _cl.judete.has(k) ? _cl.judete.delete(k) : _cl.judete.add(k); clSavePrefs(); clRenderJudete(); }
+      function clRenderCats() {
+        const box = $("cl-cats"); if (!box) return;
+        box.innerHTML = CL_CATS.map(c => `<label><input type="checkbox" ${_cl.cats.has(c.id) ? "checked" : ""} onchange="clToggleCat('${c.id}', this.checked)"/> <span>${c.label} <code>${c.codes.join(", ")}</code></span></label>`).join("");
+      }
+      function clToggleCat(id, on) { on ? _cl.cats.add(id) : _cl.cats.delete(id); clSavePrefs(); }
+      function clCatAll(on) { _cl.cats = new Set(on ? CL_CATS.map(c => c.id) : []); clSavePrefs(); clRenderCats(); }
+
+      // ── IMPORT ──
+      // citire pe bucăți: callback-ul primește un array de linii (sincron) — mult mai rapid pentru fișiere de sute de MB
+      async function clEachLines(file, onLines, onBytes) {
+        let stream = file.stream();
+        if (/\.gz$/i.test(file.name)) stream = stream.pipeThrough(new DecompressionStream("gzip"));
+        const reader = stream.pipeThrough(new TextDecoderStream("utf-8")).getReader();
+        let buf = "", n = 0, lastUi = 0;
+        while (true) {
+          const { value, done } = await reader.read();
+          if (done) break;
+          n += value.length; buf += value;
+          const cut = buf.lastIndexOf("\n");
+          if (cut < 0) continue;
+          const lines = buf.slice(0, cut).split("\n"); buf = buf.slice(cut + 1);
+          await onLines(lines);
+          if (Date.now() - lastUi > 250) { lastUi = Date.now(); if (onBytes) onBytes(n); await new Promise(r => setTimeout(r, 0)); }
+        }
+        if (buf) await onLines([buf]);
+      }
+      const clSplit = (line, sep) => { if (line.endsWith("\r")) line = line.slice(0, -1); const a = line.split(sep); if (line.indexOf('"') >= 0) for (let i = 0; i < a.length; i++) a[i] = a[i].replace(/^"|"$/g, ""); for (let i = 0; i < a.length; i++) a[i] = a[i].trim(); return a; };
+      function clDetectSep(h) { return ["^", "\t", ";", ","].sort((a, b) => h.split(b).length - h.split(a).length)[0]; }
+      function clKind(file, header) {
+        const n = file.name.toLowerCase(), h = header.toUpperCase();
+        if (/\.json(\.gz)?$/.test(n) || h.startsWith("{") || h.startsWith("[")) return "pack";
+        if (n.includes("caen") || /CAEN/.test(h) && h.split(/[\^;,\t]/).length <= 4) return "caen";
+        if (n.includes("stare") || /^COD_INMATRICULARE.STARE|COD_STARE/.test(h) && h.split(/[\^;,\t]/).length <= 3) return "stare";
+        return "firme";
+      }
+      function clImportMsg(pct, msg) { const p = $("cl-import-progress"); if (p) p.style.display = "block"; const b = $("cl-import-bar"); if (b && pct != null) b.style.width = Math.min(100, pct) + "%"; const m = $("cl-import-msg"); if (m) m.textContent = msg; }
+
+      async function clStartImport() {
+        if (_cl.busy) return;
+        const files = [...($("cl-files")?.files || [])];
+        if (!files.length) { toast("⚠ Alege fișierele de importat"); return; }
+        _cl.busy = true;
+        try {
+          // citim prima linie din fiecare fișier ca să știm ce e
+          const typed = [];
+          for (const f of files) {
+            const nm = f.name.toLowerCase();
+            if (/\.json(\.gz)?$|\.gz$/.test(nm)) { typed.push({ f, kind: "pack" }); continue; }
+            if (/^n_/.test(nm)) continue; // nomenclatoare ONRC — nu sunt necesare
+            const head = (await f.slice(0, 4096).text()).split(/\r?\n/)[0] || "";
+            typed.push({ f, kind: clKind(f, head) });
+          }
+          // dacă sunt mai multe fișiere de același tip, îl păstrăm pe cel mai mare
+          const byKind = {}; typed.forEach(t => { if (!byKind[t.kind] || byKind[t.kind].f.size < t.f.size) byKind[t.kind] = t; });
+          typed.length = 0; Object.values(byKind).forEach(t => typed.push(t));
+          const pack = typed.find(t => t.kind === "pack");
+          if (pack) await clImportPack(pack.f);
+          else await clImportOnrc(typed);
+          await clRefreshDbStatus(); clRenderJudete();
+        } catch (e) {
+          console.error(e); clImportMsg(null, "⚠ Eroare la import: " + e.message); toast("⚠ Import eșuat: " + e.message);
+        } finally { _cl.busy = false; clRefreshDbStatus(); }
+      }
+
+      async function clImportOnrc(typed) {
+        const fCaen = typed.find(t => t.kind === "caen")?.f, fFirme = typed.find(t => t.kind === "firme")?.f, fStare = typed.find(t => t.kind === "stare")?.f;
+        if (!fCaen || !fFirme) throw new Error("Lipsește " + (!fFirme ? "od_firme.csv" : "od_caen_autorizat.csv") + ". Selectează fișierele ONRC împreună.");
+        const inclPF = !!$("cl-imp-pf")?.checked;
+        const totalBytes = fCaen.size + fFirme.size + (fStare ? fStare.size : 0);
+        let doneBytes = 0;
+        // 1) coduri CAEN de interes
+        const caenMap = new Map(); let sep = null, first = true;
+        await clEachLines(fCaen, lines => { for (const line of lines) {
+          if (!line) continue;
+          if (first) { sep = clDetectSep(line); first = false; if (/COD|CAEN/i.test(line)) continue; }
+          const i1 = line.indexOf(sep); if (i1 < 0) continue;
+          const i2 = line.indexOf(sep, i1 + 1);
+          const code = line.slice(i1 + 1, i2 < 0 ? undefined : i2).replace(/\D/g, "");
+          if (!CL_ALL_CODES.has(code)) continue;
+          const ci = line.slice(0, i1).replace(/"/g, "").trim();
+          const a = caenMap.get(ci); if (a) { if (!a.includes(code)) a.push(code); } else caenMap.set(ci, [code]);
+        } }, n => clImportMsg((doneBytes + n) / totalBytes * 100, `Pas 1/3 · coduri CAEN… ${caenMap.size.toLocaleString("ro-RO")} firme de interes găsite`));
+        doneBytes += fCaen.size;
+        // 2) stare (1048 = funcțiune)
+        let active = null;
+        if (fStare) {
+          active = new Set(); first = true;
+          await clEachLines(fStare, lines => { for (const line of lines) {
+            if (!line) continue;
+            if (first) { sep = clDetectSep(line); first = false; if (/COD|STARE/i.test(line)) continue; }
+            if (line.indexOf("1048") < 0) continue;
+            const p = clSplit(line, sep);
+            if (p[1] === "1048" && caenMap.has(p[0])) active.add(p[0]);
+          } }, n => clImportMsg((doneBytes + n) / totalBytes * 100, `Pas 2/3 · stare firme…`));
+          doneBytes += fStare.size;
+        }
+        // 3) firme
+        await clTx("firme", "readwrite", st => { st.clear(); });
+        let cols = null, kept = 0; const counts = {}; first = true; const ck = clChunker();
+        const pos = { n: 0, cui: 1, id: 2, di: 3, fj: 5, j: 7, l: 8, str: 9, nr: 10, bl: 11, sc: 12, et: 13, ap: 14, cp: 15, sect: 16, w: 18 };
+        await clEachLines(fFirme, async lines => { for (const line of lines) {
+          if (!line) continue;
+          if (first) {
+            sep = clDetectSep(line); first = false;
+            const h = clSplit(line, sep).map(x => x.toUpperCase());
+            if (h.some(x => x.includes("DENUMIRE"))) {
+              const find = (...re) => h.findIndex(x => re.some(r => r.test(x)));
+              cols = { ...pos };
+              const m = { n: [/^DENUMIRE$/], cui: [/^CUI$/, /COD_FISCAL/], id: [/COD_INMATRICULARE/, /NR_REG/], di: [/DATA_INMATRICULARE/], fj: [/FORMA_JURIDICA/], j: [/JUDET/], l: [/LOCALITATE/], str: [/STRADA/], nr: [/NR_STRADA|NUMAR/], bl: [/BLOC/], sc: [/SCARA/], et: [/ETAJ/], ap: [/APARTAMENT/], cp: [/COD_POSTAL/], sect: [/SECTOR/], w: [/^WEB/] };
+              Object.entries(m).forEach(([k, re]) => { const i = find(...re); if (i >= 0) cols[k] = i; });
+              continue;
+            }
+            cols = pos;
+          }
+          const p = line.split(sep);
+          const id0 = (p[cols.id] || "").replace(/"/g, "").trim(); if (!id0) continue;
+          const codes = caenMap.get(id0); if (!codes) continue;
+          if (active && !active.has(id0)) continue;
+          for (let k = 0; k < p.length; k++) p[k] = p[k].replace(/^"|"$/g, "").replace(/\r$/, "").trim();
+          const id = id0;
+          if (active && !active.has(id)) continue;
+          const fj = (p[cols.fj] || "").toUpperCase();
+          if (!inclPF && CL_PF_FORMS.test(fj)) continue;
+          const jk = clJudKey(p[cols.j]);
+          const adr = [p[cols.str], p[cols.nr] && "nr. " + p[cols.nr], p[cols.bl] && "bl. " + p[cols.bl], p[cols.sc] && "sc. " + p[cols.sc], p[cols.et] && "et. " + p[cols.et], p[cols.ap] && "ap. " + p[cols.ap], p[cols.sect] && "sector " + p[cols.sect]].filter(Boolean).join(", ");
+          ck.add({ id, cui: (p[cols.cui] || "").replace(/\D/g, ""), n: p[cols.n] || "", fj, di: p[cols.di] || "", j: (CL_JUD_BY_KEY[jk] || {}).n || p[cols.j] || "", jk, l: p[cols.l] || "", a: adr, cp: p[cols.cp] || "", w: p[cols.w] || "", c: codes });
+          counts[jk] = (counts[jk] || 0) + 1; kept++;
+        }
+        await ck.flush(false);
+        }, n => clImportMsg((doneBytes + n) / totalBytes * 100, `Pas 3/3 · firme… ${kept.toLocaleString("ro-RO")} păstrate`));
+        await ck.flush(true);
+        const impTs = Date.now();
+        await clPut("meta", { k: "info", total: kept, counts, ts: impTs, src: "ONRC " + fFirme.name, activeFilter: !!active, inclPF });
+        await clPutMany("meta", Object.keys(counts).map(jk => ({ k: "jud_" + jk, ts: impTs })));
+        setTimeout(() => { const bx = $("cl-import-box"); if (bx) bx.style.display = "none"; }, 4000);
+        clImportMsg(100, `✅ Gata: ${kept.toLocaleString("ro-RO")} firme ${active ? "active" : "(fără filtru de stare — adaugă și od_stare_firma.csv)"} salvate pe acest dispozitiv.` + (clDriveUrl() ? " Apasă „☁ Publică baza pe Drive” ca să le primească și colegii." : ""));
+        toast("✅ Baza de firme a fost importată");
+      }
+
+      async function clImportPack(file) {
+        clImportMsg(5, "Citesc pachetul…");
+        let txt = "";
+        const parts = [];
+        await clEachLines(file, lines => { parts.push(lines.join("\n")); }, n => clImportMsg(Math.min(60, n / 2e6), "Citesc pachetul…"));
+        txt = parts.join("\n");
+        const data = JSON.parse(txt);
+        if (!Array.isArray(data.firme)) throw new Error("Fișierul nu este un pachet MatHaus valid");
+        await clTx("firme", "readwrite", st => { st.clear(); });
+        const ck = clChunker(); data.firme.forEach(f => ck.add(f)); await ck.flush(true);
+        const counts = {}; data.firme.forEach(f => counts[f.jk] = (counts[f.jk] || 0) + 1);
+        await clPut("meta", { k: "info", total: data.firme.length, counts, ts: data.ts || Date.now(), src: "pachet " + file.name });
+        await clPutMany("meta", Object.keys(counts).map(jk => ({ k: "jud_" + jk, ts: data.ts || Date.now() })));
+        if (Array.isArray(data.geo)) await clPutMany("geo", data.geo);
+        clImportMsg(100, `✅ Pachet importat: ${data.firme.length.toLocaleString("ro-RO")} firme.`);
+        toast("✅ Pachet importat");
+      }
+
+      async function clExportPack() {
+        toast("⏳ Pregătesc pachetul…");
+        const firme = (await clTx("firme", "readonly", st => clReq(st.getAll()))).flatMap(c => c.arr || []);
+        const geo = await clTx("geo", "readonly", st => clReq(st.getAll()));
+        const meta = await clGet("meta", "info");
+        const json = JSON.stringify({ v: 1, ts: meta?.ts || Date.now(), firme, geo });
+        let blob = new Blob([json], { type: "application/json" }), name = `mathaus_firme_${new Date().toISOString().slice(0, 10)}.json`;
+        if (typeof CompressionStream !== "undefined") { blob = await new Response(blob.stream().pipeThrough(new CompressionStream("gzip"))).blob(); name += ".gz"; }
+        const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); a.remove();
+        toast(`✅ Pachet exportat (${(blob.size / 1048576).toFixed(1)} MB) — trimite-l colegilor`);
+      }
+
+      // ── POZIȚIA MEA ──
+      function clRenderLoc() {
+        const s = $("cl-loc-status"); if (!s) return;
+        s.innerHTML = _cl.me ? `✅ ${escHtml(_cl.me.label)} <span class="cl-muted">(${_cl.me.lat.toFixed(4)}, ${_cl.me.lon.toFixed(4)})</span>` : "Poziția nu este setată — distanța nu va fi calculată.";
+      }
+      function clLocateGPS() {
+        if (!navigator.geolocation) { toast("⚠ Browserul nu oferă GPS — scrie adresa"); return; }
+        $("cl-loc-status").textContent = "📡 Caut poziția…";
+        navigator.geolocation.getCurrentPosition(p => {
+          _cl.me = { lat: p.coords.latitude, lon: p.coords.longitude, label: "Poziția GPS (±" + Math.round(p.coords.accuracy) + " m)" };
+          clSavePrefs(); clRenderLoc(); if (_cl.results.length) { clComputeDist(); clRenderTable(); }
+        }, err => {
+          $("cl-loc-status").textContent = "⚠ GPS indisponibil (" + (err.code === 1 ? "permisiune refuzată" : "fără semnal") + ") — scrie adresa ta mai jos";
+        }, { enableHighAccuracy: true, timeout: 15000, maximumAge: 300000 });
+      }
+      async function clLocateAddress() {
+        const q = ($("cl-loc-addr")?.value || "").trim(); if (!q) { toast("⚠ Scrie localitatea sau adresa"); return; }
+        $("cl-loc-status").textContent = "🔎 Caut adresa…";
+        const r = await clNominatim({ q });
+        if (!r) { $("cl-loc-status").textContent = "⚠ Adresa nu a fost găsită — încearcă doar localitatea și județul"; return; }
+        _cl.me = { lat: r.lat, lon: r.lon, label: q }; clSavePrefs(); clRenderLoc();
+        if (_cl.results.length) { clComputeDist(); clRenderTable(); }
+      }
+
+      // ── GEOCODARE (OpenStreetMap Nominatim — max. 1 cerere/secundă) ──
+      let _clLastGeo = 0;
+      async function clNominatim(params) {
+        const wait = Math.max(0, _clLastGeo + 1100 - Date.now()); if (wait) await new Promise(r => setTimeout(r, wait));
+        _clLastGeo = Date.now();
+        const u = new URL("https://nominatim.openstreetmap.org/search");
+        Object.entries({ format: "json", limit: 1, countrycodes: "ro", "accept-language": "ro", ...params }).forEach(([k, v]) => u.searchParams.set(k, v));
+        try {
+          const r = await fetch(u.toString(), { headers: { Accept: "application/json" } });
+          if (!r.ok) return null;
+          const d = await r.json();
+          return d && d[0] ? { lat: +d[0].lat, lon: +d[0].lon } : null;
+        } catch (e) { return null; }
+      }
+      const clLocClean = l => String(l || "").replace(/^(MUN\.?|MUNICIPIUL|ORS\.?|ORAS(UL)?|ORAȘ(UL)?|COM\.?|COMUNA|SAT(UL)?|SAT\s+COMPONENT)\s+/i, "").replace(/\s*\(.*\)\s*/g, " ").trim();
+      const clGeoKey = f => clNorm(clLocClean(f.l)) + "|" + f.jk;
+      async function clGeocodeResults() {
+        const need = new Map();
+        _cl.results.forEach(f => { if (!f._geo) need.set(clGeoKey(f), f); });
+        // cache
+        for (const k of [...need.keys()]) { const g = await clGet("geo", k); if (g) { _cl.results.forEach(f => { if (clGeoKey(f) === k) f._geo = g; }); need.delete(k); } }
+        clComputeDist(); clRenderTable();
+        if (!need.size || !_cl.me) return;
+        let i = 0; const newGeo = [];
+        for (const [k, f] of need) {
+          if (_cl.cancel) break;
+          i++; $("cl-res-progress").textContent = `📍 Localizez localitățile pentru distanță: ${i}/${need.size}…`;
+          const jud = (CL_JUD_BY_KEY[f.jk] || {}).n || f.j;
+          let r = await clNominatim({ city: clLocClean(f.l), county: jud, country: "Romania" });
+          if (!r) r = await clNominatim({ q: clLocClean(f.l) + ", " + jud + ", Romania" });
+          const g = r ? { k, lat: r.lat, lon: r.lon, ok: 1 } : { k, lat: (CL_JUD_BY_KEY[f.jk] || {}).la, lon: (CL_JUD_BY_KEY[f.jk] || {}).lo, ok: 0 };
+          if (r) newGeo.push([k, { lat: r.lat, lon: r.lon, ok: 1 }]);
+          if (g.lat != null) { await clPut("geo", g); _cl.results.forEach(x => { if (clGeoKey(x) === k) x._geo = g; }); }
+          if (i % 5 === 0 || i === need.size) { clComputeDist(); clRenderTable(); }
+        }
+        $("cl-res-progress").textContent = "";
+        clPushShared("addGeo", newGeo);
+        clComputeDist(); clRenderTable();
+      }
+      function clHaversine(a, b) {
+        const R = 6371, t = x => x * Math.PI / 180, dLa = t(b.lat - a.lat), dLo = t(b.lon - a.lon);
+        const h = Math.sin(dLa / 2) ** 2 + Math.cos(t(a.lat)) * Math.cos(t(b.lat)) * Math.sin(dLo / 2) ** 2;
+        return 2 * R * Math.asin(Math.sqrt(h));
+      }
+      function clComputeDist() {
+        _cl.results.forEach(f => {
+          const g = f._addr || f._geo;
+          f._km = (_cl.me && g && g.lat != null) ? clHaversine(_cl.me, g) : null;
+          f._approx = g ? !g.ok : true;
+        });
+      }
+      async function clGeocodeAddress(idx) {
+        const f = _cl.results[idx]; if (!f) return;
+        toast("📍 Caut adresa exactă…");
+        const jud = (CL_JUD_BY_KEY[f.jk] || {}).n || f.j;
+        const r = await clNominatim({ q: [f.a.replace(/,?\s*(bl|sc|et|ap)\.[^,]*/gi, ""), clLocClean(f.l), jud, "Romania"].filter(Boolean).join(", ") });
+        if (!r) { toast("⚠ Adresa exactă nu a fost găsită — rămâne distanța până la localitate"); return; }
+        f._addr = { lat: r.lat, lon: r.lon, ok: 1 }; clComputeDist(); clRenderTable();
+      }
+
+      // ── CĂUTARE ──
+      async function clSearch() {
+        if (!_cl.judete.size) { toast("⚠ Selectează cel puțin un județ"); return; }
+        const kws = ($("cl-kw")?.value || "").split(",").map(s => clNorm(s)).filter(Boolean);
+        const orMode = $("cl-kw-or")?.checked !== false;
+        const codes = new Set(CL_CATS.filter(c => _cl.cats.has(c.id)).flatMap(c => c.codes));
+        if (!codes.size && !kws.length) { toast("⚠ Alege cel puțin un tip de client sau un cuvânt cheie"); return; }
+        $("cl-search-msg").textContent = "⏳ Caut…";
+        if (clDriveUrl()) {
+          try {
+            for (const jk of _cl.judete) await clSyncJud(jk, m => $("cl-search-msg").textContent = m);
+            await clPullShared();
+          } catch (e) { toast("⚠ " + e.message + " — folosesc datele salvate pe dispozitiv"); }
+          clRefreshDbStatus();
+        }
+        let all = [];
+        try {
+          for (const jk of _cl.judete) all = all.concat(await clFirmeByJud(jk));
+        } catch (e) { $("cl-search-msg").textContent = "⚠ Baza nu este încărcată"; return; }
+        if (!all.length) { $("cl-search-msg").textContent = "Nu există firme în baza locală pentru județele alese. Încarcă baza ONRC."; $("cl-results-card").style.display = "none"; return; }
+        _cl.results = all.filter(f => {
+          const byCode = f.c.some(c => codes.has(c));
+          const nm = clNorm(f.n); const byKw = kws.length ? kws.some(k => nm.includes(k)) : false;
+          if (!kws.length) return byCode;
+          return orMode ? (byCode || byKw) : (byKw && (codes.size ? byCode : true));
+        });
+        // date financiare deja în cache
+        for (const f of _cl.results) { if (f.cui) { const fin = await clGet("fin", f.cui); if (fin) f._fin = fin; } }
+        _cl.page = 0; _cl.sort = _cl.me ? "dist" : "name"; _cl.dir = 1; _cl.cancel = false;
+        $("cl-search-msg").textContent = "";
+        $("cl-results-card").style.display = "block";
+        clComputeDist(); clRenderTable();
+        if (_cl.me) clGeocodeResults(); else $("cl-res-progress").innerHTML = "ℹ Setează poziția ta (GPS sau adresă) ca să vezi distanța în km.";
+      }
+
+      function clVechime(di) {
+        const m = String(di || "").match(/(\d{4})[-./](\d{1,2})[-./](\d{1,2})|(\d{1,2})[-./](\d{1,2})[-./](\d{4})/);
+        if (!m) return null;
+        const y = +(m[1] || m[6]); return y > 1900 ? Math.max(0, new Date().getFullYear() - y) : null;
+      }
+      const clMoney = v => v == null ? "—" : (Math.abs(v) >= 1e6 ? (v / 1e6).toFixed(1).replace(".", ",") + " mil." : Math.round(v).toLocaleString("ro-RO")) + " lei";
+      const CL_COLS = [
+        ["dist", "Distanță", f => f._km ?? 1e9], ["name", "Firmă", f => f.n], ["loc", "Localitate", f => clNorm(f.l)], ["caen", "CAEN", f => f.c[0]],
+        ["ang", "Angajați", f => -(f._fin?.ang ?? -1)], ["ca", "Cifră de afaceri", f => -(f._fin?.ca ?? -1e15)], ["profit", "Profit net", f => -(f._fin?.profit ?? -1e15)], ["vech", "Vechime", f => -(clVechime(f.di) ?? -1)],
+      ];
+      function clSortBy(k) { if (_cl.sort === k) _cl.dir *= -1; else { _cl.sort = k; _cl.dir = 1; } _cl.page = 0; clRenderTable(); }
+      function clSorted() {
+        const col = CL_COLS.find(c => c[0] === _cl.sort) || CL_COLS[1];
+        return [..._cl.results].sort((a, b) => { const x = col[2](a), y = col[2](b); return (x < y ? -1 : x > y ? 1 : 0) * _cl.dir; });
+      }
+      function clRenderTable() {
+        const t = $("cl-table"); if (!t) return;
+        const rows = clSorted(); _cl._view = rows;
+        const pages = Math.max(1, Math.ceil(rows.length / _cl.per)); _cl.page = Math.min(_cl.page, pages - 1);
+        const slice = rows.slice(_cl.page * _cl.per, (_cl.page + 1) * _cl.per);
+        const finN = _cl.results.filter(f => f._fin).length;
+        $("cl-res-title").innerHTML = `${rows.length.toLocaleString("ro-RO")} firme găsite în ${[..._cl.judete].map(k => (CL_JUD_BY_KEY[k] || {}).n || k).join(", ")}` + (finN ? ` <span class="cl-muted">· date financiare pentru ${finN}</span>` : "");
+        const th = (k, lbl) => `<th class="${_cl.sort === k ? "sorted" : ""}" onclick="clSortBy('${k}')">${lbl}${_cl.sort === k ? (_cl.dir > 0 ? " ▲" : " ▼") : ""}</th>`;
+        t.innerHTML = `<thead><tr><th>#</th>${th("dist", "Distanță")}${th("name", "Firmă")}${th("loc", "Localitate / adresă")}${th("caen", "Activitate (CAEN)")}${th("ang", "Angajați")}${th("ca", "Cifră de afaceri")}${th("profit", "Profit net")}${th("vech", "Vechime")}<th>Acțiuni</th></tr></thead><tbody>` +
+          slice.map((f, i) => {
+            const idx = _cl.results.indexOf(f), n = _cl.page * _cl.per + i + 1, v = clVechime(f.di), fin = f._fin;
+            const maps = _cl.me ? `https://www.google.com/maps/dir/?api=1&origin=${_cl.me.lat},${_cl.me.lon}&destination=${encodeURIComponent([f.a, f.l, f.j, "Romania"].filter(Boolean).join(", "))}` : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent([f.n, f.l, f.j].join(", "))}`;
+            return `<tr>
+              <td class="cl-muted">${n}</td>
+              <td class="cl-km">${f._km != null ? (f._approx ? "≈ " : "") + f._km.toFixed(f._km < 10 ? 1 : 0).replace(".", ",") + " km" : "—"}</td>
+              <td><div class="cl-name">${escHtml(f.n)}</div><div class="cl-sub">CUI ${escHtml(f.cui || "—")} · ${escHtml(f.fj || "")}${f.w ? ` · <a href="${escHtml(safeUrl(/^https?:/i.test(f.w) ? f.w : "https://" + f.w))}" target="_blank" rel="noopener">site</a>` : ""}</div></td>
+              <td><div>${escHtml(f.l)}, ${escHtml(f.j)}</div><div class="cl-sub">${escHtml(f.a)}${f.cp ? " · " + escHtml(f.cp) : ""}</div></td>
+              <td>${f.c.map(c => `<span class="cl-tag" title="${escHtml(CL_CAEN_LABEL[c] || "")}">${c}</span>`).join("")}<div class="cl-sub">${escHtml(f.c.map(c => CL_CAEN_LABEL[c]).filter(Boolean).slice(0, 2).join(", "))}</div></td>
+              <td class="cl-num">${fin ? (fin.ang ?? "—") : "—"}</td>
+              <td class="cl-num">${fin ? clMoney(fin.ca) : "—"}${fin?.an ? `<div class="cl-sub">${fin.an}</div>` : ""}</td>
+              <td class="cl-num" style="color:${fin && fin.profit < 0 ? "var(--red)" : "inherit"}">${fin ? clMoney(fin.profit) : "—"}</td>
+              <td class="cl-num">${v != null ? v + " ani" : "—"}</td>
+              <td><div class="cl-act">
+                <a href="${escHtml(maps)}" target="_blank" rel="noopener" title="Traseu / hartă">🗺</a>
+                <button onclick="clGeocodeAddress(${idx})" title="Distanța până la adresa exactă">📍</button>
+                <button onclick="clFinOne(${idx})" title="Cifra de afaceri și angajații (ANAF)">💰</button>
+                <a href="https://www.google.com/search?q=${encodeURIComponent(f.n + " " + f.l + " telefon")}" target="_blank" rel="noopener" title="Caută telefon / contact">☎</a>
+                <button onclick="clAddNote(${idx})" title="Adaugă în Notițe Agent">📝</button>
+              </div></td></tr>`;
+          }).join("") + "</tbody>";
+        const pg = $("cl-pager");
+        pg.innerHTML = pages > 1 ? `<button class="btn btn-ghost btn-sm" ${_cl.page === 0 ? "disabled" : ""} onclick="_cl.page--;clRenderTable()">‹ Înapoi</button><span>Pagina ${_cl.page + 1} din ${pages}</span><button class="btn btn-ghost btn-sm" ${_cl.page >= pages - 1 ? "disabled" : ""} onclick="_cl.page++;clRenderTable()">Înainte ›</button>` : "";
+      }
+
+      // ── DATE FINANCIARE (bilanț public ANAF; 1 cerere/secundă) ──
+      async function clFetchJSON(url) {
+        const tries = [url, "https://api.allorigins.win/raw?url=" + encodeURIComponent(url)];
+        const extra = (appSettings.anafProxy || "").trim();
+        if (extra) tries.push(extra.replace("{url}", encodeURIComponent(url)));
+        for (const u of tries) {
+          try {
+            const ctl = new AbortController(); const to = setTimeout(() => ctl.abort(), 12000);
+            const r = await fetch(u, { signal: ctl.signal }); clearTimeout(to);
+            if (!r.ok) continue;
+            const d = await r.json(); if (d) return d;
+          } catch (e) {}
+        }
+        return null;
+      }
+      function clParseBilant(d) {
+        if (!d || !Array.isArray(d.i) || !d.i.length) return null;
+        const by = (code, re) => { const x = d.i.find(i => i.indicator === code) || d.i.find(i => re.test(String(i.val_den_indicator || ""))); return x ? Number(x.val_indicator) : null; };
+        const ca = by("I13", /cifra de afaceri/i), ang = by("I20", /numar mediu de salariati|număr mediu de salariați/i);
+        const pn = by("I18", /^profit net/i), pp = by("I19", /^pierdere net/i);
+        const profit = pn != null || pp != null ? (pn || 0) - (pp || 0) : null;
+        return { ca, ang, profit };
+      }
+      let _clLastAnaf = 0;
+      async function clFinFetch(cui) {
+        const y0 = new Date().getFullYear() - 1;
+        for (const an of [y0, y0 - 1, y0 - 2]) {
+          const wait = Math.max(0, _clLastAnaf + 1100 - Date.now()); if (wait) await new Promise(r => setTimeout(r, wait));
+          _clLastAnaf = Date.now();
+          const d = await clFetchJSON(`https://webservicesp.anaf.ro/bilant?an=${an}&cui=${cui}`);
+          if (d === null && an === y0) return { err: 1 };
+          const p = clParseBilant(d);
+          if (p) return { cui, an, ...p, ts: Date.now() };
+        }
+        return { cui, an: null, ca: null, ang: null, profit: null, ts: Date.now(), none: 1 };
+      }
+      async function clFinOne(idx) {
+        const f = _cl.results[idx]; if (!f || !f.cui) { toast("⚠ Firma nu are CUI în bază"); return; }
+        toast("💰 Cer datele de la ANAF…");
+        const r = await clFinFetch(f.cui);
+        if (r.err) { toast("⚠ ANAF nu răspunde acum — încearcă mai târziu"); return; }
+        f._fin = r; await clPut("fin", r); clRenderTable();
+        clPushShared("addFin", [[r.cui, { an: r.an, ca: r.ca, ang: r.ang, profit: r.profit, ts: r.ts, none: r.none }]]);
+        toast(r.none ? "ℹ Nu există bilanț depus pentru ultimii ani" : `✅ ${f.n}: ${clMoney(r.ca)}, ${r.ang ?? "—"} angajați (${r.an})`);
+      }
+      async function clLoadFinancials() {
+        if (_cl.busy) { _cl.cancel = true; return; }
+        const list = (_cl._view || clSorted()).filter(f => f.cui && !f._fin).slice(0, 100);
+        if (!list.length) { toast("✅ Toate firmele afișate au deja datele financiare"); return; }
+        _cl.busy = true; _cl.cancel = false;
+        const btn = $("cl-fin-btn"); const old = btn.textContent; btn.textContent = "⏹ Oprește";
+        let ok = 0, fail = 0; const newFin = [];
+        for (let i = 0; i < list.length && !_cl.cancel; i++) {
+          $("cl-res-progress").textContent = `💰 Date financiare ANAF: ${i + 1}/${list.length} (în ordinea din tabel, max. 100 pe rând, ~1 firmă/secundă)…`;
+          const r = await clFinFetch(list[i].cui);
+          if (r.err) { fail++; if (fail >= 3 && !ok) { toast("⚠ ANAF nu răspunde din acest browser/rețea — încearcă mai târziu"); break; } continue; }
+          list[i]._fin = r; await clPut("fin", r); ok++; newFin.push([r.cui, { an: r.an, ca: r.ca, ang: r.ang, profit: r.profit, ts: r.ts, none: r.none }]);
+          if (i % 5 === 4) clRenderTable();
+        }
+        clPushShared("addFin", newFin);
+        btn.textContent = old; _cl.busy = false; $("cl-res-progress").textContent = ok ? `✅ Date financiare încărcate pentru ${ok} firme.` : "";
+        clRenderTable();
+      }
+
+      const CL_DRIVE_SCRIPT = "// ═══════════════════════════════════════════════════════════════\n// MatHaus — Bază firme pe Google Drive  (rubrica „Identifică Clienți în Zonă”)\n// Proiect Apps Script SEPARAT de cel de backup (nu-l atinge pe cel existent).\n// Instalare: script.google.com → New project → lipește tot codul → schimbă PAROLA de mai jos →\n//   Deploy → New deployment → Web app → Execute as: Me → Who has access: Anyone → Deploy → copiază URL-ul /exec\n// ═══════════════════════════════════════════════════════════════\nconst PAROLA = 'SCHIMBA-MA';                 // parola de publicare — aceeași o scrii în aplicație la „Publică pe Drive”\nconst FOLDER = 'MatHaus - Baza firme';       // folderul creat automat pe Drive-ul tău\n\nfunction folder_() {\n  const it = DriveApp.getFoldersByName(FOLDER);\n  return it.hasNext() ? it.next() : DriveApp.createFolder(FOLDER);\n}\nfunction read_(name) {\n  const it = folder_().getFilesByName(name);\n  return it.hasNext() ? it.next().getBlob().getDataAsString('UTF-8') : null;\n}\nfunction write_(name, text) {\n  const f = folder_();\n  const it = f.getFilesByName(name);\n  while (it.hasNext()) it.next().setTrashed(true);       // înlocuim fișierul (blob — permite fișiere mari)\n  f.createFile(Utilities.newBlob(text, 'application/json', name));\n}\nconst safe_ = s => String(s || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 40);\n\nfunction out_(body, cb) {\n  if (cb) return ContentService.createTextOutput(String(cb).replace(/[^\\w$.]/g, '') + '(' + body + ')').setMimeType(ContentService.MimeType.JAVASCRIPT);\n  return ContentService.createTextOutput(body).setMimeType(ContentService.MimeType.JSON);\n}\n\nfunction doGet(e) {\n  const p = (e && e.parameter) || {};\n  let body;\n  try {\n    if (p.action === 'info') body = read_('info.json') || '{\"ok\":true,\"counts\":{},\"parts\":{}}';\n    else if (p.action === 'part') body = '{\"ok\":true,\"data\":' + (read_('firme_' + safe_(p.jk) + '_' + (+p.n || 1) + '.json') || 'null') + '}';\n    else if (p.action === 'geo') body = '{\"ok\":true,\"data\":' + (read_('geo.json') || '{}') + '}';\n    else if (p.action === 'fin') body = '{\"ok\":true,\"data\":' + (read_('fin.json') || '{}') + '}';\n    else body = '{\"ok\":true,\"service\":\"MatHaus baza firme\"}';\n  } catch (err) { body = JSON.stringify({ ok: false, error: String(err) }); }\n  return out_(body, p.callback);\n}\n\nfunction doPost(e) {\n  const lock = LockService.getScriptLock();\n  lock.waitLock(30000);\n  try {\n    const raw = (e.parameter && e.parameter.payload) || (e.postData && e.postData.contents) || '{}';\n    const m = JSON.parse(raw);\n    const admin = ['clear', 'putPart', 'putInfo'].indexOf(m.action) >= 0;\n    if (admin && m.token !== PAROLA) return out_('{\"ok\":false,\"error\":\"parola gresita\"}');\n    if (m.action === 'clear') {\n      const it = folder_().getFiles();\n      while (it.hasNext()) { const f = it.next(); if (/^firme_|^info\\.json$/.test(f.getName())) f.setTrashed(true); }\n    } else if (m.action === 'putPart') {\n      write_('firme_' + safe_(m.jk) + '_' + (+m.n || 1) + '.json', JSON.stringify(m.data || []));\n    } else if (m.action === 'putInfo') {\n      write_('info.json', JSON.stringify({ ok: true, ts: m.ts, counts: m.counts || {}, parts: m.parts || {}, src: m.src || '', published: new Date().toISOString() }));\n    } else if (m.action === 'addGeo' || m.action === 'addFin') {\n      // completări trimise de agenți: localități găsite pe hartă / date financiare ANAF\n      const name = m.action === 'addGeo' ? 'geo.json' : 'fin.json';\n      const cur = JSON.parse(read_(name) || '{}');\n      const entries = Object.entries(m.data || {}).slice(0, 500);\n      entries.forEach(([k, v]) => { if (String(k).length <= 120 && v && typeof v === 'object') cur[k] = v; });\n      write_(name, JSON.stringify(cur));\n    }\n    return out_('{\"ok\":true}');\n  } catch (err) {\n    return out_(JSON.stringify({ ok: false, error: String(err) }));\n  } finally { lock.releaseLock(); }\n}\n";
+      // ── BAZA DE FIRME PE GOOGLE DRIVE (Apps Script separat) ──
+      // Adminul publică firmele pe județe; agenții descarcă automat doar județele căutate.
+      const clDriveUrl = () => String(appSettings.firmeUrl || "").trim();
+      const CL_PART = 12000;
+      const clRow = f => [f.id, f.cui, f.n, f.fj, f.di, f.l, f.a, f.cp, f.w, f.c.join(" ")];
+      const clUnrow = (r, jk) => ({ id: r[0], cui: r[1] || "", n: r[2] || "", fj: r[3] || "", di: r[4] || "", l: r[5] || "", a: r[6] || "", cp: r[7] || "", w: r[8] || "", c: String(r[9] || "").split(" ").filter(Boolean), jk, j: (CL_JUD_BY_KEY[jk] || {}).n || jk });
+      function clJsonp(params, timeout = 90000) {
+        const base = clDriveUrl(); if (!base) return Promise.resolve(null);
+        return new Promise(resolve => {
+          const cb = "_mhFirme" + Date.now() + Math.floor(Math.random() * 1e6);
+          const s = document.createElement("script");
+          let done = false;
+          const finish = v => { if (done) return; done = true; delete window[cb]; s.remove(); resolve(v); };
+          window[cb] = d => finish(d);
+          const q = new URLSearchParams({ ...params, callback: cb, t: Date.now() });
+          s.src = base + (base.includes("?") ? "&" : "?") + q.toString();
+          s.onerror = () => finish(null);
+          document.head.appendChild(s);
+          setTimeout(() => finish(null), timeout);
+        });
+      }
+      function clPost(obj, timeout = 120000) {
+        const base = clDriveUrl(); if (!base) return Promise.resolve(false);
+        return new Promise(resolve => {
+          const name = "mh-firme-" + Date.now() + Math.floor(Math.random() * 1e6);
+          const ifr = document.createElement("iframe"); ifr.name = name; ifr.style.display = "none";
+          const form = document.createElement("form"); form.method = "POST"; form.action = base; form.target = name; form.style.display = "none";
+          const ta = document.createElement("textarea"); ta.name = "payload"; ta.value = JSON.stringify(obj); form.appendChild(ta);
+          let done = false;
+          const finish = ok => { if (done) return; done = true; setTimeout(() => { form.remove(); ifr.remove(); }, 50); resolve(ok); };
+          document.body.appendChild(ifr); document.body.appendChild(form);
+          // pornim după încărcarea inițială (about:blank), ca „load” să însemne răspunsul serverului
+          setTimeout(() => { ifr.onload = () => finish(true); form.submit(); }, 30);
+          setTimeout(() => finish(false), timeout);
+        });
+      }
+      let _clRemote = null, _clSharedPulled = false;
+      async function clRemoteInfo(force) {
+        if (!clDriveUrl()) return null;
+        if (_clRemote && !force) return _clRemote;
+        const r = await clJsonp({ action: "info" }, 30000);
+        _clRemote = r && r.ok && r.counts ? r : null;
+        return _clRemote;
+      }
+      async function clDeleteJud(jk) {
+        const db = await clDB();
+        await new Promise((res, rej) => {
+          const tx = db.transaction("firme", "readwrite");
+          const rq = tx.objectStore("firme").index("jk").openCursor(IDBKeyRange.only(jk));
+          rq.onsuccess = () => { const c = rq.result; if (c) { c.delete(); c.continue(); } };
+          tx.oncomplete = res; tx.onerror = () => rej(tx.error);
+        });
+      }
+      async function clUpdateLocalCounts(jk, n, ts, src) {
+        const meta = (await clGet("meta", "info")) || { k: "info", counts: {}, total: 0 };
+        meta.counts = meta.counts || {}; meta.counts[jk] = n;
+        meta.total = Object.values(meta.counts).reduce((a, b) => a + b, 0);
+        meta.ts = Math.max(meta.ts || 0, ts || 0); if (src) meta.src = src;
+        await clPut("meta", meta);
+      }
+      // descarcă un județ de pe Drive dacă versiunea de acolo e mai nouă decât cea locală
+      async function clSyncJud(jk, onMsg) {
+        const info = await clRemoteInfo(); if (!info || !info.parts || !info.parts[jk]) return false;
+        const loc = await clGet("meta", "jud_" + jk);
+        if (loc && loc.ts >= info.ts) return false;
+        const nParts = +info.parts[jk]; let firme = [];
+        for (let n = 1; n <= nParts; n++) {
+          if (onMsg) onMsg(`☁ Descarc firmele din ${(CL_JUD_BY_KEY[jk] || {}).n || jk} de pe Drive${nParts > 1 ? ` (${n}/${nParts})` : ""}…`);
+          const r = await clJsonp({ action: "part", jk, n });
+          if (!r || !r.ok || !Array.isArray(r.data)) throw new Error("Drive nu a răspuns pentru " + ((CL_JUD_BY_KEY[jk] || {}).n || jk));
+          firme = firme.concat(r.data.map(x => clUnrow(x, jk)));
+        }
+        await clDeleteJud(jk);
+        const ck = clChunker(); firme.forEach(f => ck.add(f)); await ck.flush(true);
+        await clPut("meta", { k: "jud_" + jk, ts: info.ts });
+        await clUpdateLocalCounts(jk, firme.length, info.ts, "Google Drive");
+        return true;
+      }
+      // localități găsite pe hartă + date financiare deja încărcate de colegi
+      async function clPullShared() {
+        if (_clSharedPulled || !clDriveUrl()) return; _clSharedPulled = true;
+        const [g, f] = await Promise.all([clJsonp({ action: "geo" }, 30000), clJsonp({ action: "fin" }, 30000)]);
+        if (g && g.ok && g.data) await clPutMany("geo", Object.entries(g.data).map(([k, v]) => ({ k, lat: v.lat, lon: v.lon, ok: v.ok })));
+        if (f && f.ok && f.data) await clPutMany("fin", Object.entries(f.data).map(([cui, v]) => ({ cui, ...v })));
+      }
+      function clPushShared(action, entries) {
+        if (!clDriveUrl() || !entries.length) return;
+        for (let i = 0; i < entries.length; i += 500) clPost({ action, data: Object.fromEntries(entries.slice(i, i + 500)) });
+      }
+      async function clPublishDrive() {
+        if (!clDriveUrl()) { toast("⚠ Setează întâi URL-ul scriptului în Admin → Setări → Bază firme pe Drive"); return; }
+        const meta = await clGet("meta", "info");
+        if (!meta || !meta.total) { toast("⚠ Importă întâi fișierele ONRC pe acest dispozitiv"); return; }
+        let token = ""; try { token = localStorage.getItem("mathaus_firme_token") || ""; } catch (e) {}
+        token = await showPrompt("Parola de publicare (cea scrisă în scriptul Google, la PAROLA):", token);
+        if (!token) return;
+        try { localStorage.setItem("mathaus_firme_token", token); } catch (e) {}
+        _cl.busy = true;
+        const msg = m => { const el = $("cl-drive-msg"); if (el) el.textContent = m; };
+        try {
+          const ts = meta.ts || Date.now();
+          msg("☁ Pregătesc Drive-ul…");
+          await clPost({ action: "clear", token });
+          const parts = {}, counts = {};
+          const juds = Object.keys(meta.counts || {});
+          for (let i = 0; i < juds.length; i++) {
+            const jk = juds[i], firme = await clFirmeByJud(jk);
+            if (!firme.length) continue;
+            counts[jk] = firme.length; parts[jk] = Math.ceil(firme.length / CL_PART);
+            for (let n = 1; n <= parts[jk]; n++) {
+              msg(`☁ Public ${(CL_JUD_BY_KEY[jk] || {}).n || jk} (${i + 1}/${juds.length})${parts[jk] > 1 ? ` partea ${n}/${parts[jk]}` : ""}…`);
+              const ok = await clPost({ action: "putPart", token, jk, n, data: firme.slice((n - 1) * CL_PART, n * CL_PART).map(clRow) });
+              if (!ok) throw new Error("Drive nu a confirmat salvarea pentru " + jk);
+            }
+          }
+          await clPost({ action: "putInfo", token, ts, counts, parts, src: meta.src || "ONRC" });
+          const geo = await clTx("geo", "readonly", st => clReq(st.getAll()));
+          clPushShared("addGeo", geo.map(g => [g.k, { lat: g.lat, lon: g.lon, ok: g.ok }]));
+          _clRemote = null;
+          const info = await clRemoteInfo(true);
+          if (!info || info.ts !== ts) throw new Error("Drive nu a acceptat publicarea — verifică parola și dacă scriptul e publicat (Deploy) cu acces „Anyone”");
+          for (const jk of Object.keys(counts)) await clPut("meta", { k: "jud_" + jk, ts });
+          msg(`✅ Publicat pe Drive: ${Object.values(counts).reduce((a, b) => a + b, 0).toLocaleString("ro-RO")} firme în ${Object.keys(counts).length} județe. Colegii le primesc automat la următoarea căutare.`);
+          toast("✅ Baza de firme a fost publicată pe Drive");
+          clRefreshDbStatus();
+        } catch (e) { msg("⚠ " + e.message); toast("⚠ Publicare eșuată: " + e.message); }
+        finally { _cl.busy = false; }
+      }
+
+      // ── EXPORT + NOTIȚE ──
+      function clExportCSV() {
+        const rows = _cl._view || clSorted();
+        const esc = v => { const s = String(v ?? ""); return /[;"\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
+        const head = ["Firmă", "CUI", "Formă juridică", "Județ", "Localitate", "Adresă", "Cod poștal", "Coduri CAEN", "Activitate", "Distanță km", "Angajați", "Cifră de afaceri (lei)", "Profit net (lei)", "An bilanț", "Data înmatriculării", "Site"];
+        const lines = [head.join(";")].concat(rows.map(f => [f.n, f.cui, f.fj, f.j, f.l, f.a, f.cp, f.c.join(" "), f.c.map(c => CL_CAEN_LABEL[c]).filter(Boolean).join(", "), f._km != null ? f._km.toFixed(1).replace(".", ",") : "", f._fin?.ang ?? "", f._fin?.ca ?? "", f._fin?.profit ?? "", f._fin?.an ?? "", f.di, f.w].map(esc).join(";")));
+        const blob = new Blob(["﻿" + lines.join("\r\n")], { type: "text/csv;charset=utf-8" });
+        const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = `clienti_${[..._cl.judete].join("-").toLowerCase().replace(/\s+/g, "")}_${new Date().toISOString().slice(0, 10)}.csv`;
+        document.body.appendChild(a); a.click(); a.remove();
+        toast(`✅ Export: ${rows.length} firme`);
+      }
+      function clAddNote(idx) {
+        const f = _cl.results[idx]; if (!f) return;
+        const list = loadOferte();
+        const id = "nt_" + Date.now();
+        list.unshift({ id, client: f.n, adresa: [f.a, f.l, f.j].filter(Boolean).join(", "), eticheta: "nou", tip: "notita", status: "notita",
+          text: `Prospect identificat în zonă\nCUI: ${f.cui || "—"} · ${f.fj || ""}\nActivitate: ${f.c.map(c => c + " " + (CL_CAEN_LABEL[c] || "")).join("; ")}` + (f._fin ? `\nAngajați: ${f._fin.ang ?? "—"} · Cifră de afaceri ${f._fin.an || ""}: ${clMoney(f._fin.ca)}` : "") + (f._km != null ? `\nDistanță: ${f._km.toFixed(1)} km` : "") + "\nTelefon / persoană de contact: ",
+          data: new Date().toLocaleDateString("ro-RO"), ts: Date.now(), materiale: [], neidentificate: [] });
+        saveOferte(list);
+        toast("📝 Adăugat în Notițe Agent: " + f.n);
+      }
+
+</script>
 
     <!-- Material Editor Modal -->
     <div id="mat-edit-overlay" style="display:none;position:fixed;inset:0;background:rgba(28,43,74,0.55);z-index:9998;backdrop-filter:blur(4px);justify-content:center;align-items:flex-start;overflow-y:auto;padding:40px 16px">
