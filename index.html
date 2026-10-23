@@ -2752,6 +2752,22 @@
       .cl-pager { display: flex; gap: 6px; align-items: center; justify-content: center; margin-top: 12px; flex-wrap: wrap; font-size: 12px; }
       .cl-foot { font-size: 10.5px; color: var(--txt3); margin-top: 12px; line-height: 1.5; }
       @media (max-width: 768px) { .cl-wrap { padding: 0 10px 90px; } }
+      /* ── Comandă Agent ── */
+      .co-bar { padding: 14px 18px; border-bottom: 1px solid var(--border2); background: var(--surface2); display: flex; flex-direction: column; gap: 10px; }
+      .co-client { display: grid; grid-template-columns: 1fr 1.4fr; gap: 8px; }
+      @media (max-width: 700px) { .co-client { grid-template-columns: 1fr; } }
+      .co-search-wrap { position: relative; }
+      .co-search { width: 100%; font-size: 14px; min-height: 44px; border: 2px solid var(--orange-m); }
+      .co-results { position: absolute; left: 0; right: 0; top: 100%; z-index: 50; background: var(--surface); border: 1px solid var(--border); border-radius: 0 0 10px 10px; box-shadow: 0 12px 30px rgba(0,0,0,.15); max-height: 340px; overflow-y: auto; }
+      .co-res { display: grid; grid-template-columns: 95px 1fr 50px 95px; gap: 8px; padding: 9px 12px; font-size: 12px; cursor: pointer; border-bottom: 1px solid var(--border2); align-items: center; }
+      .co-res:hover { background: var(--orange-l, #fff4ec); }
+      .co-res-sap { font-family: var(--mono); font-size: 10.5px; color: var(--txt3); }
+      .co-res-name { font-weight: 600; color: var(--navy); }
+      .co-res-um { font-size: 11px; color: var(--txt3); }
+      .co-res-pr { text-align: right; font-weight: 700; font-family: var(--mono); font-size: 11.5px; }
+      .co-res-empty { padding: 12px; font-size: 12px; color: var(--txt3); }
+      .co-bar-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+      .co-stage-add { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin: 0 0 14px; padding: 10px 14px; background: var(--orange-l, #fff4ec); border: 1px dashed var(--orange-m); border-radius: 10px; font-size: 11.5px; color: var(--txt2); }
 </style>
   </head>
   <body>
@@ -2769,9 +2785,9 @@
         <span class="mob-nav-icon">🏗</span>
         <span>Etapizat</span>
       </button>
-      <button class="mob-nav-btn" id="mob-nav-oferte" onclick="switchMode('oferte')" aria-label="Oferte AI">
+      <button class="mob-nav-btn" id="mob-nav-oferte" onclick="switchMode('oferte')" aria-label="Comandă Agent">
         <span class="mob-nav-icon">🗂</span>
-        <span>Oferte</span>
+        <span>Comandă</span>
       </button>
       <button class="mob-nav-btn" id="mob-nav-clienti" onclick="switchMode('clienti')" aria-label="Clienți în zonă">
         <span class="mob-nav-icon">🎯</span>
@@ -2798,7 +2814,7 @@
         <div>
           <div class="logo-text">MatHaus</div>
         </div>
-        <div class="logo-badge">Ghid Vânzări v3.7</div>
+        <div class="logo-badge">Ghid Vânzări v4.2</div>
       </div>
       <div class="header-nav">
         <button class="nav-btn" id="nav-total" onclick="switchMode('total')">
@@ -2816,7 +2832,7 @@
         </button>
         <span id="cloud-status-badge" title="Backup cloud" style="font-size:12px;color:var(--txt3);align-self:center"></span>
         <button class="nav-btn" onclick="window.print()">🖨 Print</button>
-        <button class="nav-btn" onclick="switchMode('oferte')" style="color:var(--blue);border-color:#BFDBFE" id="nav-oferte">🗂 Oferte AI</button>
+        <button class="nav-btn" onclick="switchMode('oferte')" id="nav-oferte">🧾 Comandă Agent</button>
         <button class="nav-btn" onclick="switchMode('clienti')" id="nav-clienti">🎯 Clienți în Zonă</button>
         <button class="nav-btn" onclick="openChat()" style="color:var(--orange);border-color:var(--orange-m)">🤖 Consultant AI</button>
       </div>
@@ -2993,12 +3009,13 @@
       <div class="oferte-layout">
         <div class="oferte-header">
           <div>
-            <div class="oferte-title">📋 Notițe Agent</div>
-            <div class="oferte-sub">Salvezi rapid → procesezi manual sau cu AI → finalizezi</div>
+            <div class="oferte-title">🧾 Comandă Agent</div>
+            <div class="oferte-sub">Comandă rapidă din catalog (fără AI) · prețurile lipsă le ceri cu AI doar dacă e cazul</div>
           </div>
           <div style="display:flex;gap:8px;flex-wrap:wrap">
             <button class="btn btn-ghost btn-sm" onclick="showLanding()">← Înapoi</button>
-            <button class="btn btn-primary" onclick="ofertaOpenModal()">+ Notiță Nouă</button>
+            <button class="btn btn-ghost btn-sm" onclick="ofertaOpenModal()" title="Notiță liberă sau dictată, procesată cu AI">📝 Notiță / AI</button>
+            <button class="btn btn-primary" onclick="coNew()">+ Comandă nouă</button>
           </div>
         </div>
 
@@ -3011,9 +3028,10 @@
         <!-- Empty state -->
         <div id="oferte-empty" style="text-align:center;padding:60px 20px;display:none">
           <div style="font-size:56px;margin-bottom:12px">🗂</div>
-          <div style="font-size:18px;font-weight:800;color:var(--navy);margin-bottom:8px">Nicio ofertă încă</div>
-          <div style="font-size:13px;color:var(--txt2);margin-bottom:20px">Creează prima ofertă — dictezi materialele și AI-ul face restul</div>
-          <button class="btn btn-primary" style="padding:12px 28px" onclick="ofertaOpenModal()">+ Ofertă Nouă</button>
+          <div style="font-size:18px;font-weight:800;color:var(--navy);margin-bottom:8px">Nicio comandă încă</div>
+          <div style="font-size:13px;color:var(--txt2);margin-bottom:20px">Caută produsele în catalog și adaugă cantitățile — fără AI, instant</div>
+          <button class="btn btn-primary" style="padding:12px 28px" onclick="coNew()">+ Comandă nouă</button>
+          <div style="margin-top:10px"><button class="btn btn-ghost btn-sm" onclick="ofertaOpenModal()">📝 sau scrie / dictează o notiță pentru AI</button></div>
         </div>
       </div>
     </div>
@@ -3077,8 +3095,8 @@
         <div class="mode-card chat-card" style="border-color:#BFDBFE;background:linear-gradient(135deg,var(--surface) 0%,var(--blue-l) 100%);grid-column:1/-1" onclick="switchMode('oferte')">
           <div class="mode-icon blue" style="background:var(--blue-l)">📋</div>
           <div class="chat-card-text">
-            <h2>Notițe Agent</h2>
-            <p>Dictează sau scrie materialele necesare — AI-ul le identifică automat din catalog, generează oferta cu prețuri și o pregătești pentru client.</p>
+            <h2>Comandă Agent</h2>
+            <p>Creezi rapid o comandă din catalogul MatHaus, cu prețurile știute completate automat — fără AI. Prețurile lipsă le ceri cu AI doar dacă e nevoie.</p>
           </div>
         </div>
       </div>
@@ -6638,6 +6656,7 @@
           : ""
       }
       ${inputsHtml}
+      <div class="co-stage-add"><button class="btn btn-primary btn-sm" onclick="coFromStage()">➕ Adaugă materialele calculate în Comandă Agent</button><span>Produsele, cantitățile și codurile SAP din tabelul de mai jos trec direct într-o comandă.</span></div>
       <div class="sdp-grid">
         ${
           s.docs?.length
@@ -9847,7 +9866,7 @@
         <button class="btn btn-primary btn-sm" onclick="appSettings.firmeUrl=$('set-firme-url').value.trim();saveSettings();triggerCloudAutoSave();_clRemote=null;toast('✅ Salvat — colegii primesc adresa la următoarea sincronizare')">💾 Salvează</button>
       </div>
       <div style="font-size:12px;color:var(--txt2);line-height:1.6;margin:0 0 10px;padding:10px;background:var(--blue-l);border-radius:var(--r-sm)">
-        <b>🔄 Monitor prețuri competitori (v2):</b> același script păstrează prețurile verificate de agenți (butonul ✏ din oferte) și citește automat, o dată pe zi, paginile de produs confirmate. Dacă ai instalat scriptul înainte de 22.10.2026, lipește codul nou, apoi <b>Deploy → Manage deployments → ✏ → Version: New version → Deploy</b> (URL-ul rămâne același) și rulează <b>o singură dată</b> funcția <b>setupMonitor</b> (▶ Run).
+        <b>🔄 Monitor prețuri competitori (v3):</b> același script păstrează prețurile verificate de agenți (butonul ✏ din oferte) și citește automat, o dată pe zi, paginile de produs confirmate. Dacă ai instalat o versiune mai veche de v3 (23.10.2026), lipește codul nou, apoi <b>Deploy → Manage deployments → ✏ → Version: New version → Deploy</b> (URL-ul rămâne același) și rulează <b>o singură dată</b> funcția <b>setupMonitor</b> (▶ Run).
         <div id="pv-monitor-status" style="margin-top:6px"></div>
         <button class="btn btn-ghost btn-sm" style="margin-top:6px" onclick="pvMonitorStatus()">📊 Vezi starea monitorului</button>
       </div>
@@ -10201,7 +10220,7 @@
             const parsed = JSON.parse(s);
             const _MM = { 'claude-sonnet-4-20250514':'claude-sonnet-5-5', 'claude-opus-4-6':'claude-opus-5-5', 'claude-haiku-4-5-20251001':'claude-haiku-5-5', 'claude-3-5-sonnet-20241022':'claude-sonnet-5-5', 'claude-3-5-haiku-20241022':'claude-haiku-5-5' };
             const _VALID = ['claude-sonnet-5-5','claude-opus-5-5','claude-haiku-5-5'];
-            ['aiModel','aiModelOferte'].forEach(k => { if (parsed[k]) { parsed[k] = _MM[parsed[k]] || parsed[k]; if (!_VALID.includes(parsed[k])) delete parsed[k]; } });
+            ['aiModel','aiModelOferte','aiModelIdent'].forEach(k => { if (parsed[k]) { parsed[k] = _MM[parsed[k]] || parsed[k]; if (!_VALID.includes(parsed[k])) delete parsed[k]; } });
             return { ...defaults, ...parsed };
           }
           return defaults;
@@ -10314,15 +10333,7 @@
       </div>
     </div>
   </div>
-  <div class="admin-card" style="margin-bottom:12px;border:2px solid var(--orange-m)">
-    <h3 style="margin:0 0 10px;font-size:15px">🤖 Ce AI răspunde în Consultant (chat)</h3>
-    <select class="input" style="max-width:420px;font-size:13px;min-height:42px" onchange="saveAIModel(this.value, 'consultant')">
-      <option value="claude-sonnet-5-5" ${(kb.aiModel||'claude-sonnet-5-5')==='claude-sonnet-5-5'?'selected':''}>Claude Sonnet 5.5 — Recomandat (rapid + precis)</option>
-      <option value="claude-opus-5-5" ${kb.aiModel==='claude-opus-5-5'?'selected':''}>Claude Opus 5.5 — Cel mai avansat (mai lent, mai scump)</option>
-      <option value="claude-haiku-5-5" ${kb.aiModel==='claude-haiku-5-5'?'selected':''}>Claude Haiku 5.5 — Cel mai rapid și ieftin</option>
-    </select>
-    <p style="font-size:11px;color:var(--txt3);margin-top:6px">Se aplică imediat la următorul mesaj din chat. Cheia API și restul setărilor: tab-ul <b>⚙ Model AI + cheie API</b>.</p>
-  </div>
+  ${aiModelsCard(['consultant'])}
   <div class="admin-card">
     <h3 style="margin:0 0 16px;font-size:15px">🎭 Persona</h3>
 
@@ -11203,12 +11214,6 @@ PROGRAM MAGAZINE:
 
 
       function renderAIOfertare(kb) {
-        const model = kb.aiModelOferte || 'claude-sonnet-5-5';
-        const modelNames = {
-          'claude-sonnet-5-5': 'Sonnet 5.5 — Recomandat',
-          'claude-opus-5-5': 'Opus 5.5 — Maxima precizie',
-          'claude-haiku-5-5': 'Haiku 5.5 — Rapid, ieftin'
-        };
         return `<div>
 
   <!-- INTRO CARD -->
@@ -11233,15 +11238,7 @@ PROGRAM MAGAZINE:
   </div>
 
   <!-- MODEL -->
-  <div class="admin-card" style="margin-bottom:12px">
-    <div style="font-size:11px;font-weight:700;color:var(--txt3);letter-spacing:1px;text-transform:uppercase;margin-bottom:12px;font-family:var(--mono)">🤖 Model AI — Ofertare</div>
-    <select class="input" id="ai-settings-model-oferte" style="max-width:400px;font-size:12px;min-height:40px" onchange="saveAIModel(this.value,'oferte')">
-      <option value="claude-sonnet-5-5" ${model==='claude-sonnet-5-5'?'selected':''}>Claude Sonnet 5.5 — Recomandat pentru identificare și cercetare</option>
-      <option value="claude-opus-5-5" ${model==='claude-opus-5-5'?'selected':''}>Claude Opus 5.5 — Identificare maximă precizie</option>
-      <option value="claude-haiku-5-5" ${model==='claude-haiku-5-5'?'selected':''}>Claude Haiku 5.5 — Mai rapid, mai ieftin</option>
-    </select>
-    <p style="font-size:11px;color:var(--txt3);margin-top:6px">Model activ: <strong>${modelNames[model] || model}</strong>. Sonnet 4 recomandat pentru calitatea căutărilor web.</p>
-  </div>
+  ${aiModelsCard(['ident', 'oferte'])}
 
   <!-- SERP API -->
   <div class="admin-card" style="margin-bottom:12px">
@@ -11354,6 +11351,12 @@ PROGRAM MAGAZINE:
         <option value="fara" ${kb.ofertaTVA === 'fara' ? 'selected' : ''}>FĂRĂ TVA — preț de pe site ÷ 1,21 (clienți firme)</option>
       </select>
       <p style="font-size:11px;color:var(--txt3);margin-top:4px">Se aplică la toate prețurile (MatHaus și competitori) și apare scris pe ofertă.</p>
+      <label class="label" style="margin-top:10px">📒 Prețurile din catalogul intern (Google Sheet / ERP) sunt</label>
+      <select class="input" id="catalog-tva-input" style="max-width:420px;font-size:12px" onchange="saveOfertaSettings()">
+        <option value="cu" ${(kb.catalogTVA || 'cu') === 'cu' ? 'selected' : ''}>CU TVA — ca pe site (implicit)</option>
+        <option value="fara" ${kb.catalogTVA === 'fara' ? 'selected' : ''}>FĂRĂ TVA (preț de listă ERP)</option>
+      </select>
+      <p style="font-size:11px;color:var(--txt3);margin-top:4px">Aplicația le convertește automat la regimul ales pentru ofertă.</p>
     </div>
     <div style="margin-bottom:12px">
       <label class="label">Reguli de identificare & comportament</label>
@@ -11407,15 +11410,7 @@ PROGRAM MAGAZINE:
       ${apiKey ? `<div style="font-size:11px;color:var(--green);margin-top:6px">✅ Cheie configurată: ${masked}</div>` : '<div style="font-size:11px;color:var(--red);margin-top:6px">⚠ Nicio cheie configurată — chatbot-ul nu va funcționa</div>'}
     </div>
 
-    <div style="margin-bottom:20px">
-      <label class="label">🤖 Model AI — Consultant (Chat)</label>
-      <select class="input" id="ai-settings-model" style="max-width:380px;font-size:12px;min-height:40px" onchange="saveAIModel(this.value, 'consultant')">
-        <option value="claude-sonnet-5-5" ${(kb.aiModel||'claude-sonnet-5-5')==='claude-sonnet-5-5'?'selected':''}>Claude Sonnet 5.5 — Recomandat pentru chat</option>
-        <option value="claude-opus-5-5" ${kb.aiModel==='claude-opus-5-5'?'selected':''}>Claude Opus 5.5 — Cel mai avansat (mai lent)</option>
-        <option value="claude-haiku-5-5" ${kb.aiModel==='claude-haiku-5-5'?'selected':''}>Claude Haiku 5.5 — Rapid, volum mare</option>
-      </select>
-      <p style="font-size:11px;color:var(--txt3);margin-top:4px">Folosit în <strong>Consultant AI</strong> — răspunsuri la întrebările agenților.</p>
-    </div>
+    ${aiModelsCard(['consultant', 'ident', 'oferte'])}
 
     <div style="border:1px solid #BFDBFE;border-radius:var(--r);padding:16px 18px;margin-bottom:20px;background:var(--blue-l)">
       <div style="font-size:11px;font-weight:700;color:var(--blue);letter-spacing:1.5px;text-transform:uppercase;font-family:var(--mono);margin-bottom:16px">
@@ -11585,6 +11580,7 @@ PROGRAM MAGAZINE:
         const kb = loadAIKB();
         kb.ofertaReguli = document.getElementById('oferta-reguli-input')?.value || '';
         const _tva = document.getElementById('oferta-tva-input')?.value; if (_tva) kb.ofertaTVA = _tva;
+        const _ctva = document.getElementById('catalog-tva-input')?.value; if (_ctva) kb.catalogTVA = _ctva;
         kb.ofertaSystemPrompt = document.getElementById('oferta-system-prompt-input')?.value || '';
         kb.ofertaCompetitori = document.getElementById('oferta-competitori-input')?.value || '';
         kb.ofertaSiteuri = document.getElementById('oferta-siteuri-input')?.value || '';
@@ -11599,22 +11595,58 @@ PROGRAM MAGAZINE:
         toast('✅ Setări agent ofertare salvate');
       }
 
+
+      // ── Alegerea modelului AI pe fiecare rol, cu recomandări ──
+      const AI_MODEL_INFO = {
+        "claude-haiku-5-5": { name: "Claude Haiku 5.5", cost: "💲", speed: "⚡⚡⚡" },
+        "claude-sonnet-5-5": { name: "Claude Sonnet 5.5", cost: "💲💲", speed: "⚡⚡" },
+        "claude-opus-5-5": { name: "Claude Opus 5.5", cost: "💲💲💲", speed: "⚡" },
+      };
+      const AI_ROLES = {
+        consultant: { key: "aiModel", def: "claude-sonnet-5-5", title: "💬 Consultant AI (chat)",
+          what: "Răspunde la întrebările agenților: calcule de cantități, produse, sisteme, sfaturi tehnice.",
+          rec: { "claude-sonnet-5-5": ["⭐ Ideal", "Cel mai bun echilibru: calcule corecte, explicații clare, răspuns rapid."],
+                 "claude-haiku-5-5": ["💲 Cel mai ieftin", "Bun pentru întrebări simple și uzuale; la calcule complexe poate greși mai des."],
+                 "claude-opus-5-5": ["🎯 Cel mai precis", "Pentru proiecte complicate; mai lent și cel mai scump — de obicei nu e necesar."] } },
+        ident: { key: "aiModelIdent", def: "claude-haiku-5-5", title: "🔎 Identificare materiale (oferte — pasul 1)",
+          what: "Citește notița agentului și găsește materialele în catalogul MatHaus (fără căutare pe internet).",
+          rec: { "claude-haiku-5-5": ["⭐ Ideal + 💲 cel mai ieftin", "Sarcină simplă (potrivire cu catalogul) — Haiku o face bine și foarte ieftin."],
+                 "claude-sonnet-5-5": ["Pentru notițe dificile", "Alege-l dacă notițele sunt vagi, cu prescurtări sau dictate și Haiku greșește materialele."],
+                 "claude-opus-5-5": ["Nerecomandat", "Precizie în plus aproape inutilă aici, la cel mai mare cost."] } },
+        oferte: { key: "aiModelOferte", def: "claude-sonnet-5-5", title: "🌐 Căutare prețuri lipsă pe internet (oferte — pasul 2)",
+          what: "Caută pe site-urile magazinelor doar prețurile care nu sunt deja verificate de colegi sau citite automat.",
+          rec: { "claude-sonnet-5-5": ["⭐ Ideal", "Găsește corect produsul echivalent și pagina bună a magazinului."],
+                 "claude-haiku-5-5": ["💲 Cel mai ieftin", "Merge, dar alege mai des un produs nepotrivit sau nu găsește prețul — verifică cu ✏."],
+                 "claude-opus-5-5": ["🎯 Cel mai precis", "Doar pentru oferte mari/importante; cel mai scump. Căutările pe internet costă oricum cel mai mult."] } },
+      };
+      function aiModelPicker(role) {
+        const r = AI_ROLES[role]; const kb = loadAIKB(); const cur = kb[r.key] || r.def;
+        return `<div style="margin-bottom:16px">
+          <div style="font-size:13px;font-weight:800;color:var(--navy)">${r.title}</div>
+          <div style="font-size:11px;color:var(--txt3);margin:2px 0 8px">${r.what}</div>
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:8px">
+          ${["claude-haiku-5-5", "claude-sonnet-5-5", "claude-opus-5-5"].map(m => { const i = AI_MODEL_INFO[m], rc = r.rec[m], on = m === cur;
+            return `<label style="display:block;cursor:pointer;border:2px solid ${on ? "var(--orange)" : "var(--border)"};background:${on ? "var(--orange-l, #fff4ec)" : "var(--surface)"};border-radius:10px;padding:10px 12px">
+              <div style="display:flex;justify-content:space-between;align-items:center;gap:6px"><span style="font-weight:800;font-size:12.5px;color:var(--navy)"><input type="radio" name="aim-${role}" ${on ? "checked" : ""} onchange="saveAIModel('${m}','${role}')" style="margin-right:6px"/>${i.name}</span><span style="font-size:10px" title="cost / viteză">${i.cost} ${i.speed}</span></div>
+              <div style="font-size:11px;font-weight:700;color:${m === r.def ? "#15803d" : "var(--txt2)"};margin-top:4px">${rc[0]}</div>
+              <div style="font-size:11px;color:var(--txt2);margin-top:2px;line-height:1.45">${rc[1]}</div></label>`; }).join("")}
+          </div></div>`;
+      }
+      function aiModelsCard(roles) {
+        return `<div class="admin-card" style="margin-bottom:12px;border:2px solid var(--orange-m)">
+          <h3 style="margin:0 0 4px;font-size:15px">🤖 Ce AI folosește aplicația</h3>
+          <p style="font-size:11px;color:var(--txt3);margin:0 0 12px">💲 = cost relativ · ⚡ = viteză. Alegerea se aplică imediat și ajunge la colegi prin backup. Recomandarea implicită e marcată cu verde.</p>
+          ${roles.map(aiModelPicker).join("")}
+        </div>`;
+      }
+
       function saveAIModel(val, target) {
         const kb = loadAIKB();
-        const names = {
-          'claude-sonnet-5-5': 'Sonnet 5.5',
-          'claude-opus-5-5': 'Opus 5.5',
-          'claude-haiku-5-5': 'Haiku 5.5'
-        };
-        if (target === 'oferte') {
-          kb.aiModelOferte = val;
-          saveAIKB(kb);
-          toast('✅ Model Ofertare: ' + (names[val] || val));
-        } else {
-          kb.aiModel = val;
-          saveAIKB(kb);
-          toast('✅ Model Consultant: ' + (names[val] || val));
-        }
+        const role = AI_ROLES[target === 'consultant' || !target ? 'consultant' : target] || AI_ROLES.consultant;
+        kb[role.key] = val;
+        saveAIKB(kb);
+        toast('✅ ' + role.title.replace(/^\S+\s/, '') + ': ' + (AI_MODEL_INFO[val]?.name || val));
+        if (typeof renderAdminAIKB === 'function' && document.getElementById('admin-content') && currentMode === 'admin') renderAdminAIKB();
       }
 
 
@@ -14404,9 +14436,9 @@ LIMBA: ${lang === 'ro' ? 'Română' : lang === 'en' ? 'English' : 'Auto-detect'}
           const body = {
             model: kb.aiModel || "claude-sonnet-5-5",
             max_tokens: kb.maxTokens || 1024,
-            system: buildSystemPrompt(),
+            system: [{ type: "text", text: buildSystemPrompt(), cache_control: { type: "ephemeral" } }],   // cache: instrucțiunile se taxează ~10% la mesajele următoare
             stream: true,
-            messages: chatConversation.slice(-20)
+            messages: chatConversation.slice(-12)
           };
 
           if (knowledgeLevel !== 'strict') {
@@ -14513,14 +14545,14 @@ LIMBA: ${lang === 'ro' ? 'Română' : lang === 'en' ? 'English' : 'Auto-detect'}
 
       // ── Claude API Call ──
       async function callClaudeAPI(apiKey, messages) {
-        const trimmedMessages = messages.slice(-20);
+        const trimmedMessages = messages.slice(-12);
         const kb = loadAIKB();
         const knowledgeLevel = kb.knowledgeLevel || 'medium';
 
         const body = {
           model: kb.aiModel || "claude-sonnet-5-5",
           max_tokens: kb.maxTokens || 1024,
-          system: buildSystemPrompt(),
+          system: [{ type: "text", text: buildSystemPrompt(), cache_control: { type: "ephemeral" } }],
           messages: trimmedMessages
         };
 
@@ -15626,9 +15658,9 @@ LIMBA: ${lang === 'ro' ? 'Română' : lang === 'en' ? 'English' : 'Auto-detect'}
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' },
             body: JSON.stringify({
-              model,
+              model: kb.aiModelIdent || 'claude-haiku-5-5',
               max_tokens: 3000,
-              system: (() => { const _cat = searchCatalog(extractKeywords(text), 40); const _csv = _cat.length ? '\nCATALOG MATHAUS (SAP = codul produsului pe mathaus.ro, denumirile sunt interne SAP nu identice cu site-ul):\n' + catalogToPromptCSV(_cat) : ''; return 'Identifica materialele din nota agentului.' + _csv + '\nREGULI:\n- Daca materialul EXISTA in catalog: foloseste SAP exact, link = https://mathaus.ro/p/[SAP]\n- Daca materialul NU exista in catalog: pune sap=\"\" si in_catalog=false, agentul va cauta manual pe mathaus.ro\n- Denumirile din catalog sunt interne SAP, nu identice cu site-ul\nRETURN STRICT JSON: {"materiale":[{"nume":"denumire","cantitate":50,"um":"buc","mentionat_ca":"text original","sap":"SAP exact sau gol","in_catalog":true,"link_mathaus":"https://mathaus.ro/p/SAP sau gol"}],"neidentificate":[]}'; })(),
+              system: (() => { const _cat = searchCatalog(extractKeywords(text), 40); const _csv = _cat.length ? '\nCATALOG MATHAUS (SAP = codul produsului pe mathaus.ro, denumirile sunt interne SAP nu identice cu site-ul):\n' + catalogToPromptCSV(_cat) : ''; return 'Identifica materialele din nota agentului.' + _csv + '\nREGULI:\n- Daca materialul EXISTA in catalog: foloseste SAP exact, link = https://mathaus.ro/p/[SAP]\n- Daca materialul NU exista in catalog: pune sap=\"\" si in_catalog=false, agentul va cauta manual pe mathaus.ro\n- Denumirile din catalog sunt interne SAP, nu identice cu site-ul\nFara explicatii. RETURN STRICT JSON: {"materiale":[{"nume":"denumire","cantitate":50,"um":"buc","mentionat_ca":"text original","sap":"SAP exact sau gol","in_catalog":true,"link_mathaus":"https://mathaus.ro/p/SAP sau gol"}],"neidentificate":[]}'; })(),
               messages: [{ role: 'user', content: 'Identifica materialele:\n\n' + text }]
             })
           });
@@ -15729,7 +15761,7 @@ LIMBA: ${lang === 'ro' ? 'Română' : lang === 'en' ? 'English' : 'Auto-detect'}
             ]);
             try {
               const _compStr = compList.map((c,i) => '  • ' + (siteList[i]||c.toLowerCase()+'.ro') + ' (' + c + ')').join('\n');
-              const _fallbackPrompt = `Caută prețurile pentru aceste materiale pe mathaus.ro și competitori.\n\nMateriale:\n${_materiiPentruClaude.map(m => '- ' + m.nume + (m.sap?' (SAP: '+m.sap+')':'') + ', cantitate: ' + (m.cantitate||1) + ' ' + (m.um||'')).join('\n')}\n\nCaută pe:\n• mathaus.ro\n${_compStr}\n\nREGULI: ${(kb.ofertaTVA || 'cu') === 'fara' ? 'prețuri FĂRĂ TVA (preț afișat ÷ 1,21)' : 'prețuri CU TVA, exact cum sunt afișate'}; prețul unui magazin doar de pe site-ul lui, cu link; altfel null.\n\nRETURN JSON: {"materiale":[{"nume":"...","sap":"...","mathaus":{"pret":12.5,"link":"..."},"dedeman":{"pret":11.8,"link":"..."},"leroy":{"pret":null,"link":null},"bricostore":{"pret":null,"link":null},"hornbach":{"pret":null,"link":null}}]}`;
+              const _fallbackPrompt = `Caută prețurile pentru aceste materiale pe mathaus.ro și competitori.\n\nMateriale:\n${_materiiPentruClaude.map(m => '- ' + m.nume + (m.sap?' (SAP: '+m.sap+')':'') + ', cantitate: ' + (m.cantitate||1) + ' ' + (m.um||'')).join('\n')}\n\nCaută pe:\n• mathaus.ro\n${_compStr}\n\nREGULI: ${(kb.ofertaTVA || 'cu') === 'fara' ? 'prețuri FĂRĂ TVA (preț afișat ÷ 1,21)' : 'prețuri CU TVA, exact cum sunt afișate'}; prețul unui magazin doar de pe site-ul lui, cu link; altfel null. Fără explicații — doar JSON.\n\nRETURN JSON: {"materiale":[{"nume":"...","sap":"...","mathaus":{"pret":12.5,"link":"..."},"dedeman":{"pret":11.8,"link":"..."},"leroy":{"pret":null,"link":null},"bricostore":{"pret":null,"link":null},"hornbach":{"pret":null,"link":null}}]}`;
 
               const _fbResp = await fetch('https://api.anthropic.com/v1/messages', {
                 method: 'POST',
@@ -15797,22 +15829,7 @@ LIMBA: ${lang === 'ro' ? 'Română' : lang === 'en' ? 'English' : 'Auto-detect'}
           // PASUL 3: Claude cauta depozitele locale
           toast('📍 Pas 3/3: Caut depozite MatHaus locale...');
           let depozite = [];
-          try {
-            const depoResp = await fetch('https://api.anthropic.com/v1/messages', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' },
-              body: JSON.stringify({
-                model,
-                max_tokens: 1000,
-                tools: [{ type: 'web_search_20250305', name: 'web_search' }],
-                messages: [{ role: 'user', content: `Caută depozitele MatHaus din România${adresa ? ' cel mai aproape de adresa: ' + adresa : ''}. Returnează JSON: {"depozite":[{"nume":"MatHaus Cluj","adresa":"...","telefon":"...","distanta_km":5}]}` }]
-              })
-            });
-            const depoData = await depoResp.json();
-            const depoText = (depoData.content || []).filter(b => b.type === 'text').map(b => b.text).join('');
-            const _dj = extractJsonObj(depoText);
-            if (_dj) depozite = _dj.depozite || [];
-          } catch(e) {}
+          try { /* căutarea depozitelor cu AI a fost scoasă (consum minim de tokeni) */           } catch(e) {}
 
           // Salvam oferta
           const list2 = loadOferte();
@@ -15843,67 +15860,102 @@ LIMBA: ${lang === 'ro' ? 'Română' : lang === 'en' ? 'English' : 'Auto-detect'}
       }
 
       // ── METODA 2: Claude web_search (fallback) ──
+      // ── METODA 2 (consum minim de tokeni) ──
+      // Pas 1: identificare materiale cu modelul rapid (Haiku), fără căutare web, pe baza catalogului
+      // Pas 2: prețuri deja cunoscute — verificate de colegi / citite automat (≤7 zile) sau găsite de AI recent (≤3 zile)
+      // Pas 3: căutare web DOAR pentru prețurile care lipsesc, într-un singur apel, cu număr limitat de căutări
+      const AI_PRICE_CACHE = "mathaus_ai_price_cache";
+      function aiCacheLoad() { try { return JSON.parse(localStorage.getItem(AI_PRICE_CACHE) || "{}"); } catch (e) { return {}; } }
+      function aiCacheSave(o) {
+        try {
+          const keys = Object.keys(o); if (keys.length > 3000) keys.sort((a, b) => o[a].ts - o[b].ts).slice(0, keys.length - 3000).forEach(k => delete o[k]);
+          localStorage.setItem(AI_PRICE_CACHE, JSON.stringify(o));
+        } catch (e) {}
+      }
+      async function anthropicJSON(apiKey, body) {
+        const hdr = { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' };
+        const resp = await fetch('https://api.anthropic.com/v1/messages', { method: 'POST', headers: hdr, body: JSON.stringify(body) });
+        if (!resp.ok) { const ed = await resp.json().catch(() => ({})); throw new Error('API ' + resp.status + (ed?.error?.message ? ': ' + ed.error.message : '')); }
+        let data = await resp.json();
+        data = await anthropicContinuePause(data, body, hdr);
+        trackAIUsage('message', 'oferte');
+        return (data.content || []).filter(b => b.type === 'text').map(b => b.text).join('');
+      }
+      // caută pe internet DOAR prețurile lipsă (perechi {i: index material, c: magazin}); modifică materialele pe loc
+      async function aiSearchMissing(materiale, missing, tva, kb, apiKey, extraPrompt) {
+        const kTva = tva === 'fara' ? 1 / 1.21 : 1;
+        const model = kb.aiModelOferte || 'claude-sonnet-5-5';
+        const aic = aiCacheLoad();
+        extraPrompt = extraPrompt || (kb.ofertaSystemPrompt || '').trim();
+            const lines = missing.map((x, n) => `${n}. ${PV_SITES[x.c]} — „${materiale[x.i].nume}”${materiale[x.i].sap && x.c === 'mathaus' ? ' (cod ' + materiale[x.i].sap + ', pagina https://mathaus.ro/p/' + materiale[x.i].sap + ')' : ''} — preț pe ${materiale[x.i].um}`);
+            const searchSys = 'Găsești prețuri de materiale de construcții pe site-urile magazinelor din România. Folosește web_search cât mai puțin: grupează căutările.' +
+              '\nREGULI:\n- Prețul ' + (tva === 'fara' ? 'FĂRĂ TVA (preț afișat ÷ 1,21)' : 'CU TVA, exact cum e afișat') + ', pentru unitatea cerută.' +
+              '\n- Doar de pe site-ul magazinului respectiv, cu link spre pagina produsului. Nu folosi articole, ghiduri sau comparatoare. Dacă nu găsești sigur: pret null.' +
+              '\n- Echivalent cât mai apropiat ca specificații.' +
+              '\n- NU scrie explicații, recomandări, comparații sau totaluri. Răspunsul tău conține DOAR obiectul JSON.' +
+              (extraPrompt ? '\n' + extraPrompt : '') +
+              '\nRĂSPUNDE DOAR CU JSON: {"preturi":[{"n":0,"pret":12.5,"link":"https://..."}]}';
+            const maxUses = Math.min(8, Math.max(2, Math.ceil(missing.length / 3)));
+            const txt = await anthropicJSON(apiKey, { model, max_tokens: 1200, tools: [{ type: 'web_search_20250305', name: 'web_search', max_uses: maxUses }], system: searchSys, messages: [{ role: 'user', content: 'Prețuri de găsit:\n' + lines.join('\n') }] });
+            const res = extractJsonObj(txt) || {};
+            const found = {};
+            (res.preturi || []).forEach(r => { const x = missing[+r.n]; if (!x) return; const p = Number(r.pret); found[r.n] = { pret: p > 0 ? p : null, link: /^https?:\/\//i.test(r.link || '') ? r.link : null }; });
+            missing.forEach((x, n) => {
+              const f = found[n] || { pret: null, link: null };
+              const m = materiale[x.i];
+              m[x.c] = { pret: f.pret, link: f.link || m[x.c].link, disponibil: f.pret != null };
+              // în cache păstrăm prețul ca pe site (cu TVA), ca să fie refolosit corect în orice ofertă
+              aic[pvProdKey(m) + '|' + x.c] = { pret: f.pret == null ? null : Math.round(f.pret / kTva * 100) / 100, link: f.link, ts: Date.now() };
+            });
+            aiCacheSave(aic);
+      }
+
       async function ofertaProcessClaude(ofertaId, text, adresa, kb, compList, siteList, contextMathaus, contextProdus, reguli, extraPrompt, model, apiKey) {
         try {
-          const compSearchList = compList.map((c, i) => `  • ${siteList[i] || c.toLowerCase().replace(/ /g,'') + '.ro'} (${c})`).join('\n');
-          const systemPrompt = `Ești un agent expert de cercetare pentru comparare prețuri materiale de construcții.
-
-CONTEXT MATHAUS: ${contextMathaus}\n${(() => { const _c = searchCatalog(extractKeywords(text), 40); return _c.length ? 'CATALOG MATHAUS:\n' + catalogToPromptCSV(_c) : ''; })()}
-${contextProdus ? 'AVANTAJE PRODUSE: ' + contextProdus : ''}
-${adresa ? 'Adresa de livrare: ' + adresa : ''}
-
-MISIUNEA TA (folosește web_search):
-1. Identifică materialele din notă
-2. Pentru FIECARE material caută prețul pe:
-   • mathaus.ro
-${compSearchList}
-3. Caută depozitele MatHaus din zona adresei
-
-REGULI DE PREȚ (obligatorii):
-- ${(kb.ofertaTVA || 'cu') === 'fara' ? 'Prețurile se raportează FĂRĂ TVA: preț afișat pe site ÷ 1,21. Toate prețurile din JSON sunt fără TVA.' : 'Prețurile se raportează CU TVA, exact cum sunt afișate pe site-ul magazinului. Nu scădea TVA-ul.'}
-- Prețul este pentru UNITATEA din câmpul "um" (sac, buc, palet, m²). Dacă site-ul afișează altă unitate, convertește și explică în "observatii".
-- Prețul unui magazin se ia DOAR de pe site-ul acelui magazin (pagina produsului), iar "link" este obligatoriu către acel site. NU folosi prețuri din articole, ghiduri, forumuri, comparatoare sau alte site-uri. Dacă nu găsești pe site-ul magazinului, pune "pret": null.
-- Echivalent cel mai apropiat ca specificații; dacă nu e același produs, spune asta în "observatii".
-- "neidentificate" = DOAR materialele din notă pe care nu le-ai putut identifica deloc (text scurt, ex. "plasă rabitz"). Explicațiile, presupunerile și avertismentele le pui în "observatii".
-- Depozite: doar magazine MatHaus reale, de pe mathaus.ro (pagina de magazine). Nu inventa adrese sau telefoane; dacă nu ești sigur, lasă câmpul gol.
-IMPORTANT CATALOG: Denumirile din catalog sunt INTERNE SAP (nu identice cu site-ul). Codul SAP este identic cu mathaus.ro. Construieste link-ul mathaus.ro ca: https://mathaus.ro/p/[COD_SAP]. Cauta pe mathaus.ro dupa codul SAP pentru pret exact.${reguli ? '\n' + reguli : ''}
-${extraPrompt ? '\nINSTRUCȚIUNI EXTRA:\n' + extraPrompt : ''}
-
-RETURNEAZĂ STRICT JSON:
-{"materiale":[{"sap":"","nume":"...","cantitate":10,"um":"buc","mentionat_ca":"...","mathaus":{"pret":12.5,"link":"...","disponibil":true},"dedeman":{"pret":11.8,"link":"...","disponibil":true},"leroy":{"pret":null,"link":null,"disponibil":false},"bricostore":{"pret":null,"link":null,"disponibil":false},"hornbach":{"pret":null,"link":null,"disponibil":false}}],"depozite_locale":[{"nume":"MatHaus Cluj","adresa":"...","telefon":"...","distanta_km":5}],"neidentificate":[],"observatii":["..."]}`;
-
-          const _hdr = { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' };
-          const _reqBody = {
-              model, max_tokens: 8000,
-              tools: [{ type: 'web_search_20250305', name: 'web_search' }],
-              system: systemPrompt,
-              messages: [{ role: 'user', content: 'Analizează și cercetează prețurile:\n\n' + text }]
-            };
-          const resp = await fetch('https://api.anthropic.com/v1/messages', {
-            method: 'POST',
-            headers: _hdr,
-            body: JSON.stringify(_reqBody)
-          });
-
-          if (!resp.ok) {
-            const _ed = await resp.json().catch(() => ({}));
-            throw new Error('API ' + resp.status + (_ed?.error?.message ? ': ' + _ed.error.message : ''));
-          }
-          let data = await resp.json();
-          data = await anthropicContinuePause(data, _reqBody, _hdr);
-          trackAIUsage('message', 'oferte');
-
-          const allText = (data.content || []).filter(b => b.type === 'text').map(b => b.text).join('');
-          const parsed = extractJsonObj(allText);
-          if (!parsed || !Array.isArray(parsed.materiale)) throw new Error('Răspunsul AI nu a conținut lista de materiale (JSON). Reîncearcă sau scurtează textul.');
-          parsed.depozite_locale = parsed.depozite_locale || []; parsed.neidentificate = parsed.neidentificate || [];
-
-          const materiale = (parsed.materiale || []).map(m => ({
-            ...m,
-            pretOferta: m.mathaus?.pret || 0,
-            validat: false,
-            sursa: 'claude-web'
+          const tva = kb.ofertaTVA || 'cu';
+          const kTva = tva === 'fara' ? 1 / 1.21 : 1;
+          // ── Pas 1: identificare (fără web) ──
+          toast('🤖 Pas 1/2: identific materialele…');
+          const cat = searchCatalog(extractKeywords(text), 40);
+          const identSys = 'Identifici materialele de construcții dintr-o notiță a unui agent de vânzări MatHaus.' +
+            (cat.length ? '\nCATALOG MATHAUS (SAP = codul produsului pe mathaus.ro; denumirile sunt interne SAP):\n' + catalogToPromptCSV(cat) : '') +
+            '\nREGULI:\n- Dacă materialul există în catalog: folosește SAP-ul exact.\n- Dacă nu există: sap="" și in_catalog=false.\n- "um" = unitatea de vânzare (sac, buc, palet, rolă, m², ml).' +
+            (reguli ? '\n' + reguli : '') +
+            '\n- "neidentificate" = doar materialele din notă pe care nu le poți identifica (text scurt).' +
+            '\nFără explicații. RĂSPUNDE DOAR CU JSON: {"materiale":[{"nume":"denumire","cantitate":10,"um":"sac","mentionat_ca":"text original","sap":"","in_catalog":true}],"neidentificate":[]}';
+          const identTxt = await anthropicJSON(apiKey, { model: kb.aiModelIdent || 'claude-haiku-5-5', max_tokens: 1500, system: identSys, messages: [{ role: 'user', content: text }] });
+          const ident = extractJsonObj(identTxt);
+          if (!ident || !Array.isArray(ident.materiale)) throw new Error('AI nu a returnat lista de materiale. Reîncearcă sau scrie mai clar notița.');
+          const materiale = ident.materiale.map(m => ({
+            sap: String(m.sap || '').trim(), inCatalog: !!(m.sap && m.in_catalog !== false), nume: m.nume || '', cantitate: +m.cantitate || 1, um: m.um || 'buc', mentionat_ca: m.mentionat_ca || '',
+            mathaus: { pret: null, link: m.sap ? 'https://mathaus.ro/p/' + String(m.sap).trim() : null, disponibil: false },
+            dedeman: { pret: null, link: null }, leroy: { pret: null, link: null }, bricostore: { pret: null, link: null }, hornbach: { pret: null, link: null },
+            pretOferta: 0, validat: false, sursa: 'claude-web'
           }));
+          // linkurile MatHaus (site-ul propriu) intră direct în monitorul automat de prețuri
+          if (clDriveUrl()) { const pvL = pvLoad(); const links = {}; materiale.forEach(m => { if (!m.sap) return; const k = pvProdKey(m) + '|mathaus'; if (!pvL[k] || !pvL[k].link) links[k] = { link: m.mathaus.link, site: 'mathaus.ro', nume: m.nume, um: m.um }; }); if (Object.keys(links).length) clPost({ action: 'addLink', data: links }); }
+          // ── Pas 2: prețuri deja cunoscute ──
+          const pv = pvLoad(), aic = aiCacheLoad(), FRESH = 7 * 864e5, AI_FRESH = 3 * 864e5;
+          const missing = [];
+          materiale.forEach((m, i) => {
+            Object.keys(PV_SITES).forEach(c => {
+              const key = pvProdKey(m) + '|' + c;
+              const b = pvBest(pv[key]);
+              if (b && Date.now() - b.ts <= FRESH) { m[c] = { pret: Math.round(b.pret * kTva * 100) / 100, link: b.link || m[c].link, disponibil: true, verif: { ts: b.ts, src: b.src, by: b.by || '' } }; return; }
+              const a = aic[key];
+              if (a && Date.now() - a.ts <= AI_FRESH) { m[c] = { pret: a.pret == null ? null : Math.round(a.pret * kTva * 100) / 100, link: a.link || m[c].link, disponibil: a.pret != null, cache: 1 }; return; }
+              missing.push({ i, c });
+            });
+          });
+          const known = materiale.length * 5 - missing.length;
+          // ── Pas 3: căutare web doar pentru ce lipsește ──
+          let observatii = [];
+          if (missing.length) {
+            toast(`🔍 Pas 2/2: caut ${missing.length} prețuri lipsă${known ? ` (${known} știute deja — fără cost)` : ''}…`);
+            await aiSearchMissing(materiale, missing, tva, kb, apiKey, extraPrompt);
+          } else toast('✅ Toate prețurile erau deja cunoscute — fără căutare pe internet');
+          materiale.forEach(m => { m.pretOferta = m.mathaus?.pret || 0; });
+          if (known) toast(`✅ ${known} din ${materiale.length * 5} prețuri preluate fără căutare nouă`);
 
           const list2 = loadOferte();
           const idx = list2.findIndex(o => o.id === ofertaId);
@@ -15911,16 +15963,15 @@ RETURNEAZĂ STRICT JSON:
             list2[idx].status = 'done';
             list2[idx].eticheta = 'finalizat';
             list2[idx].materiale = materiale;
-            list2[idx].depozite_locale = parsed.depozite_locale || [];
-            list2[idx].neidentificate = parsed.neidentificate || [];
-            list2[idx].observatii = parsed.observatii || [];
-            list2[idx].tva = kb.ofertaTVA || 'cu';
+            list2[idx].depozite_locale = [];
+            list2[idx].neidentificate = ident.neidentificate || [];
+            list2[idx].observatii = observatii;
+            list2[idx].tva = tva;
           }
           saveOferte(list2);
           ofertaRenderList();
           ofertaShowDetail(ofertaId);
           ofertaNotify(list2.find(o => o.id === ofertaId)?.client || '');
-
         } catch(e) {
           const list2 = loadOferte();
           const idx = list2.findIndex(o => o.id === ofertaId);
@@ -15974,7 +16025,7 @@ RETURNEAZĂ STRICT JSON:
         function cardHtml(o) {
           const meta = `${o.data}${o.adresa ? ' · 📍 ' + o.adresa.substring(0,22) : ''}`;
           const isAI = o.tip !== 'notita';
-          const icon = o.status === 'processing' ? '⏳' : isAI ? '🤖' : '📝';
+          const icon = o.status === 'processing' ? '⏳' : o.method === 'manual' ? '🧾' : isAI ? '🤖' : '📝';
           return `<div class="oferta-card ${_ofertaSelectedId === o.id ? 'active' : ''}" onclick="ofertaShowDetail('${o.id}')">
             <div style="flex:1;min-width:0">
               <div style="display:flex;align-items:center;gap:5px;margin-bottom:2px">
@@ -16154,25 +16205,10 @@ RETURNEAZĂ STRICT JSON:
         const _tvaLbl = (oferta.tva || 'fara') === 'fara' ? '(fără TVA)' : '(cu TVA)';
         const _neidAll = oferta.neidentificate || [];
         const _neid = _neidAll.filter(x => String(x).length <= 90);
-        const _obs = [...(oferta.observatii || []), ..._neidAll.filter(x => String(x).length > 90)];
         const totalOferta = oferta.materiale.reduce((s, m) => s + ((m.pretOferta || 0) * (m.cantitate || 0)), 0);
         const nrValidate = oferta.materiale.filter(m => m.validat).length;
         const nrTotal = oferta.materiale.length;
 
-        // Depozite locale
-        const depoHtml = (oferta.depozite_locale || []).length > 0 ? `
-          <div style="padding:14px 18px;border-bottom:1px solid var(--border2);background:var(--blue-l)">
-            <div style="font-size:11px;font-weight:700;color:var(--blue);letter-spacing:.05em;text-transform:uppercase;font-family:var(--mono);margin-bottom:8px">📍 Depozite MatHaus în zonă</div>
-            <div style="display:flex;flex-wrap:wrap;gap:8px">
-              ${oferta.depozite_locale.map(d => `
-                <div style="background:#fff;border:1px solid #BFDBFE;border-radius:8px;padding:8px 12px;min-width:200px">
-                  <div style="font-weight:700;font-size:12px;color:var(--navy)">${escHtml(d.nume)}</div>
-                  <div style="font-size:11px;color:var(--txt2);margin-top:2px">${escHtml(d.adresa || '')}</div>
-                  ${d.telefon ? `<div style="font-size:11px;color:var(--blue);margin-top:2px">📞 ${escHtml(d.telefon)}</div>` : ''}
-                  ${d.distanta_km ? `<div style="font-size:10px;color:var(--txt3)">~${escHtml(d.distanta_km)} km</div>` : ''}
-                </div>`).join('')}
-            </div>
-          </div>` : '';
 
         // Prețuri verificate de colegi / citite automat (mai noi decât cele găsite de AI)
         if (pvApply(oferta)) { const _l = loadOferte(); const _ix = _l.findIndex(x => x.id === id); if (_ix >= 0) { _l[_ix] = oferta; saveOferte(_l); } }
@@ -16218,6 +16254,10 @@ RETURNEAZĂ STRICT JSON:
                 ? `<div style="display:inline-flex;align-items:center;gap:3px;margin-top:3px;background:#FEF9C3;border:1px solid #FDE047;border-radius:4px;padding:2px 6px;font-size:10px;font-weight:600;color:#854D0E">⚠ Negăsit în catalog</div>`
                 : `<div style="font-size:10px;color:var(--txt3);font-family:var(--mono)">SAP: ${escHtml(m.sap)}</div>`}
               ${m.mathaus?.link ? `<a href="${escHtml(safeUrl(m.mathaus.link))}" target="_blank" class="mat-link" style="font-size:10px;display:block;margin-top:2px">→ mathaus.ro</a>` : ''}
+              <div style="display:flex;gap:4px;margin-top:4px">
+                ${COMPETITORS.some(c => !(m[c] && m[c].pret)) ? `<button onclick="coAiPrices('${id}',${i})" title="Caută cu AI doar prețurile lipsă pentru acest produs" style="font-size:10px;border:1px solid #c4b5fd;background:#f5f3ff;color:#6b21a8;border-radius:5px;padding:1px 6px;cursor:pointer">🤖 preț AI</button>` : ''}
+                <button onclick="coRemove('${id}',${i})" title="Scoate produsul din comandă" style="font-size:10px;border:1px solid var(--border);background:var(--surface);color:var(--red);border-radius:5px;padding:1px 6px;cursor:pointer">🗑</button>
+              </div>
               ${(() => {
                 const badges = {
                   'serpapi': ['🔍 Google Shopping', '#1a73e8', '#e8f0fe'],
@@ -16251,6 +16291,20 @@ RETURNEAZĂ STRICT JSON:
           </tr>`;
         }).join('');
 
+        const _nMiss = coMissing(oferta).length;
+        const _isManual = oferta.method === 'manual';
+        const coBar = `<div class="co-bar">
+            ${_isManual ? `<div class="co-client"><input class="input" value="${escHtml(oferta.client)}" placeholder="Nume client" onchange="coSetField('${id}','client',this.value)"/><input class="input" value="${escHtml(oferta.adresa || '')}" placeholder="Adresă livrare (opțional)" onchange="coSetField('${id}','adresa',this.value)"/></div>` : ''}
+            <div class="co-search-wrap">
+              <input class="input co-search" id="co-search-${id}" placeholder="🔎 Caută produs în catalogul MatHaus — cod SAP sau denumire (ex: bca 25, multibat, 10400014)" oninput="coSearch('${id}')" autocomplete="off"/>
+              <div class="co-results" id="co-results-${id}" style="display:none"></div>
+            </div>
+            <div class="co-bar-actions">
+              <button class="btn btn-ghost btn-sm" onclick="coAddManual('${id}')">✍ Produs manual</button>
+              ${_nMiss ? `<button class="btn btn-sm" id="co-ai-btn-${id}" style="background:#f5f3ff;color:#6b21a8;border:1.5px solid #c4b5fd" onclick="coAiPrices('${id}')">🤖 Caută cu AI prețurile lipsă (${_nMiss})</button>` : ''}
+              <span style="font-size:11px;color:var(--txt3)">Fără AI = fără cost. Prețurile știute se completează singure (📒 catalog · ✅ verificat · 🔄 automat).</span>
+            </div>
+          </div>`;
         cont.innerHTML = `<div class="oferta-detail">
           <div class="oferta-detail-header">
             <div>
@@ -16279,8 +16333,9 @@ RETURNEAZĂ STRICT JSON:
             </div>
           </div>
 
-          ${depoHtml}
 
+          ${coBar}
+          ${oferta.materiale.length ? '' : '<div style="padding:30px;text-align:center;color:var(--txt3);font-size:13px">Comanda e goală — caută primul produs mai sus.</div>'}
           <div style="overflow-x:auto;padding:0 0 8px">
             <table class="oferta-table" style="min-width:900px">
               <thead><tr>
@@ -16311,10 +16366,7 @@ RETURNEAZĂ STRICT JSON:
             <div class="oferta-unidentified-title">⚠ Materiale neidentificate (${_neid.length})</div>
             ${_neid.map(n => `<span class="oferta-unidentified-item">${escHtml(n)}</span>`).join('')}
           </div>` : ''}
-          ${_obs.length ? `<div class="oferta-unidentified" style="background:var(--blue-l);border-color:#BFDBFE">
-            <div class="oferta-unidentified-title" style="color:var(--blue)">💡 Observații AI — verifică înainte de a trimite oferta (${_obs.length})</div>
-            ${_obs.map(n => `<div class="oferta-unidentified-item" style="display:block;border-color:#BFDBFE;background:#fff">${escHtml(n)}</div>`).join('')}
-          </div>` : ''}
+
 
           <div class="oferta-feedback">
             <span class="oferta-feedback-label">Calitate identificare AI:</span>
@@ -17012,7 +17064,7 @@ RETURNEAZĂ STRICT JSON:
                 <button onclick="clGeocodeAddress(${idx})" title="Distanța până la adresa exactă">📍</button>
                 <button onclick="clFinOne(${idx})" title="Cifra de afaceri și angajații (ANAF)">💰</button>
                 <a href="https://www.google.com/search?q=${encodeURIComponent(f.n + " " + f.l + " telefon")}" target="_blank" rel="noopener" title="Caută telefon / contact">☎</a>
-                <button onclick="clAddNote(${idx})" title="Adaugă în Notițe Agent">📝</button>
+                <button onclick="clAddNote(${idx})" title="Adaugă în Comandă Agent (ca notiță)">📝</button>
               </div></td></tr>`;
           }).join("") + "</tbody>";
         const pg = $("cl-pager");
@@ -17083,7 +17135,7 @@ RETURNEAZĂ STRICT JSON:
         clRenderTable();
       }
 
-      const CL_DRIVE_SCRIPT = "// ═══════════════════════════════════════════════════════════════\n// MatHaus — Bază firme + Monitor prețuri pe Google Drive   (v2 — 22.10.2026)\n//  • Baza de firme pentru „Identifică Clienți în Zonă”\n//  • Prețuri verificate de agenți la competitori + citire automată (monitor) a paginilor confirmate\n// După ce lipești codul: Deploy → Manage deployments → ✏ → Version: New version → Deploy (URL-ul rămâne același).\n// Apoi alege funcția setupMonitor din listă și apasă ▶ Run O SINGURĂ DATĂ (pornește verificarea automată la 2 ore).\n// Proiect Apps Script SEPARAT de cel de backup (nu-l atinge pe cel existent).\n// Instalare: script.google.com → New project → lipește tot codul → schimbă PAROLA de mai jos →\n//   Deploy → New deployment → Web app → Execute as: Me → Who has access: Anyone → Deploy → copiază URL-ul /exec\n// ═══════════════════════════════════════════════════════════════\nconst PAROLA = 'SCHIMBA-MA';                 // parola de publicare — aceeași o scrii în aplicație la „Publică pe Drive”\nconst FOLDER = 'MatHaus - Baza firme';       // folderul creat automat pe Drive-ul tău\n\nfunction folder_() {\n  const it = DriveApp.getFoldersByName(FOLDER);\n  return it.hasNext() ? it.next() : DriveApp.createFolder(FOLDER);\n}\nfunction read_(name) {\n  const it = folder_().getFilesByName(name);\n  return it.hasNext() ? it.next().getBlob().getDataAsString('UTF-8') : null;\n}\nfunction write_(name, text) {\n  const f = folder_();\n  const it = f.getFilesByName(name);\n  while (it.hasNext()) it.next().setTrashed(true);       // înlocuim fișierul (blob — permite fișiere mari)\n  f.createFile(Utilities.newBlob(text, 'application/json', name));\n}\nconst safe_ = s => String(s || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 40);\n\nfunction out_(body, cb) {\n  if (cb) return ContentService.createTextOutput(String(cb).replace(/[^\\w$.]/g, '') + '(' + body + ')').setMimeType(ContentService.MimeType.JAVASCRIPT);\n  return ContentService.createTextOutput(body).setMimeType(ContentService.MimeType.JSON);\n}\n\nfunction doGet(e) {\n  const p = (e && e.parameter) || {};\n  let body;\n  try {\n    if (p.action === 'info') body = read_('info.json') || '{\"ok\":true,\"counts\":{},\"parts\":{}}';\n    else if (p.action === 'part') body = '{\"ok\":true,\"data\":' + (read_('firme_' + safe_(p.jk) + '_' + (+p.n || 1) + '.json') || 'null') + '}';\n    else if (p.action === 'geo') body = '{\"ok\":true,\"data\":' + (read_('geo.json') || '{}') + '}';\n    else if (p.action === 'fin') body = '{\"ok\":true,\"data\":' + (read_('fin.json') || '{}') + '}';\n    else if (p.action === 'preturi') body = '{\"ok\":true,\"data\":' + (read_('preturi.json') || '{}') + '}';\n    else body = '{\"ok\":true,\"service\":\"MatHaus baza firme\"}';\n  } catch (err) { body = JSON.stringify({ ok: false, error: String(err) }); }\n  return out_(body, p.callback);\n}\n\nfunction doPost(e) {\n  const lock = LockService.getScriptLock();\n  lock.waitLock(30000);\n  try {\n    const raw = (e.parameter && e.parameter.payload) || (e.postData && e.postData.contents) || '{}';\n    const m = JSON.parse(raw);\n    const admin = ['clear', 'putPart', 'putInfo'].indexOf(m.action) >= 0;\n    if (admin && m.token !== PAROLA) return out_('{\"ok\":false,\"error\":\"parola gresita\"}');\n    if (m.action === 'clear') {\n      const it = folder_().getFiles();\n      while (it.hasNext()) { const f = it.next(); if (/^firme_|^info\\.json$/.test(f.getName())) f.setTrashed(true); }\n    } else if (m.action === 'putPart') {\n      write_('firme_' + safe_(m.jk) + '_' + (+m.n || 1) + '.json', JSON.stringify(m.data || []));\n    } else if (m.action === 'putInfo') {\n      write_('info.json', JSON.stringify({ ok: true, ts: m.ts, counts: m.counts || {}, parts: m.parts || {}, src: m.src || '', published: new Date().toISOString() }));\n    } else if (m.action === 'addPret') {\n      // preț verificat de un agent: { \"SAP10400014|dedeman\": { pret, link, ts, by, um, nume, site } }\n      const cur = JSON.parse(read_('preturi.json') || '{}');\n      Object.entries(m.data || {}).slice(0, 200).forEach(([k, v]) => {\n        if (String(k).length > 140 || !v || typeof v !== 'object') return;\n        const pret = Number(v.pret);\n        if (!(pret > 0 && pret < 1e7)) return;\n        const old = cur[k] || {};\n        const link = /^https?:\\/\\//i.test(v.link || '') ? String(v.link).slice(0, 500) : (old.link || '');\n        cur[k] = Object.assign({}, old, { pret, link, ts: Number(v.ts) || Date.now(), by: String(v.by || '').slice(0, 60), um: String(v.um || '').slice(0, 20), nume: String(v.nume || '').slice(0, 160), site: String(v.site || '').slice(0, 60) });\n        if (link !== old.link) { delete cur[k].autoPret; delete cur[k].autoTs; delete cur[k].autoStatus; }\n      });\n      write_('preturi.json', JSON.stringify(cur));\n    } else if (m.action === 'addGeo' || m.action === 'addFin') {\n      // completări trimise de agenți: localități găsite pe hartă / date financiare ANAF\n      const name = m.action === 'addGeo' ? 'geo.json' : 'fin.json';\n      const cur = JSON.parse(read_(name) || '{}');\n      const entries = Object.entries(m.data || {}).slice(0, 500);\n      entries.forEach(([k, v]) => { if (String(k).length <= 120 && v && typeof v === 'object') cur[k] = v; });\n      write_(name, JSON.stringify(cur));\n    }\n    return out_('{\"ok\":true}');\n  } catch (err) {\n    return out_(JSON.stringify({ ok: false, error: String(err) }));\n  } finally { lock.releaseLock(); }\n}\n\n\n// ═══════════════ MONITOR PREȚURI (rulează automat, la 2 ore) ═══════════════\n// Citește O DATĂ pe zi fiecare pagină de produs confirmată de agenți și extrage prețul afișat\n// (formatul standard schema.org pe care magazinele îl publică pentru Google). Nu ocolește protecțiile\n// anti-robot: dacă un site blochează citirea, produsul e marcat „blocat” și rămâne prețul verificat manual.\nfunction monitor() {\n  const start = Date.now();\n  const lock = LockService.getScriptLock(); lock.waitLock(30000);\n  let data;\n  try { data = JSON.parse(read_('preturi.json') || '{}'); } finally { lock.releaseLock(); }\n  const updates = {};\n  const keys = Object.keys(data).filter(k => data[k].link && (!data[k].autoTs || Date.now() - data[k].autoTs > 20 * 3600 * 1000));\n  for (const k of keys) {\n    if (Date.now() - start > 4.5 * 60 * 1000) break;          // limita Google: 6 minute / rulare\n    const e = data[k], u = { autoTs: Date.now() };\n    try {\n      const r = UrlFetchApp.fetch(e.link, { muteHttpExceptions: true, followRedirects: true, headers: { 'Accept-Language': 'ro-RO,ro;q=0.9' } });\n      const code = r.getResponseCode(), html = r.getContentText();\n      if (code === 403 || code === 429 || code === 503 || /cf-chl|challenge-platform|Just a moment|captcha/i.test(html.slice(0, 20000))) u.autoStatus = 'blocat';\n      else if (code >= 400) u.autoStatus = 'eroare ' + code;\n      else { const p = extractPrice_(html); if (p) { u.autoPret = p; u.autoStatus = 'ok'; } else u.autoStatus = 'fara pret'; }\n    } catch (err) { u.autoStatus = 'eroare'; }\n    updates[k] = u;\n    Utilities.sleep(1500);                                      // politicos: câte o pagină la 1,5 secunde\n  }\n  if (!Object.keys(updates).length) return;\n  lock.waitLock(30000);\n  try {\n    const cur = JSON.parse(read_('preturi.json') || '{}');\n    Object.entries(updates).forEach(([k, u]) => { if (cur[k]) Object.assign(cur[k], u); });\n    write_('preturi.json', JSON.stringify(cur));\n  } finally { lock.releaseLock(); }\n}\nfunction extractPrice_(html) {\n  const blocks = html.match(/<script[^>]*application\\/ld\\+json[^>]*>[\\s\\S]*?<\\/script>/gi) || [];\n  for (const b of blocks) {\n    const txt = b.replace(/^<script[^>]*>/i, '').replace(/<\\/script>$/i, '');\n    try { const p = findPrice_(JSON.parse(txt)); if (p) return p; } catch (e) {}\n  }\n  const m = html.match(/itemprop=[\"']price[\"'][^>]*content=[\"']([\\d.,]+)[\"']/i) || html.match(/content=[\"']([\\d.,]+)[\"'][^>]*itemprop=[\"']price[\"']/i) ||\n            html.match(/property=[\"'](?:product|og):price:amount[\"'][^>]*content=[\"']([\\d.,]+)[\"']/i);\n  return m ? num_(m[1]) : null;\n}\nfunction findPrice_(o) {\n  if (!o || typeof o !== 'object') return null;\n  if (Array.isArray(o)) { for (const x of o) { const p = findPrice_(x); if (p) return p; } return null; }\n  if (o.offers) {\n    const of = Array.isArray(o.offers) ? o.offers[0] : o.offers;\n    const v = of && (of.price || of.lowPrice || (of.priceSpecification && of.priceSpecification.price));\n    if (v) return num_(v);\n  }\n  if (o['@graph']) return findPrice_(o['@graph']);\n  for (const k in o) if (o[k] && typeof o[k] === 'object') { const p = findPrice_(o[k]); if (p) return p; }\n  return null;\n}\nfunction num_(v) {\n  let s = String(v).replace(/[^\\d.,]/g, '');\n  if (s.indexOf(',') >= 0 && s.indexOf('.') >= 0) s = s.replace(/\\./g, '').replace(',', '.'); else s = s.replace(',', '.');\n  const n = parseFloat(s); return n > 0 ? Math.round(n * 100) / 100 : null;\n}\n// Rulează O DATĂ din editor: pornește monitorul automat (la fiecare 2 ore; fiecare pagină se citește max. o dată pe zi)\nfunction setupMonitor() {\n  ScriptApp.getProjectTriggers().filter(t => t.getHandlerFunction() === 'monitor').forEach(t => ScriptApp.deleteTrigger(t));\n  ScriptApp.newTrigger('monitor').timeBased().everyHours(2).create();\n  console.log('Monitor prețuri pornit — rulează la fiecare 2 ore.');\n}\n";
+      const CL_DRIVE_SCRIPT = "// ═══════════════════════════════════════════════════════════════\n// MatHaus — Bază firme + Monitor prețuri pe Google Drive   (v3 — 23.10.2026)\n//  • Baza de firme pentru „Identifică Clienți în Zonă”\n//  • Prețuri verificate de agenți la competitori + citire automată (monitor) a paginilor confirmate\n// După ce lipești codul: Deploy → Manage deployments → ✏ → Version: New version → Deploy (URL-ul rămâne același).\n// Apoi alege funcția setupMonitor din listă și apasă ▶ Run O SINGURĂ DATĂ (pornește verificarea automată la 2 ore).\n// Proiect Apps Script SEPARAT de cel de backup (nu-l atinge pe cel existent).\n// Instalare: script.google.com → New project → lipește tot codul → schimbă PAROLA de mai jos →\n//   Deploy → New deployment → Web app → Execute as: Me → Who has access: Anyone → Deploy → copiază URL-ul /exec\n// ═══════════════════════════════════════════════════════════════\nconst PAROLA = 'SCHIMBA-MA';                 // parola de publicare — aceeași o scrii în aplicație la „Publică pe Drive”\nconst FOLDER = 'MatHaus - Baza firme';       // folderul creat automat pe Drive-ul tău\n\nfunction folder_() {\n  const it = DriveApp.getFoldersByName(FOLDER);\n  return it.hasNext() ? it.next() : DriveApp.createFolder(FOLDER);\n}\nfunction read_(name) {\n  const it = folder_().getFilesByName(name);\n  return it.hasNext() ? it.next().getBlob().getDataAsString('UTF-8') : null;\n}\nfunction write_(name, text) {\n  const f = folder_();\n  const it = f.getFilesByName(name);\n  while (it.hasNext()) it.next().setTrashed(true);       // înlocuim fișierul (blob — permite fișiere mari)\n  f.createFile(Utilities.newBlob(text, 'application/json', name));\n}\nconst safe_ = s => String(s || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 40);\n\nfunction out_(body, cb) {\n  if (cb) return ContentService.createTextOutput(String(cb).replace(/[^\\w$.]/g, '') + '(' + body + ')').setMimeType(ContentService.MimeType.JAVASCRIPT);\n  return ContentService.createTextOutput(body).setMimeType(ContentService.MimeType.JSON);\n}\n\nfunction doGet(e) {\n  const p = (e && e.parameter) || {};\n  let body;\n  try {\n    if (p.action === 'info') body = read_('info.json') || '{\"ok\":true,\"counts\":{},\"parts\":{}}';\n    else if (p.action === 'part') body = '{\"ok\":true,\"data\":' + (read_('firme_' + safe_(p.jk) + '_' + (+p.n || 1) + '.json') || 'null') + '}';\n    else if (p.action === 'geo') body = '{\"ok\":true,\"data\":' + (read_('geo.json') || '{}') + '}';\n    else if (p.action === 'fin') body = '{\"ok\":true,\"data\":' + (read_('fin.json') || '{}') + '}';\n    else if (p.action === 'preturi') body = '{\"ok\":true,\"data\":' + (read_('preturi.json') || '{}') + '}';\n    else body = '{\"ok\":true,\"service\":\"MatHaus baza firme\"}';\n  } catch (err) { body = JSON.stringify({ ok: false, error: String(err) }); }\n  return out_(body, p.callback);\n}\n\nfunction doPost(e) {\n  const lock = LockService.getScriptLock();\n  lock.waitLock(30000);\n  try {\n    const raw = (e.parameter && e.parameter.payload) || (e.postData && e.postData.contents) || '{}';\n    const m = JSON.parse(raw);\n    const admin = ['clear', 'putPart', 'putInfo'].indexOf(m.action) >= 0;\n    if (admin && m.token !== PAROLA) return out_('{\"ok\":false,\"error\":\"parola gresita\"}');\n    if (m.action === 'clear') {\n      const it = folder_().getFiles();\n      while (it.hasNext()) { const f = it.next(); if (/^firme_|^info\\.json$/.test(f.getName())) f.setTrashed(true); }\n    } else if (m.action === 'putPart') {\n      write_('firme_' + safe_(m.jk) + '_' + (+m.n || 1) + '.json', JSON.stringify(m.data || []));\n    } else if (m.action === 'putInfo') {\n      write_('info.json', JSON.stringify({ ok: true, ts: m.ts, counts: m.counts || {}, parts: m.parts || {}, src: m.src || '', published: new Date().toISOString() }));\n    } else if (m.action === 'addPret') {\n      // preț verificat de un agent: { \"SAP10400014|dedeman\": { pret, link, ts, by, um, nume, site } }\n      const cur = JSON.parse(read_('preturi.json') || '{}');\n      Object.entries(m.data || {}).slice(0, 200).forEach(([k, v]) => {\n        if (String(k).length > 140 || !v || typeof v !== 'object') return;\n        const pret = Number(v.pret);\n        if (!(pret > 0 && pret < 1e7)) return;\n        const old = cur[k] || {};\n        const link = /^https?:\\/\\//i.test(v.link || '') ? String(v.link).slice(0, 500) : (old.link || '');\n        cur[k] = Object.assign({}, old, { pret, link, ts: Number(v.ts) || Date.now(), by: String(v.by || '').slice(0, 60), um: String(v.um || '').slice(0, 20), nume: String(v.nume || '').slice(0, 160), site: String(v.site || '').slice(0, 60) });\n        if (link !== old.link) { delete cur[k].autoPret; delete cur[k].autoTs; delete cur[k].autoStatus; }\n      });\n      write_('preturi.json', JSON.stringify(cur));\n    } else if (m.action === 'addLink') {\n      // linkuri de produs MatHaus (site-ul propriu) pentru monitor — doar dacă nu există deja\n      const cur = JSON.parse(read_('preturi.json') || '{}');\n      Object.entries(m.data || {}).slice(0, 200).forEach(([k, v]) => {\n        if (String(k).length > 140 || !v || !/^https:\\/\\/(www\\.)?mathaus\\.ro\\//i.test(v.link || '') || (cur[k] && cur[k].link)) return;\n        cur[k] = Object.assign({}, cur[k] || {}, { link: String(v.link).slice(0, 300), site: 'mathaus.ro', nume: String(v.nume || '').slice(0, 160), um: String(v.um || '').slice(0, 20) });\n      });\n      write_('preturi.json', JSON.stringify(cur));\n    } else if (m.action === 'addGeo' || m.action === 'addFin') {\n      // completări trimise de agenți: localități găsite pe hartă / date financiare ANAF\n      const name = m.action === 'addGeo' ? 'geo.json' : 'fin.json';\n      const cur = JSON.parse(read_(name) || '{}');\n      const entries = Object.entries(m.data || {}).slice(0, 500);\n      entries.forEach(([k, v]) => { if (String(k).length <= 120 && v && typeof v === 'object') cur[k] = v; });\n      write_(name, JSON.stringify(cur));\n    }\n    return out_('{\"ok\":true}');\n  } catch (err) {\n    return out_(JSON.stringify({ ok: false, error: String(err) }));\n  } finally { lock.releaseLock(); }\n}\n\n\n// ═══════════════ MONITOR PREȚURI (rulează automat, la 2 ore) ═══════════════\n// Citește O DATĂ pe zi fiecare pagină de produs confirmată de agenți și extrage prețul afișat\n// (formatul standard schema.org pe care magazinele îl publică pentru Google). Nu ocolește protecțiile\n// anti-robot: dacă un site blochează citirea, produsul e marcat „blocat” și rămâne prețul verificat manual.\nfunction monitor() {\n  const start = Date.now();\n  const lock = LockService.getScriptLock(); lock.waitLock(30000);\n  let data;\n  try { data = JSON.parse(read_('preturi.json') || '{}'); } finally { lock.releaseLock(); }\n  const updates = {};\n  const keys = Object.keys(data).filter(k => data[k].link && (!data[k].autoTs || Date.now() - data[k].autoTs > 20 * 3600 * 1000));\n  for (const k of keys) {\n    if (Date.now() - start > 4.5 * 60 * 1000) break;          // limita Google: 6 minute / rulare\n    const e = data[k], u = { autoTs: Date.now() };\n    try {\n      const r = UrlFetchApp.fetch(e.link, { muteHttpExceptions: true, followRedirects: true, headers: { 'Accept-Language': 'ro-RO,ro;q=0.9' } });\n      const code = r.getResponseCode(), html = r.getContentText();\n      if (code === 403 || code === 429 || code === 503 || /cf-chl|challenge-platform|Just a moment|captcha/i.test(html.slice(0, 20000))) u.autoStatus = 'blocat';\n      else if (code >= 400) u.autoStatus = 'eroare ' + code;\n      else { const p = extractPrice_(html); if (p) { u.autoPret = p; u.autoStatus = 'ok'; } else u.autoStatus = 'fara pret'; }\n    } catch (err) { u.autoStatus = 'eroare'; }\n    updates[k] = u;\n    Utilities.sleep(1500);                                      // politicos: câte o pagină la 1,5 secunde\n  }\n  if (!Object.keys(updates).length) return;\n  lock.waitLock(30000);\n  try {\n    const cur = JSON.parse(read_('preturi.json') || '{}');\n    Object.entries(updates).forEach(([k, u]) => { if (cur[k]) Object.assign(cur[k], u); });\n    write_('preturi.json', JSON.stringify(cur));\n  } finally { lock.releaseLock(); }\n}\nfunction extractPrice_(html) {\n  const blocks = html.match(/<script[^>]*application\\/ld\\+json[^>]*>[\\s\\S]*?<\\/script>/gi) || [];\n  for (const b of blocks) {\n    const txt = b.replace(/^<script[^>]*>/i, '').replace(/<\\/script>$/i, '');\n    try { const p = findPrice_(JSON.parse(txt)); if (p) return p; } catch (e) {}\n  }\n  const m = html.match(/itemprop=[\"']price[\"'][^>]*content=[\"']([\\d.,]+)[\"']/i) || html.match(/content=[\"']([\\d.,]+)[\"'][^>]*itemprop=[\"']price[\"']/i) ||\n            html.match(/property=[\"'](?:product|og):price:amount[\"'][^>]*content=[\"']([\\d.,]+)[\"']/i);\n  return m ? num_(m[1]) : null;\n}\nfunction findPrice_(o) {\n  if (!o || typeof o !== 'object') return null;\n  if (Array.isArray(o)) { for (const x of o) { const p = findPrice_(x); if (p) return p; } return null; }\n  if (o.offers) {\n    const of = Array.isArray(o.offers) ? o.offers[0] : o.offers;\n    const v = of && (of.price || of.lowPrice || (of.priceSpecification && of.priceSpecification.price));\n    if (v) return num_(v);\n  }\n  if (o['@graph']) return findPrice_(o['@graph']);\n  for (const k in o) if (o[k] && typeof o[k] === 'object') { const p = findPrice_(o[k]); if (p) return p; }\n  return null;\n}\nfunction num_(v) {\n  let s = String(v).replace(/[^\\d.,]/g, '');\n  if (s.indexOf(',') >= 0 && s.indexOf('.') >= 0) s = s.replace(/\\./g, '').replace(',', '.'); else s = s.replace(',', '.');\n  const n = parseFloat(s); return n > 0 ? Math.round(n * 100) / 100 : null;\n}\n// Rulează O DATĂ din editor: pornește monitorul automat (la fiecare 2 ore; fiecare pagină se citește max. o dată pe zi)\nfunction setupMonitor() {\n  ScriptApp.getProjectTriggers().filter(t => t.getHandlerFunction() === 'monitor').forEach(t => ScriptApp.deleteTrigger(t));\n  ScriptApp.newTrigger('monitor').timeBased().everyHours(2).create();\n  console.log('Monitor prețuri pornit — rulează la fiecare 2 ore.');\n}\n";
       // ── BAZA DE FIRME PE GOOGLE DRIVE (Apps Script separat) ──
       // Adminul publică firmele pe județe; agenții descarcă automat doar județele căutate.
       const clDriveUrl = () => String(appSettings.firmeUrl || "").trim();
@@ -17261,6 +17313,7 @@ RETURNEAZĂ STRICT JSON:
         return changed;
       }
       function pvBadge(v) {
+        if (v && v.catalog && !v.verif) return '<div style="font-size:9px;color:var(--blue)" title="Preț din catalogul intern MatHaus">📒 catalog</div>';
         if (!v || !v.verif) return v && v.pret ? '<div style="font-size:9px;color:var(--txt3)" title="Găsit de AI — neverificat">🤖 neverificat</div>' : "";
         const days = Math.floor((Date.now() - v.verif.ts) / 864e5);
         const when = days === 0 ? "azi" : days === 1 ? "ieri" : days + " zile";
@@ -17314,6 +17367,148 @@ RETURNEAZĂ STRICT JSON:
         el.innerHTML = rows || "Încă nu există prețuri verificate. Folosește butonul ✏ din oferte.";
       }
 
+      // ══════════════════════════════════════════════════════════════
+      // COMANDĂ AGENT — comandă rapidă din catalog, fără AI; AI doar la cerere, pentru prețurile lipsă
+      // ══════════════════════════════════════════════════════════════
+      const coNum = v => { const s = String(v ?? "").replace(/\s/g, "").replace(/\.(?=\d{3}(\D|$))/g, "").replace(",", "."); const n = parseFloat(s); return isFinite(n) ? n : 0; };
+      // prețul din catalog convertit la regimul TVA al comenzii
+      function coCatalogPrice(p, tva) {
+        const pr = +p.price || 0; if (!pr) return null;
+        const catTva = loadAIKB().catalogTVA || "cu";
+        const k = catTva === tva ? 1 : (catTva === "fara" ? 1.21 : 1 / 1.21);
+        return Math.round(pr * k * 100) / 100;
+      }
+      function coMatFromCatalog(p, tva) {
+        const sap = String(p.sap || "").trim();
+        const pret = coCatalogPrice(p, tva);
+        return { sap, inCatalog: !!sap, nume: p.name || "", cantitate: 1, um: p.um || "buc", mentionat_ca: "",
+          mathaus: { pret, link: sap ? "https://mathaus.ro/p/" + sap : null, disponibil: pret != null, catalog: pret != null ? 1 : 0 },
+          dedeman: { pret: null, link: null }, leroy: { pret: null, link: null }, bricostore: { pret: null, link: null }, hornbach: { pret: null, link: null },
+          pretOferta: pret || 0, validat: false, sursa: "manual" };
+      }
+      function coRegisterLinks(mats) {
+        if (!clDriveUrl()) return;
+        const pvL = pvLoad(), links = {};
+        mats.forEach(m => { if (!m.sap) return; const k = pvProdKey(m) + "|mathaus"; if (!pvL[k] || !pvL[k].link) links[k] = { link: "https://mathaus.ro/p/" + m.sap, site: "mathaus.ro", nume: m.nume, um: m.um }; });
+        if (Object.keys(links).length) clPost({ action: "addLink", data: links });
+      }
+      function coNew(preset) {
+        const kb = loadAIKB();
+        const id = "of_" + Date.now();
+        const o = { id, client: (preset && preset.client) || "Client nou", adresa: "", data: new Date().toLocaleDateString("ro-RO"), status: "done", tip: "oferta", method: "manual",
+          eticheta: "in-lucru", tva: kb.ofertaTVA || "cu", materiale: (preset && preset.materiale) || [], depozite_locale: [], neidentificate: [], ts: Date.now() };
+        const list = loadOferte(); list.unshift(o); saveOferte(list);
+        _ofertaSelectedId = id;
+        if (currentMode !== "oferte") switchMode("oferte");
+        ofertaRenderList(); ofertaShowDetail(id);
+        setTimeout(() => { const el = $("co-search-" + id); if (el) el.focus(); }, 50);
+        return id;
+      }
+      function coSetField(id, field, val) {
+        const list = loadOferte(); const o = list.find(x => x.id === id); if (!o) return;
+        o[field] = String(val || "").trim() || (field === "client" ? "Client nou" : "");
+        saveOferte(list); ofertaRenderList();
+      }
+      function coSearch(id) {
+        const q = ($("co-search-" + id)?.value || "").trim();
+        const box = $("co-results-" + id); if (!box) return;
+        if (q.length < 2) { box.innerHTML = ""; box.style.display = "none"; return; }
+        const cat = loadCatalog();
+        if (!cat.length) { box.style.display = "block"; box.innerHTML = '<div class="co-res-empty">Catalogul nu e încărcat — Admin → 🧠 Baza de Cunoștințe AI → 📦 Catalog Produse. Poți adăuga și ✍ produs manual.</div>'; return; }
+        const exact = /^\d{5,}$/.test(q) ? cat.filter(p => String(p.sap || "").includes(q)).slice(0, 12) : [];
+        const res = exact.length ? exact : searchCatalog(q, 12);
+        const o = loadOferte().find(x => x.id === id) || {}; const tva = o.tva || "cu"; const pv = pvLoad();
+        box.style.display = "block";
+        box.innerHTML = res.length ? res.map(p => {
+          const m = coMatFromCatalog(p, tva); const b = pvBest(pv[pvProdKey(m) + "|mathaus"]);
+          const pr = b ? Math.round(b.pret * (tva === "fara" ? 1 / 1.21 : 1) * 100) / 100 : m.mathaus.pret;
+          return `<div class="co-res" onclick="coAdd('${id}','${escHtml(String(p.sap || "")).replace(/'/g, "")}', ${JSON.stringify(String(p.name || "")).replace(/"/g, "&quot;")})">
+            <span class="co-res-sap">${escHtml(p.sap || "—")}</span><span class="co-res-name">${escHtml(p.name || "")}</span><span class="co-res-um">${escHtml(p.um || "")}</span>
+            <span class="co-res-pr">${pr ? fmtP(pr) + " lei" : '<span style="color:var(--txt3)">fără preț</span>'}</span></div>`;
+        }).join("") : '<div class="co-res-empty">Niciun produs găsit în catalog. Folosește „✍ Produs manual”.</div>';
+      }
+      function coAdd(id, sap, name) {
+        const list = loadOferte(); const o = list.find(x => x.id === id); if (!o) return;
+        const cat = loadCatalog();
+        const p = (sap && cat.find(x => String(x.sap || "").trim() === sap)) || cat.find(x => x.name === name);
+        if (!p) { toast("⚠ Produsul nu mai e în catalog"); return; }
+        const ex = o.materiale.findIndex(m => m.sap && m.sap === String(p.sap).trim());
+        if (ex >= 0) { o.materiale[ex].cantitate = (+o.materiale[ex].cantitate || 0) + 1; toast("➕ Cantitate mărită: " + p.name); }
+        else { const m = coMatFromCatalog(p, o.tva || "cu"); o.materiale.push(m); coRegisterLinks([m]); }
+        saveOferte(list);
+        const s = $("co-search-" + id); if (s) s.value = "";
+        ofertaShowDetail(id);
+        setTimeout(() => { const ins = document.querySelectorAll(`#oferta-detail-container .oferta-table tbody tr`); const row = ins[ex >= 0 ? ex : o.materiale.length - 1]; const q = row && row.querySelector("input[type=number]"); if (q) { q.focus(); q.select(); } const s2 = $("co-search-" + id); if (!q && s2) s2.focus(); }, 60);
+      }
+      async function coAddManual(id) {
+        const nume = await showPrompt("Denumire produs (nu e în catalog):", ""); if (!nume || !nume.trim()) return;
+        const um = (await showPrompt("Unitate de măsură (buc, sac, m², ml, palet…):", "buc")) || "buc";
+        const pretRaw = await showPrompt("Preț MatHaus, dacă îl știi (gol = îl cauți apoi cu ✏ sau 🤖):", "");
+        const list = loadOferte(); const o = list.find(x => x.id === id); if (!o) return;
+        const pret = coNum(pretRaw) || null;
+        o.materiale.push({ sap: "", inCatalog: false, nume: nume.trim(), cantitate: 1, um: um.trim(), mentionat_ca: "", mathaus: { pret, link: null, disponibil: pret != null },
+          dedeman: { pret: null, link: null }, leroy: { pret: null, link: null }, bricostore: { pret: null, link: null }, hornbach: { pret: null, link: null }, pretOferta: pret || 0, validat: false, sursa: "manual" });
+        saveOferte(list); ofertaShowDetail(id);
+      }
+      function coRemove(id, i) {
+        const list = loadOferte(); const o = list.find(x => x.id === id); if (!o || !o.materiale[i]) return;
+        o.materiale.splice(i, 1); saveOferte(list); ofertaShowDetail(id);
+      }
+      function coMissing(o, onlyIdx) {
+        const out = [];
+        (o.materiale || []).forEach((m, i) => { if (onlyIdx != null && i !== onlyIdx) return; Object.keys(PV_SITES).forEach(c => { if (!(m[c] && m[c].pret)) out.push({ i, c }); }); });
+        return out;
+      }
+      async function coAiPrices(id, onlyIdx) {
+        const apiKey = localStorage.getItem(CHAT_API_KEY_STORE);
+        if (!apiKey) { toast("⚠ Cheie API Anthropic lipsă — Admin → 🧠 Baza de Cunoștințe AI → ⚙ Model AI + cheie API"); return; }
+        const list = loadOferte(); const o = list.find(x => x.id === id); if (!o) return;
+        const missing = coMissing(o, onlyIdx);
+        if (!missing.length) { toast("✅ Nu lipsește niciun preț"); return; }
+        const kb = loadAIKB();
+        const btn = $("co-ai-btn-" + id); if (btn) { btn.disabled = true; btn.textContent = "⏳ Caut " + missing.length + " prețuri…"; }
+        try {
+          await aiSearchMissing(o.materiale, missing, o.tva || "cu", kb, apiKey);
+          o.materiale.forEach(m => { if (!m.pretOferta && m.mathaus?.pret) m.pretOferta = m.mathaus.pret; });
+          saveOferte(list); ofertaShowDetail(id);
+          const found = missing.filter(x => o.materiale[x.i][x.c]?.pret).length;
+          toast(`✅ AI a găsit ${found} din ${missing.length} prețuri`);
+        } catch (e) { toast("⚠ " + e.message); if (btn) { btn.disabled = false; btn.textContent = "🤖 Caută cu AI prețurile lipsă"; } }
+      }
+      // ➕ din calculatorul unei etape: preia toate rândurile afișate (produs, cantitate, UM, SAP)
+      async function coFromStage() {
+        const det = $("e-stage-detail"); if (!det) return;
+        const rows = [...det.querySelectorAll(".mat-table tbody tr")].filter(tr => tr.querySelector(".mat-name"));
+        if (!rows.length) { toast("⚠ Nu există materiale calculate în această etapă"); return; }
+        const kb = loadAIKB(), cat = loadCatalog();
+        const items = rows.map(tr => {
+          const nume = tr.querySelector(".mat-name").innerText.trim();
+          const qty = coNum(tr.querySelector(".mat-qty-big")?.innerText || "1") || 1;
+          const um = (tr.querySelector(".mat-um")?.innerText || "buc").trim();
+          const sapTxt = (tr.querySelector("td")?.innerText || "").trim();
+          const sap = /^\d{5,}$/.test(sapTxt) ? sapTxt : (getSapKey(nume) || "");
+          return { nume, qty, um, sap };
+        });
+        const open = loadOferte().find(x => x.method === "manual" && x.eticheta === "in-lucru");
+        let target = null;
+        if (open && await safeConfirm(`Adaug ${items.length} produse în comanda deschisă „${open.client}”? (Anulează = comandă nouă)`)) target = open.id;
+        const tva = kb.ofertaTVA || "cu";
+        const mats = items.map(it => {
+          const p = it.sap && cat.find(x => String(x.sap || "").trim() === it.sap);
+          const m = p ? coMatFromCatalog(p, tva) : { sap: it.sap, inCatalog: !!it.sap, nume: it.nume, cantitate: 1, um: it.um, mentionat_ca: "", mathaus: { pret: null, link: it.sap ? "https://mathaus.ro/p/" + it.sap : null }, dedeman: { pret: null, link: null }, leroy: { pret: null, link: null }, bricostore: { pret: null, link: null }, hornbach: { pret: null, link: null }, pretOferta: 0, validat: false, sursa: "manual" };
+          m.nume = it.nume; m.cantitate = it.qty; m.um = it.um; return m;
+        });
+        coRegisterLinks(mats);
+        if (target) {
+          const list = loadOferte(); const o = list.find(x => x.id === target); o.materiale = o.materiale.concat(mats); saveOferte(list);
+          _ofertaSelectedId = target; switchMode("oferte"); ofertaRenderList(); ofertaShowDetail(target);
+        } else {
+          const st = activeEtapa ? getStage(activeEtapa) : null;
+          coNew({ client: "Client nou" + (st ? " — " + st.title : ""), materiale: mats });
+        }
+        toast(`✅ ${mats.length} produse adăugate în Comandă Agent`);
+      }
+
       // ── EXPORT + NOTIȚE ──
       function clExportCSV() {
         const rows = _cl._view || clSorted();
@@ -17333,7 +17528,7 @@ RETURNEAZĂ STRICT JSON:
           text: `Prospect identificat în zonă\nCUI: ${f.cui || "—"} · ${f.fj || ""}\nActivitate: ${f.c.map(c => c + " " + (CL_CAEN_LABEL[c] || "")).join("; ")}` + (f._fin ? `\nAngajați: ${f._fin.ang ?? "—"} · Cifră de afaceri ${f._fin.an || ""}: ${clMoney(f._fin.ca)}` : "") + (f._km != null ? `\nDistanță: ${f._km.toFixed(1)} km` : "") + "\nTelefon / persoană de contact: ",
           data: new Date().toLocaleDateString("ro-RO"), ts: Date.now(), materiale: [], neidentificate: [] });
         saveOferte(list);
-        toast("📝 Adăugat în Notițe Agent: " + f.n);
+        toast("📝 Adăugat în Comandă Agent: " + f.n);
       }
 
 </script>
