@@ -2798,7 +2798,7 @@
         <div>
           <div class="logo-text">MatHaus</div>
         </div>
-        <div class="logo-badge">Ghid Vânzări v3.4</div>
+        <div class="logo-badge">Ghid Vânzări v3.7</div>
       </div>
       <div class="header-nav">
         <button class="nav-btn" id="nav-total" onclick="switchMode('total')">
@@ -9846,6 +9846,11 @@
         <input type="url" class="input" id="set-firme-url" value="${escHtml(appSettings.firmeUrl || '')}" placeholder="https://script.google.com/macros/s/.../exec" style="flex:1;min-width:260px;font-family:var(--mono);font-size:12px"/>
         <button class="btn btn-primary btn-sm" onclick="appSettings.firmeUrl=$('set-firme-url').value.trim();saveSettings();triggerCloudAutoSave();_clRemote=null;toast('✅ Salvat — colegii primesc adresa la următoarea sincronizare')">💾 Salvează</button>
       </div>
+      <div style="font-size:12px;color:var(--txt2);line-height:1.6;margin:0 0 10px;padding:10px;background:var(--blue-l);border-radius:var(--r-sm)">
+        <b>🔄 Monitor prețuri competitori (v2):</b> același script păstrează prețurile verificate de agenți (butonul ✏ din oferte) și citește automat, o dată pe zi, paginile de produs confirmate. Dacă ai instalat scriptul înainte de 22.10.2026, lipește codul nou, apoi <b>Deploy → Manage deployments → ✏ → Version: New version → Deploy</b> (URL-ul rămâne același) și rulează <b>o singură dată</b> funcția <b>setupMonitor</b> (▶ Run).
+        <div id="pv-monitor-status" style="margin-top:6px"></div>
+        <button class="btn btn-ghost btn-sm" style="margin-top:6px" onclick="pvMonitorStatus()">📊 Vezi starea monitorului</button>
+      </div>
       <details><summary style="font-size:12px;font-weight:700;color:var(--navy);cursor:pointer">📋 Codul scriptului Google (copiază și lipește)</summary>
         <textarea class="input" readonly rows="14" style="width:100%;font-family:var(--mono);font-size:10.5px;margin-top:8px;white-space:pre">${escHtml(CL_DRIVE_SCRIPT)}</textarea>
         <button class="btn btn-secondary btn-sm" style="margin-top:6px" onclick="safeCopy(CL_DRIVE_SCRIPT).then(()=>toast('✅ Cod copiat'))">📋 Copiază codul</button>
@@ -10309,7 +10314,16 @@
       </div>
     </div>
   </div>
-  <div class="admin-card">ont-size:10px;font-weight:700;color:var(--txt3);letter-spacing:1px;text-transform:uppercase;margin-bottom:12px">Agent Settings</div>
+  <div class="admin-card" style="margin-bottom:12px;border:2px solid var(--orange-m)">
+    <h3 style="margin:0 0 10px;font-size:15px">🤖 Ce AI răspunde în Consultant (chat)</h3>
+    <select class="input" style="max-width:420px;font-size:13px;min-height:42px" onchange="saveAIModel(this.value, 'consultant')">
+      <option value="claude-sonnet-5-5" ${(kb.aiModel||'claude-sonnet-5-5')==='claude-sonnet-5-5'?'selected':''}>Claude Sonnet 5.5 — Recomandat (rapid + precis)</option>
+      <option value="claude-opus-5-5" ${kb.aiModel==='claude-opus-5-5'?'selected':''}>Claude Opus 5.5 — Cel mai avansat (mai lent, mai scump)</option>
+      <option value="claude-haiku-5-5" ${kb.aiModel==='claude-haiku-5-5'?'selected':''}>Claude Haiku 5.5 — Cel mai rapid și ieftin</option>
+    </select>
+    <p style="font-size:11px;color:var(--txt3);margin-top:6px">Se aplică imediat la următorul mesaj din chat. Cheia API și restul setărilor: tab-ul <b>⚙ Model AI + cheie API</b>.</p>
+  </div>
+  <div class="admin-card">
     <h3 style="margin:0 0 16px;font-size:15px">🎭 Persona</h3>
 
     <div style="margin-bottom:20px">
@@ -11333,6 +11347,14 @@ PROGRAM MAGAZINE:
   <!-- COMPORTAMENT AGENT -->
   <div class="admin-card" style="margin-bottom:12px">
     <div style="font-size:11px;font-weight:700;color:var(--txt3);letter-spacing:1px;text-transform:uppercase;margin-bottom:12px;font-family:var(--mono)">⚙ Comportament Agent</div>
+    <div style="margin-bottom:14px;padding:12px;background:var(--amber-l);border:1px solid #fde68a;border-radius:var(--r-sm)">
+      <label class="label">💶 Prețurile din ofertă</label>
+      <select class="input" id="oferta-tva-input" style="max-width:420px;font-size:12px" onchange="saveOfertaSettings()">
+        <option value="cu" ${(kb.ofertaTVA || 'cu') === 'cu' ? 'selected' : ''}>CU TVA — exact cum sunt afișate pe site-uri (recomandat, clienți persoane fizice)</option>
+        <option value="fara" ${kb.ofertaTVA === 'fara' ? 'selected' : ''}>FĂRĂ TVA — preț de pe site ÷ 1,21 (clienți firme)</option>
+      </select>
+      <p style="font-size:11px;color:var(--txt3);margin-top:4px">Se aplică la toate prețurile (MatHaus și competitori) și apare scris pe ofertă.</p>
+    </div>
     <div style="margin-bottom:12px">
       <label class="label">Reguli de identificare & comportament</label>
       <textarea class="input" id="oferta-reguli-input" rows="4"
@@ -11562,6 +11584,7 @@ PROGRAM MAGAZINE:
       function saveOfertaSettings() {
         const kb = loadAIKB();
         kb.ofertaReguli = document.getElementById('oferta-reguli-input')?.value || '';
+        const _tva = document.getElementById('oferta-tva-input')?.value; if (_tva) kb.ofertaTVA = _tva;
         kb.ofertaSystemPrompt = document.getElementById('oferta-system-prompt-input')?.value || '';
         kb.ofertaCompetitori = document.getElementById('oferta-competitori-input')?.value || '';
         kb.ofertaSiteuri = document.getElementById('oferta-siteuri-input')?.value || '';
@@ -14050,6 +14073,7 @@ function sendWeeklyReport() {
 
       // ── Open / Close ──
       function openChat() {
+        try { const m = loadAIKB().aiModel || "claude-sonnet-5-5"; const el = document.getElementById("chat-model-label"); if (el) el.textContent = "· " + ({ "claude-sonnet-5-5": "Claude Sonnet 5.5", "claude-opus-5-5": "Claude Opus 5.5", "claude-haiku-5-5": "Claude Haiku 5.5" }[m] || m); } catch (e) {}
         const overlay = document.getElementById('chat-overlay');
         const fab = document.getElementById('chat-fab');
         if (overlay) overlay.classList.add('active');
@@ -15428,6 +15452,8 @@ LIMBA: ${lang === 'ro' ? 'Română' : lang === 'en' ? 'English' : 'Auto-detect'}
           });
         });
 
+        // Google Shopping afișează prețuri cu TVA; convertim dacă oferta e setată „fără TVA”
+        if ((loadAIKB().ofertaTVA || 'cu') === 'fara') Object.values(prices).forEach(p => { if (p && typeof p.pret === 'number') p.pret = Math.round(p.pret / 1.21 * 100) / 100; });
         return prices;
       }
 
@@ -15703,7 +15729,7 @@ LIMBA: ${lang === 'ro' ? 'Română' : lang === 'en' ? 'English' : 'Auto-detect'}
             ]);
             try {
               const _compStr = compList.map((c,i) => '  • ' + (siteList[i]||c.toLowerCase()+'.ro') + ' (' + c + ')').join('\n');
-              const _fallbackPrompt = `Caută prețurile pentru aceste materiale pe mathaus.ro și competitori.\n\nMateriale:\n${_materiiPentruClaude.map(m => '- ' + m.nume + (m.sap?' (SAP: '+m.sap+')':'') + ', cantitate: ' + (m.cantitate||1) + ' ' + (m.um||'')).join('\n')}\n\nCaută pe:\n• mathaus.ro\n${_compStr}\n\nRETURN JSON: {"materiale":[{"nume":"...","sap":"...","mathaus":{"pret":12.5,"link":"..."},"dedeman":{"pret":11.8,"link":"..."},"leroy":{"pret":null,"link":null},"bricostore":{"pret":null,"link":null},"hornbach":{"pret":null,"link":null}}]}`;
+              const _fallbackPrompt = `Caută prețurile pentru aceste materiale pe mathaus.ro și competitori.\n\nMateriale:\n${_materiiPentruClaude.map(m => '- ' + m.nume + (m.sap?' (SAP: '+m.sap+')':'') + ', cantitate: ' + (m.cantitate||1) + ' ' + (m.um||'')).join('\n')}\n\nCaută pe:\n• mathaus.ro\n${_compStr}\n\nREGULI: ${(kb.ofertaTVA || 'cu') === 'fara' ? 'prețuri FĂRĂ TVA (preț afișat ÷ 1,21)' : 'prețuri CU TVA, exact cum sunt afișate'}; prețul unui magazin doar de pe site-ul lui, cu link; altfel null.\n\nRETURN JSON: {"materiale":[{"nume":"...","sap":"...","mathaus":{"pret":12.5,"link":"..."},"dedeman":{"pret":11.8,"link":"..."},"leroy":{"pret":null,"link":null},"bricostore":{"pret":null,"link":null},"hornbach":{"pret":null,"link":null}}]}`;
 
               const _fbResp = await fetch('https://api.anthropic.com/v1/messages', {
                 method: 'POST',
@@ -15797,6 +15823,7 @@ LIMBA: ${lang === 'ro' ? 'Română' : lang === 'en' ? 'English' : 'Auto-detect'}
             list2[idx].materiale = materiale;
             list2[idx].depozite_locale = depozite;
             list2[idx].neidentificate = parsed.neidentificate || [];
+            list2[idx].tva = kb.ofertaTVA || 'cu';
             list2[idx].serpSearches = serpSearches;
           }
           saveOferte(list2);
@@ -15832,12 +15859,18 @@ MISIUNEA TA (folosește web_search):
 ${compSearchList}
 3. Caută depozitele MatHaus din zona adresei
 
-REGULI: Caută prețul fără TVA. Dacă nu găsești la un competitor, pune null. Echivalent cel mai apropiat ca specificații.
+REGULI DE PREȚ (obligatorii):
+- ${(kb.ofertaTVA || 'cu') === 'fara' ? 'Prețurile se raportează FĂRĂ TVA: preț afișat pe site ÷ 1,21. Toate prețurile din JSON sunt fără TVA.' : 'Prețurile se raportează CU TVA, exact cum sunt afișate pe site-ul magazinului. Nu scădea TVA-ul.'}
+- Prețul este pentru UNITATEA din câmpul "um" (sac, buc, palet, m²). Dacă site-ul afișează altă unitate, convertește și explică în "observatii".
+- Prețul unui magazin se ia DOAR de pe site-ul acelui magazin (pagina produsului), iar "link" este obligatoriu către acel site. NU folosi prețuri din articole, ghiduri, forumuri, comparatoare sau alte site-uri. Dacă nu găsești pe site-ul magazinului, pune "pret": null.
+- Echivalent cel mai apropiat ca specificații; dacă nu e același produs, spune asta în "observatii".
+- "neidentificate" = DOAR materialele din notă pe care nu le-ai putut identifica deloc (text scurt, ex. "plasă rabitz"). Explicațiile, presupunerile și avertismentele le pui în "observatii".
+- Depozite: doar magazine MatHaus reale, de pe mathaus.ro (pagina de magazine). Nu inventa adrese sau telefoane; dacă nu ești sigur, lasă câmpul gol.
 IMPORTANT CATALOG: Denumirile din catalog sunt INTERNE SAP (nu identice cu site-ul). Codul SAP este identic cu mathaus.ro. Construieste link-ul mathaus.ro ca: https://mathaus.ro/p/[COD_SAP]. Cauta pe mathaus.ro dupa codul SAP pentru pret exact.${reguli ? '\n' + reguli : ''}
 ${extraPrompt ? '\nINSTRUCȚIUNI EXTRA:\n' + extraPrompt : ''}
 
 RETURNEAZĂ STRICT JSON:
-{"materiale":[{"sap":"","nume":"...","cantitate":10,"um":"buc","mentionat_ca":"...","mathaus":{"pret":12.5,"link":"...","disponibil":true},"dedeman":{"pret":11.8,"link":"...","disponibil":true},"leroy":{"pret":null,"link":null,"disponibil":false},"bricostore":{"pret":null,"link":null,"disponibil":false},"hornbach":{"pret":null,"link":null,"disponibil":false}}],"depozite_locale":[{"nume":"MatHaus Cluj","adresa":"...","telefon":"...","distanta_km":5}],"neidentificate":[]}`;
+{"materiale":[{"sap":"","nume":"...","cantitate":10,"um":"buc","mentionat_ca":"...","mathaus":{"pret":12.5,"link":"...","disponibil":true},"dedeman":{"pret":11.8,"link":"...","disponibil":true},"leroy":{"pret":null,"link":null,"disponibil":false},"bricostore":{"pret":null,"link":null,"disponibil":false},"hornbach":{"pret":null,"link":null,"disponibil":false}}],"depozite_locale":[{"nume":"MatHaus Cluj","adresa":"...","telefon":"...","distanta_km":5}],"neidentificate":[],"observatii":["..."]}`;
 
           const _hdr = { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' };
           const _reqBody = {
@@ -15880,6 +15913,8 @@ RETURNEAZĂ STRICT JSON:
             list2[idx].materiale = materiale;
             list2[idx].depozite_locale = parsed.depozite_locale || [];
             list2[idx].neidentificate = parsed.neidentificate || [];
+            list2[idx].observatii = parsed.observatii || [];
+            list2[idx].tva = kb.ofertaTVA || 'cu';
           }
           saveOferte(list2);
           ofertaRenderList();
@@ -16115,6 +16150,11 @@ RETURNEAZĂ STRICT JSON:
         }
 
         // Calcule totale
+        // ofertele vechi: prețurile erau cerute fără TVA; explicațiile lungi ale AI-ului erau puse la „neidentificate”
+        const _tvaLbl = (oferta.tva || 'fara') === 'fara' ? '(fără TVA)' : '(cu TVA)';
+        const _neidAll = oferta.neidentificate || [];
+        const _neid = _neidAll.filter(x => String(x).length <= 90);
+        const _obs = [...(oferta.observatii || []), ..._neidAll.filter(x => String(x).length > 90)];
         const totalOferta = oferta.materiale.reduce((s, m) => s + ((m.pretOferta || 0) * (m.cantitate || 0)), 0);
         const nrValidate = oferta.materiale.filter(m => m.validat).length;
         const nrTotal = oferta.materiale.length;
@@ -16134,6 +16174,10 @@ RETURNEAZĂ STRICT JSON:
             </div>
           </div>` : '';
 
+        // Prețuri verificate de colegi / citite automat (mai noi decât cele găsite de AI)
+        if (pvApply(oferta)) { const _l = loadOferte(); const _ix = _l.findIndex(x => x.id === id); if (_ix >= 0) { _l[_ix] = oferta; saveOferte(_l); } }
+        pvPull().then(ch => { if (ch && _ofertaSelectedId === id) ofertaShowDetail(id); });
+
         // Randuri tabel
         const COMPETITORS = ['mathaus','dedeman','leroy','bricostore','hornbach'];
 
@@ -16143,10 +16187,14 @@ RETURNEAZĂ STRICT JSON:
           const minPret = preturiValide.length ? Math.min(...preturiValide) : null;
           const maxPret = preturiValide.length ? Math.max(...preturiValide) : null;
 
+          const pvAct = c => `<div style="display:flex;gap:3px;justify-content:flex-end;margin-top:2px">
+              <a href="${escHtml(safeUrl(m[c]?.link || pvSearchUrl(m, c)))}" target="_blank" rel="noopener" title="${m[c]?.link ? 'Deschide pagina produsului' : 'Caută produsul pe ' + PV_SITES[c]}" style="font-size:10px;text-decoration:none;border:1px solid var(--border);border-radius:4px;padding:0 4px">🔗</a>
+              <button onclick="pvVerify('${id}',${i},'${c}')" title="Scrie prețul văzut pe site (se salvează pentru toți colegii)" style="font-size:10px;border:1px solid var(--border);border-radius:4px;padding:0 4px;background:var(--surface);cursor:pointer">✏</button>
+            </div>`;
           const pretCells = COMPETITORS.map(c => {
             const p = m[c]?.pret;
             const link = m[c]?.link;
-            if (!p) return `<td style="text-align:right;color:var(--txt3);font-size:11px">—</td>`;
+            if (!p) return `<td style="text-align:right;color:var(--txt3);font-size:11px;white-space:nowrap">—${pvAct(c)}</td>`;
             const isCheapest = p === minPret;
             const isExpensive = p === maxPret && preturiValide.length > 1;
             const style = isCheapest
@@ -16157,7 +16205,7 @@ RETURNEAZĂ STRICT JSON:
             const pVal = link
               ? `<a href="${escHtml(safeUrl(link))}" target="_blank" style="${style};text-decoration:none">${fmtP(p)}</a>`
               : `<span style="${style}">${fmtP(p)}</span>`;
-            return `<td style="text-align:right;white-space:nowrap">${pVal}</td>`;
+            return `<td style="text-align:right;white-space:nowrap">${pVal}${pvBadge(m[c])}${pvAct(c)}</td>`;
           }).join('');
 
           const validStyle = m.validat ? 'background:var(--green-l)' : '';
@@ -16208,7 +16256,7 @@ RETURNEAZĂ STRICT JSON:
             <div>
               <div class="oferta-detail-title">📋 ${escHtml(oferta.client)}</div>
               <div style="font-size:11px;opacity:.7;margin-top:2px">
-                ${oferta.data} · ${nrValidate}/${nrTotal} materiale validate · Total ofertă: <strong>${fmtP(totalOferta)}</strong>
+                ${oferta.data} · ${nrValidate}/${nrTotal} materiale validate · Total ofertă: <strong>${fmtP(totalOferta)}</strong> <span style="opacity:.8">${_tvaLbl}</span>
               </div>
               <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:4px">
                 ${(()=>{
@@ -16217,7 +16265,7 @@ RETURNEAZĂ STRICT JSON:
                   const nErr = oferta.materiale.filter(m => m.sursa === 'serpapi-error').length;
                   const parts = [];
                   if (nSerp > 0) parts.push('<span style="font-size:10px;background:rgba(26,115,232,.15);color:#1a73e8;padding:1px 6px;border-radius:3px">🔍 ' + nSerp + ' Google Shopping</span>');
-                  if (nClaude > 0) parts.push('<span style="font-size:10px;background:rgba(107,33,168,.15);color:#6b21a8;padding:1px 6px;border-radius:3px">🤖 ' + nClaude + ' Claude</span>');
+                  if (nClaude > 0) parts.push('<span style="font-size:10px;background:rgba(255,255,255,.16);color:#f3e8ff;padding:1px 6px;border-radius:3px">🤖 ' + nClaude + ' căutate cu AI</span>');
                   if (nErr > 0) parts.push('<span style="font-size:10px;background:rgba(220,38,38,.15);color:#dc2626;padding:1px 6px;border-radius:3px">⚠ ' + nErr + ' eroare preț</span>');
                   return parts.join('');
                 })()}
@@ -16244,13 +16292,13 @@ RETURNEAZĂ STRICT JSON:
                 <th style="text-align:right;color:#00a551">Leroy</th>
                 <th style="text-align:right;color:#0047AB">Bricostore</th>
                 <th style="text-align:right;color:#FF6600">Hornbach</th>
-                <th style="text-align:right;color:var(--orange)">Preț Ofertă ✏</th>
+                <th style="text-align:right;color:var(--orange)">Preț Ofertă ✏<div style="font-size:9px;font-weight:600;opacity:.8">${_tvaLbl}</div></th>
                 <th style="text-align:right">Total</th>
                 <th style="text-align:center;width:60px">✓ Valid</th>
               </tr></thead>
               <tbody>${rows}
                 <tr class="oferta-total-row">
-                  <td colspan="8" style="font-size:12px">TOTAL OFERTĂ</td>
+                  <td colspan="8" style="font-size:12px">TOTAL OFERTĂ: <span style="font-size:16px;margin-left:6px">${fmtP(totalOferta)} lei</span> <span style="font-size:10px;opacity:.8">${_tvaLbl}</span></td>
                   <td></td>
                   <td style="text-align:right;font-size:16px" id="oferta-total-${id}">${fmtP(totalOferta)}</td>
                   <td></td>
@@ -16259,9 +16307,13 @@ RETURNEAZĂ STRICT JSON:
             </table>
           </div>
 
-          ${oferta.neidentificate?.length ? `<div class="oferta-unidentified">
-            <div class="oferta-unidentified-title">⚠ Materiale neidentificate (${oferta.neidentificate.length})</div>
-            ${oferta.neidentificate.map(n => `<span class="oferta-unidentified-item">${escHtml(n)}</span>`).join('')}
+          ${_neid.length ? `<div class="oferta-unidentified">
+            <div class="oferta-unidentified-title">⚠ Materiale neidentificate (${_neid.length})</div>
+            ${_neid.map(n => `<span class="oferta-unidentified-item">${escHtml(n)}</span>`).join('')}
+          </div>` : ''}
+          ${_obs.length ? `<div class="oferta-unidentified" style="background:var(--blue-l);border-color:#BFDBFE">
+            <div class="oferta-unidentified-title" style="color:var(--blue)">💡 Observații AI — verifică înainte de a trimite oferta (${_obs.length})</div>
+            ${_obs.map(n => `<div class="oferta-unidentified-item" style="display:block;border-color:#BFDBFE;background:#fff">${escHtml(n)}</div>`).join('')}
           </div>` : ''}
 
           <div class="oferta-feedback">
@@ -16269,7 +16321,7 @@ RETURNEAZĂ STRICT JSON:
             <button class="chat-fb-btn ${oferta.feedback === 'like' ? 'liked' : ''}" onclick="ofertaFeedback('${id}','like')">👍 Precisă</button>
             <button class="chat-fb-btn ${oferta.feedback === 'dislike' ? 'disliked' : ''}" onclick="ofertaFeedback('${id}','dislike')">👎 Greșeli</button>
             <div style="flex:1"></div>
-            <div style="font-size:10px;color:var(--txt3)">💡 Prețul verde = cel mai mic · Preț portocaliu = editabil</div>
+            <div style="font-size:10px;color:var(--txt3)">💡 Verde = cel mai mic · ✅ verificat de un coleg · 🔄 citit automat · ⏳ mai vechi de 7 zile · 🤖 găsit de AI, neverificat · 🔗 deschide · ✏ scrie prețul văzut</div>
           </div>
         </div>`;
 
@@ -17031,7 +17083,7 @@ RETURNEAZĂ STRICT JSON:
         clRenderTable();
       }
 
-      const CL_DRIVE_SCRIPT = "// ═══════════════════════════════════════════════════════════════\n// MatHaus — Bază firme pe Google Drive  (rubrica „Identifică Clienți în Zonă”)\n// Proiect Apps Script SEPARAT de cel de backup (nu-l atinge pe cel existent).\n// Instalare: script.google.com → New project → lipește tot codul → schimbă PAROLA de mai jos →\n//   Deploy → New deployment → Web app → Execute as: Me → Who has access: Anyone → Deploy → copiază URL-ul /exec\n// ═══════════════════════════════════════════════════════════════\nconst PAROLA = 'SCHIMBA-MA';                 // parola de publicare — aceeași o scrii în aplicație la „Publică pe Drive”\nconst FOLDER = 'MatHaus - Baza firme';       // folderul creat automat pe Drive-ul tău\n\nfunction folder_() {\n  const it = DriveApp.getFoldersByName(FOLDER);\n  return it.hasNext() ? it.next() : DriveApp.createFolder(FOLDER);\n}\nfunction read_(name) {\n  const it = folder_().getFilesByName(name);\n  return it.hasNext() ? it.next().getBlob().getDataAsString('UTF-8') : null;\n}\nfunction write_(name, text) {\n  const f = folder_();\n  const it = f.getFilesByName(name);\n  while (it.hasNext()) it.next().setTrashed(true);       // înlocuim fișierul (blob — permite fișiere mari)\n  f.createFile(Utilities.newBlob(text, 'application/json', name));\n}\nconst safe_ = s => String(s || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 40);\n\nfunction out_(body, cb) {\n  if (cb) return ContentService.createTextOutput(String(cb).replace(/[^\\w$.]/g, '') + '(' + body + ')').setMimeType(ContentService.MimeType.JAVASCRIPT);\n  return ContentService.createTextOutput(body).setMimeType(ContentService.MimeType.JSON);\n}\n\nfunction doGet(e) {\n  const p = (e && e.parameter) || {};\n  let body;\n  try {\n    if (p.action === 'info') body = read_('info.json') || '{\"ok\":true,\"counts\":{},\"parts\":{}}';\n    else if (p.action === 'part') body = '{\"ok\":true,\"data\":' + (read_('firme_' + safe_(p.jk) + '_' + (+p.n || 1) + '.json') || 'null') + '}';\n    else if (p.action === 'geo') body = '{\"ok\":true,\"data\":' + (read_('geo.json') || '{}') + '}';\n    else if (p.action === 'fin') body = '{\"ok\":true,\"data\":' + (read_('fin.json') || '{}') + '}';\n    else body = '{\"ok\":true,\"service\":\"MatHaus baza firme\"}';\n  } catch (err) { body = JSON.stringify({ ok: false, error: String(err) }); }\n  return out_(body, p.callback);\n}\n\nfunction doPost(e) {\n  const lock = LockService.getScriptLock();\n  lock.waitLock(30000);\n  try {\n    const raw = (e.parameter && e.parameter.payload) || (e.postData && e.postData.contents) || '{}';\n    const m = JSON.parse(raw);\n    const admin = ['clear', 'putPart', 'putInfo'].indexOf(m.action) >= 0;\n    if (admin && m.token !== PAROLA) return out_('{\"ok\":false,\"error\":\"parola gresita\"}');\n    if (m.action === 'clear') {\n      const it = folder_().getFiles();\n      while (it.hasNext()) { const f = it.next(); if (/^firme_|^info\\.json$/.test(f.getName())) f.setTrashed(true); }\n    } else if (m.action === 'putPart') {\n      write_('firme_' + safe_(m.jk) + '_' + (+m.n || 1) + '.json', JSON.stringify(m.data || []));\n    } else if (m.action === 'putInfo') {\n      write_('info.json', JSON.stringify({ ok: true, ts: m.ts, counts: m.counts || {}, parts: m.parts || {}, src: m.src || '', published: new Date().toISOString() }));\n    } else if (m.action === 'addGeo' || m.action === 'addFin') {\n      // completări trimise de agenți: localități găsite pe hartă / date financiare ANAF\n      const name = m.action === 'addGeo' ? 'geo.json' : 'fin.json';\n      const cur = JSON.parse(read_(name) || '{}');\n      const entries = Object.entries(m.data || {}).slice(0, 500);\n      entries.forEach(([k, v]) => { if (String(k).length <= 120 && v && typeof v === 'object') cur[k] = v; });\n      write_(name, JSON.stringify(cur));\n    }\n    return out_('{\"ok\":true}');\n  } catch (err) {\n    return out_(JSON.stringify({ ok: false, error: String(err) }));\n  } finally { lock.releaseLock(); }\n}\n";
+      const CL_DRIVE_SCRIPT = "// ═══════════════════════════════════════════════════════════════\n// MatHaus — Bază firme + Monitor prețuri pe Google Drive   (v2 — 22.10.2026)\n//  • Baza de firme pentru „Identifică Clienți în Zonă”\n//  • Prețuri verificate de agenți la competitori + citire automată (monitor) a paginilor confirmate\n// După ce lipești codul: Deploy → Manage deployments → ✏ → Version: New version → Deploy (URL-ul rămâne același).\n// Apoi alege funcția setupMonitor din listă și apasă ▶ Run O SINGURĂ DATĂ (pornește verificarea automată la 2 ore).\n// Proiect Apps Script SEPARAT de cel de backup (nu-l atinge pe cel existent).\n// Instalare: script.google.com → New project → lipește tot codul → schimbă PAROLA de mai jos →\n//   Deploy → New deployment → Web app → Execute as: Me → Who has access: Anyone → Deploy → copiază URL-ul /exec\n// ═══════════════════════════════════════════════════════════════\nconst PAROLA = 'SCHIMBA-MA';                 // parola de publicare — aceeași o scrii în aplicație la „Publică pe Drive”\nconst FOLDER = 'MatHaus - Baza firme';       // folderul creat automat pe Drive-ul tău\n\nfunction folder_() {\n  const it = DriveApp.getFoldersByName(FOLDER);\n  return it.hasNext() ? it.next() : DriveApp.createFolder(FOLDER);\n}\nfunction read_(name) {\n  const it = folder_().getFilesByName(name);\n  return it.hasNext() ? it.next().getBlob().getDataAsString('UTF-8') : null;\n}\nfunction write_(name, text) {\n  const f = folder_();\n  const it = f.getFilesByName(name);\n  while (it.hasNext()) it.next().setTrashed(true);       // înlocuim fișierul (blob — permite fișiere mari)\n  f.createFile(Utilities.newBlob(text, 'application/json', name));\n}\nconst safe_ = s => String(s || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 40);\n\nfunction out_(body, cb) {\n  if (cb) return ContentService.createTextOutput(String(cb).replace(/[^\\w$.]/g, '') + '(' + body + ')').setMimeType(ContentService.MimeType.JAVASCRIPT);\n  return ContentService.createTextOutput(body).setMimeType(ContentService.MimeType.JSON);\n}\n\nfunction doGet(e) {\n  const p = (e && e.parameter) || {};\n  let body;\n  try {\n    if (p.action === 'info') body = read_('info.json') || '{\"ok\":true,\"counts\":{},\"parts\":{}}';\n    else if (p.action === 'part') body = '{\"ok\":true,\"data\":' + (read_('firme_' + safe_(p.jk) + '_' + (+p.n || 1) + '.json') || 'null') + '}';\n    else if (p.action === 'geo') body = '{\"ok\":true,\"data\":' + (read_('geo.json') || '{}') + '}';\n    else if (p.action === 'fin') body = '{\"ok\":true,\"data\":' + (read_('fin.json') || '{}') + '}';\n    else if (p.action === 'preturi') body = '{\"ok\":true,\"data\":' + (read_('preturi.json') || '{}') + '}';\n    else body = '{\"ok\":true,\"service\":\"MatHaus baza firme\"}';\n  } catch (err) { body = JSON.stringify({ ok: false, error: String(err) }); }\n  return out_(body, p.callback);\n}\n\nfunction doPost(e) {\n  const lock = LockService.getScriptLock();\n  lock.waitLock(30000);\n  try {\n    const raw = (e.parameter && e.parameter.payload) || (e.postData && e.postData.contents) || '{}';\n    const m = JSON.parse(raw);\n    const admin = ['clear', 'putPart', 'putInfo'].indexOf(m.action) >= 0;\n    if (admin && m.token !== PAROLA) return out_('{\"ok\":false,\"error\":\"parola gresita\"}');\n    if (m.action === 'clear') {\n      const it = folder_().getFiles();\n      while (it.hasNext()) { const f = it.next(); if (/^firme_|^info\\.json$/.test(f.getName())) f.setTrashed(true); }\n    } else if (m.action === 'putPart') {\n      write_('firme_' + safe_(m.jk) + '_' + (+m.n || 1) + '.json', JSON.stringify(m.data || []));\n    } else if (m.action === 'putInfo') {\n      write_('info.json', JSON.stringify({ ok: true, ts: m.ts, counts: m.counts || {}, parts: m.parts || {}, src: m.src || '', published: new Date().toISOString() }));\n    } else if (m.action === 'addPret') {\n      // preț verificat de un agent: { \"SAP10400014|dedeman\": { pret, link, ts, by, um, nume, site } }\n      const cur = JSON.parse(read_('preturi.json') || '{}');\n      Object.entries(m.data || {}).slice(0, 200).forEach(([k, v]) => {\n        if (String(k).length > 140 || !v || typeof v !== 'object') return;\n        const pret = Number(v.pret);\n        if (!(pret > 0 && pret < 1e7)) return;\n        const old = cur[k] || {};\n        const link = /^https?:\\/\\//i.test(v.link || '') ? String(v.link).slice(0, 500) : (old.link || '');\n        cur[k] = Object.assign({}, old, { pret, link, ts: Number(v.ts) || Date.now(), by: String(v.by || '').slice(0, 60), um: String(v.um || '').slice(0, 20), nume: String(v.nume || '').slice(0, 160), site: String(v.site || '').slice(0, 60) });\n        if (link !== old.link) { delete cur[k].autoPret; delete cur[k].autoTs; delete cur[k].autoStatus; }\n      });\n      write_('preturi.json', JSON.stringify(cur));\n    } else if (m.action === 'addGeo' || m.action === 'addFin') {\n      // completări trimise de agenți: localități găsite pe hartă / date financiare ANAF\n      const name = m.action === 'addGeo' ? 'geo.json' : 'fin.json';\n      const cur = JSON.parse(read_(name) || '{}');\n      const entries = Object.entries(m.data || {}).slice(0, 500);\n      entries.forEach(([k, v]) => { if (String(k).length <= 120 && v && typeof v === 'object') cur[k] = v; });\n      write_(name, JSON.stringify(cur));\n    }\n    return out_('{\"ok\":true}');\n  } catch (err) {\n    return out_(JSON.stringify({ ok: false, error: String(err) }));\n  } finally { lock.releaseLock(); }\n}\n\n\n// ═══════════════ MONITOR PREȚURI (rulează automat, la 2 ore) ═══════════════\n// Citește O DATĂ pe zi fiecare pagină de produs confirmată de agenți și extrage prețul afișat\n// (formatul standard schema.org pe care magazinele îl publică pentru Google). Nu ocolește protecțiile\n// anti-robot: dacă un site blochează citirea, produsul e marcat „blocat” și rămâne prețul verificat manual.\nfunction monitor() {\n  const start = Date.now();\n  const lock = LockService.getScriptLock(); lock.waitLock(30000);\n  let data;\n  try { data = JSON.parse(read_('preturi.json') || '{}'); } finally { lock.releaseLock(); }\n  const updates = {};\n  const keys = Object.keys(data).filter(k => data[k].link && (!data[k].autoTs || Date.now() - data[k].autoTs > 20 * 3600 * 1000));\n  for (const k of keys) {\n    if (Date.now() - start > 4.5 * 60 * 1000) break;          // limita Google: 6 minute / rulare\n    const e = data[k], u = { autoTs: Date.now() };\n    try {\n      const r = UrlFetchApp.fetch(e.link, { muteHttpExceptions: true, followRedirects: true, headers: { 'Accept-Language': 'ro-RO,ro;q=0.9' } });\n      const code = r.getResponseCode(), html = r.getContentText();\n      if (code === 403 || code === 429 || code === 503 || /cf-chl|challenge-platform|Just a moment|captcha/i.test(html.slice(0, 20000))) u.autoStatus = 'blocat';\n      else if (code >= 400) u.autoStatus = 'eroare ' + code;\n      else { const p = extractPrice_(html); if (p) { u.autoPret = p; u.autoStatus = 'ok'; } else u.autoStatus = 'fara pret'; }\n    } catch (err) { u.autoStatus = 'eroare'; }\n    updates[k] = u;\n    Utilities.sleep(1500);                                      // politicos: câte o pagină la 1,5 secunde\n  }\n  if (!Object.keys(updates).length) return;\n  lock.waitLock(30000);\n  try {\n    const cur = JSON.parse(read_('preturi.json') || '{}');\n    Object.entries(updates).forEach(([k, u]) => { if (cur[k]) Object.assign(cur[k], u); });\n    write_('preturi.json', JSON.stringify(cur));\n  } finally { lock.releaseLock(); }\n}\nfunction extractPrice_(html) {\n  const blocks = html.match(/<script[^>]*application\\/ld\\+json[^>]*>[\\s\\S]*?<\\/script>/gi) || [];\n  for (const b of blocks) {\n    const txt = b.replace(/^<script[^>]*>/i, '').replace(/<\\/script>$/i, '');\n    try { const p = findPrice_(JSON.parse(txt)); if (p) return p; } catch (e) {}\n  }\n  const m = html.match(/itemprop=[\"']price[\"'][^>]*content=[\"']([\\d.,]+)[\"']/i) || html.match(/content=[\"']([\\d.,]+)[\"'][^>]*itemprop=[\"']price[\"']/i) ||\n            html.match(/property=[\"'](?:product|og):price:amount[\"'][^>]*content=[\"']([\\d.,]+)[\"']/i);\n  return m ? num_(m[1]) : null;\n}\nfunction findPrice_(o) {\n  if (!o || typeof o !== 'object') return null;\n  if (Array.isArray(o)) { for (const x of o) { const p = findPrice_(x); if (p) return p; } return null; }\n  if (o.offers) {\n    const of = Array.isArray(o.offers) ? o.offers[0] : o.offers;\n    const v = of && (of.price || of.lowPrice || (of.priceSpecification && of.priceSpecification.price));\n    if (v) return num_(v);\n  }\n  if (o['@graph']) return findPrice_(o['@graph']);\n  for (const k in o) if (o[k] && typeof o[k] === 'object') { const p = findPrice_(o[k]); if (p) return p; }\n  return null;\n}\nfunction num_(v) {\n  let s = String(v).replace(/[^\\d.,]/g, '');\n  if (s.indexOf(',') >= 0 && s.indexOf('.') >= 0) s = s.replace(/\\./g, '').replace(',', '.'); else s = s.replace(',', '.');\n  const n = parseFloat(s); return n > 0 ? Math.round(n * 100) / 100 : null;\n}\n// Rulează O DATĂ din editor: pornește monitorul automat (la fiecare 2 ore; fiecare pagină se citește max. o dată pe zi)\nfunction setupMonitor() {\n  ScriptApp.getProjectTriggers().filter(t => t.getHandlerFunction() === 'monitor').forEach(t => ScriptApp.deleteTrigger(t));\n  ScriptApp.newTrigger('monitor').timeBased().everyHours(2).create();\n  console.log('Monitor prețuri pornit — rulează la fiecare 2 ore.');\n}\n";
       // ── BAZA DE FIRME PE GOOGLE DRIVE (Apps Script separat) ──
       // Adminul publică firmele pe județe; agenții descarcă automat doar județele căutate.
       const clDriveUrl = () => String(appSettings.firmeUrl || "").trim();
@@ -17159,6 +17211,107 @@ RETURNEAZĂ STRICT JSON:
           clRefreshDbStatus();
         } catch (e) { msg("⚠ " + e.message); toast("⚠ Publicare eșuată: " + e.message); }
         finally { _cl.busy = false; }
+      }
+
+      // ══════════════════════════════════════════════════════════════
+      // PREȚURI VERIFICATE LA COMPETITORI (manual de agenți + citite automat de monitor), partajate prin Drive
+      // Prețurile se păstrează CU TVA, exact cum sunt afișate pe site; în ofertele „fără TVA” se împart la 1,21.
+      // ══════════════════════════════════════════════════════════════
+      const PV_STORE = "mathaus_pret_verif";
+      const PV_SITES = { mathaus: "mathaus.ro", dedeman: "dedeman.ro", leroy: "leroymerlin.ro", bricostore: "bricostore.ro", hornbach: "hornbach.ro" };
+      const PV_NAMES = { mathaus: "MatHaus", dedeman: "Dedeman", leroy: "Leroy Merlin", bricostore: "Bricostore", hornbach: "Hornbach" };
+      const PV_MAX_DAYS = 30, PV_STALE_DAYS = 7;
+      const pvProdKey = m => m.sap && String(m.sap).replace(/\D/g, "") ? "SAP" + String(m.sap).replace(/\D/g, "") : "N:" + clNorm(m.nume).slice(0, 80);
+      function pvLoad() { try { return JSON.parse(localStorage.getItem(PV_STORE) || "{}"); } catch (e) { return {}; } }
+      function pvSave(o) { try { localStorage.setItem(PV_STORE, JSON.stringify(o)); } catch (e) {} }
+      const pvTs = v => Math.max(v && v.ts || 0, v && v.autoStatus === "ok" && v.autoTs || 0);
+      function pvBest(v) {
+        if (!v) return null;
+        const man = v.pret != null ? { pret: +v.pret, ts: v.ts, src: "manual", by: v.by, link: v.link } : null;
+        const auto = v.autoPret != null && v.autoStatus === "ok" ? { pret: +v.autoPret, ts: v.autoTs, src: "auto", link: v.link } : null;
+        if (man && auto) return auto.ts > man.ts ? auto : man;
+        return man || auto;
+      }
+      let _pvPulled = 0;
+      async function pvPull(force) {
+        if (!clDriveUrl() || (!force && Date.now() - _pvPulled < 10 * 60 * 1000)) return false;
+        _pvPulled = Date.now();
+        const r = await clJsonp({ action: "preturi" }, 30000);
+        if (!r || !r.ok || !r.data) return false;
+        const loc = pvLoad(); let ch = false;
+        Object.entries(r.data).forEach(([k, v]) => { if (!loc[k] || pvTs(v) >= pvTs(loc[k])) { loc[k] = v; ch = true; } });
+        if (ch) pvSave(loc);
+        return ch;
+      }
+      // aplică pe ofertă prețurile verificate (mai noi de 30 de zile); întoarce true dacă s-a schimbat ceva
+      function pvApply(oferta) {
+        const pv = pvLoad(); let changed = false;
+        const k = (oferta.tva || "fara") === "fara" ? 1 / 1.21 : 1;
+        (oferta.materiale || []).forEach(m => {
+          Object.keys(PV_SITES).forEach(c => {
+            const b = pvBest(pv[pvProdKey(m) + "|" + c]);
+            if (!b || Date.now() - b.ts > PV_MAX_DAYS * 864e5) return;
+            const pret = Math.round(b.pret * k * 100) / 100;
+            const cur = m[c] || {};
+            if (cur.verif && cur.verif.ts === b.ts && cur.pret === pret) return;
+            m[c] = { ...cur, pret, link: b.link || cur.link || null, disponibil: true, verif: { ts: b.ts, src: b.src, by: b.by || "" } };
+            changed = true;
+          });
+        });
+        return changed;
+      }
+      function pvBadge(v) {
+        if (!v || !v.verif) return v && v.pret ? '<div style="font-size:9px;color:var(--txt3)" title="Găsit de AI — neverificat">🤖 neverificat</div>' : "";
+        const days = Math.floor((Date.now() - v.verif.ts) / 864e5);
+        const when = days === 0 ? "azi" : days === 1 ? "ieri" : days + " zile";
+        const stale = days >= PV_STALE_DAYS;
+        const who = v.verif.src === "auto" ? "citit automat" : "verificat" + (v.verif.by ? " de " + v.verif.by : "");
+        return `<div style="font-size:9px;color:${stale ? "#b45309" : "#15803d"}" title="${escHtml(who + " · " + new Date(v.verif.ts).toLocaleString("ro-RO"))}">${stale ? "⏳" : v.verif.src === "auto" ? "🔄" : "✅"} ${when}</div>`;
+      }
+      function pvSearchUrl(m, c) {
+        return "https://www.google.com/search?q=" + encodeURIComponent("site:" + PV_SITES[c] + " " + (m.nume || "").replace(/\s+/g, " ").slice(0, 90));
+      }
+      function pvAgentName() {
+        try { return localStorage.getItem("mathaus_agent_name") || ""; } catch (e) { return ""; }
+      }
+      async function pvVerify(ofertaId, i, c) {
+        const list = loadOferte(); const o = list.find(x => x.id === ofertaId); if (!o) return;
+        const m = o.materiale[i]; if (!m) return;
+        let by = pvAgentName();
+        if (!by) {
+          by = (await showPrompt("Numele tău (apare la prețurile pe care le verifici, pentru colegi):", "")) || "";
+          by = by.trim().slice(0, 40); if (!by) return;
+          try { localStorage.setItem("mathaus_agent_name", by); } catch (e) {}
+        }
+        const kTva = (o.tva || "fara") === "fara" ? 1.21 : 1;
+        const curCu = m[c]?.pret ? Math.round(m[c].pret * kTva * 100) / 100 : "";
+        const raw = await showPrompt(`Prețul afișat pe ${PV_SITES[c]} pentru „${m.nume}” — CU TVA, lei / ${m.um || "buc"}:`, curCu ? String(curCu).replace(".", ",") : "");
+        if (raw == null || String(raw).trim() === "") return;
+        const pret = parseFloat(String(raw).replace(/\s/g, "").replace(/\.(?=\d{3}(\D|$))/g, "").replace(",", "."));
+        if (!(pret > 0)) { toast("⚠ Preț invalid"); return; }
+        const link0 = m[c]?.link && new RegExp(PV_SITES[c].replace(".", "\\."), "i").test(m[c].link) ? m[c].link : "";
+        let link = await showPrompt(`Linkul paginii produsului pe ${PV_SITES[c]} (lipește-l din bara browserului — permite actualizarea automată zilnică):`, link0);
+        link = /^https?:\/\//i.test(String(link || "").trim()) ? String(link).trim() : "";
+        const key = pvProdKey(m) + "|" + c;
+        const entry = { pret, link, ts: Date.now(), by, um: m.um || "", nume: m.nume || "", site: PV_SITES[c] };
+        const pv = pvLoad(); const prev = pv[key] || {};
+        pv[key] = { ...prev, ...entry };
+        if (prev.link !== link) { delete pv[key].autoPret; delete pv[key].autoTs; delete pv[key].autoStatus; }
+        pvSave(pv);
+        pvApply(o); saveOferte(list); ofertaShowDetail(ofertaId);
+        if (clDriveUrl()) clPost({ action: "addPret", data: { [key]: entry } });
+        toast(`✅ Preț ${PV_NAMES[c]} salvat${clDriveUrl() ? " și trimis colegilor" : ""}${link ? " — se va actualiza automat zilnic" : ""}`);
+      }
+
+      async function pvMonitorStatus() {
+        const el = $("pv-monitor-status"); if (!el) return;
+        if (!clDriveUrl()) { el.textContent = "⚠ Setează întâi URL-ul scriptului."; return; }
+        el.textContent = "⏳ Citesc…";
+        const r = await clJsonp({ action: "preturi" }, 30000);
+        if (!r || !r.ok) { el.textContent = "⚠ Scriptul nu răspunde sau e versiunea veche (fără monitor) — actualizează codul și publică o versiune nouă."; return; }
+        const by = {}; Object.values(r.data || {}).forEach(v => { const s = v.site || "?"; by[s] = by[s] || { tot: 0, ok: 0, blocat: 0, alt: 0, fara: 0 }; by[s].tot++; if (!v.link) by[s].fara++; else if (v.autoStatus === "ok") by[s].ok++; else if (v.autoStatus === "blocat") by[s].blocat++; else if (v.autoStatus) by[s].alt++; });
+        const rows = Object.entries(by).map(([s, x]) => `<div>• <b>${escHtml(s)}</b>: ${x.tot} prețuri · 🔄 ${x.ok} citite automat · ⛔ ${x.blocat} blocate de site · ⚠ ${x.alt} fără preț/eroare · ${x.fara} fără link</div>`).join("");
+        el.innerHTML = rows || "Încă nu există prețuri verificate. Folosește butonul ✏ din oferte.";
       }
 
       // ── EXPORT + NOTIȚE ──
@@ -17394,7 +17547,7 @@ RETURNEAZĂ STRICT JSON:
             <div class="chat-avatar">🤖</div>
             <div class="chat-header-info">
               <h3>Consultant MatHaus</h3>
-              <span>Expert materiale construcții</span>
+              <span>Expert materiale construcții <span id="chat-model-label" style="opacity:.75"></span></span>
             </div>
           </div>
           <div style="display:flex;gap:6px">
