@@ -14698,12 +14698,14 @@ function sendWeeklyReport() {
       function renderAdminUsers() {
         const cont = $("admin-content"); if (!cont) return;
         if (!authIsOwner()) { cont.innerHTML = '<div class="admin-card">🔒 Doar administratorul poate gestiona utilizatorii.</div>'; return; }
+        if (appSettings.cloudUrl && !window._usrRemote && !window._usrVerOnce) { window._usrVerOnce = 1; setTimeout(() => usrVerifyDrive(true), 50); }
         const users = authUsers();
         const fmtD = d => d ? new Date(d).toLocaleString("ro-RO", { dateStyle: "short", timeStyle: "short" }) : "—";
         const rows = users.map(u => `<tr style="${u.active === false ? "opacity:.55" : ""}">
           <td><div style="font-weight:700">${escHtml(u.name || "")}</div><div style="font-size:11px;color:var(--txt3);font-family:var(--mono)">${escHtml(u.user)}</div></td>
           <td style="font-size:12px;font-weight:700">${u.owner ? "🛡 Administrator" : "👤 Agent — aplicații"}</td>
           <td style="font-size:12px">${u.active === false ? '<span style="color:var(--red);font-weight:700">Dezactivat</span>' : '<span style="color:var(--green);font-weight:700">Activ</span>'}</td>
+          <td style="font-size:12px">${usrDriveState(u)}</td>
           <td style="font-size:11px;color:var(--txt2)">${fmtD(u.lastLogin)}</td>
           <td style="white-space:nowrap">
             <button class="btn btn-ghost btn-sm" onclick="usrResetPass('${u.id}')" title="Setează o parolă nouă">🔑 Parolă</button>
@@ -14712,7 +14714,13 @@ function sendWeeklyReport() {
         cont.innerHTML = `<div class="admin-card">
     <h3>👥 Utilizatori</h3>
     <p style="font-size:12px;color:var(--txt2);line-height:1.6;margin-bottom:14px">Doar tu (administratorul) ai acces la Admin și poți crea utilizatori. Conturile create aici sunt <strong>agenți</strong>: Total Casă, Etapizat, Comandă Agent, Clienți în Zonă și Consultant AI, fără Admin. Conturile ajung pe dispozitivele colegilor prin backup-ul de pe Drive${appSettings.cloudUrl ? "" : ' — <span style="color:var(--red)">⚠ backup-ul cloud nu e configurat (⚙ Setări Generale), conturile există doar pe acest dispozitiv</span>'}.</p>
-    <div style="overflow-x:auto"><table class="mat-table" style="font-size:13px"><thead><tr><th>Nume / utilizator</th><th>Rol</th><th>Stare</th><th>Ultima autentificare</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>
+    ${appSettings.cloudUrl ? `<div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:12px;padding:10px 12px;background:var(--surface2);border-radius:var(--r-sm);font-size:12px">
+      <span>☁ Ultima salvare pe Drive: <strong>${appSettings.cloudLastSave ? fmtD(appSettings.cloudLastSave) : "niciodată"}</strong>${window._usrRemoteTs ? " · verificat " + fmtD(window._usrRemoteTs) : ""}</span>
+      <span style="flex:1"></span>
+      <button class="btn btn-primary btn-sm" onclick="usrSaveNow()">☁ Salvează acum pe Drive</button>
+      <button class="btn btn-ghost btn-sm" onclick="usrVerifyDrive()">🔍 Verifică pe Drive</button>
+    </div>` : ""}
+    <div style="overflow-x:auto"><table class="mat-table" style="font-size:13px"><thead><tr><th>Nume / utilizator</th><th>Rol</th><th>Stare</th><th>Pe Drive</th><th>Ultima autentificare</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>
   </div>
   <div class="admin-card" style="margin-top:14px">
     <h3 style="margin-bottom:10px">➕ Creare utilizator</h3>
@@ -14728,8 +14736,35 @@ function sendWeeklyReport() {
   </div>
   ${appSettings.cloudUrl ? `<div class="admin-card" style="margin-top:14px"><h3 style="margin-bottom:6px">🔗 Link pentru agenți</h3><p style="font-size:12px;color:var(--txt2);margin-bottom:8px">Trimite-le acest link: la prima deschidere aplicația se conectează la baza echipei și le cere utilizatorul și parola.</p><div style="display:flex;gap:8px"><input class="input" readonly id="usr-team-link" value="${escHtml(location.origin + location.pathname + "?cloud=" + encodeURIComponent(appSettings.cloudUrl))}" style="font-family:var(--mono);font-size:11px"><button class="btn btn-ghost btn-sm" onclick="safeCopy($('usr-team-link').value).then(()=>toast('📋 Copiat'))">📋 Copiază</button></div></div>` : ""}`;
       }
+      // ce conturi există efectiv în backup-ul de pe Drive (deci pot intra de pe orice dispozitiv)
+      function usrDriveState(u) {
+        if (!appSettings.cloudUrl) return '<span style="color:var(--txt3)">doar local</span>';
+        const r = window._usrRemote; if (!r) return '<span style="color:var(--txt3)">neverificat</span>';
+        const x = r.find(y => y.id === u.id);
+        if (!x) return '<span style="color:#b45309;font-weight:700">⏳ nesalvat</span>';
+        if (x.hash !== u.hash || (x.active !== false) !== (u.active !== false)) return '<span style="color:#b45309;font-weight:700">⏳ modificări nesalvate</span>';
+        return '<span style="color:var(--green);font-weight:700">✅ salvat</span>';
+      }
+      async function usrVerifyDrive(silent) {
+        const r = await cloudPeek();
+        if (r === null) { toast("⚠ Nu am putut citi backup-ul de pe Drive (verifică internetul / adresa scriptului)"); return; }
+        window._usrRemote = (r.settings && Array.isArray(r.settings.users)) ? r.settings.users : [];
+        window._usrRemoteTs = new Date().toISOString();
+        if (adminSection === "users") renderAdminUsers();
+        const miss = authUsers().filter(u => usrDriveState(u).indexOf("✅") < 0).length;
+        if (!silent) toast(miss ? `⏳ ${miss} cont(uri) nu sunt încă pe Drive — apasă „☁ Salvează acum”` : "✅ Toate conturile sunt salvate pe Drive — colegii se pot autentifica");
+      }
+      async function usrSaveNow() {
+        toast("☁ Salvez pe Drive…");
+        const ok = await cloudSave();
+        if (!ok) { toast("⚠ Salvarea pe Drive nu a reușit"); return; }
+        setTimeout(() => usrVerifyDrive(), 2500);
+      }
       function usrGenPass() { const a = "abcdefghjkmnpqrstuvwxyz23456789"; return Array.from({ length: 8 }, () => a[Math.floor(Math.random() * a.length)]).join(""); }
-      function usrSave(msg) { saveSettings(); if (typeof triggerCloudAutoSave === "function") triggerCloudAutoSave(); renderAdminUsers(); if (msg) toast(msg); }
+      function usrSave(msg) {
+        saveSettings(); if (typeof triggerCloudAutoSave === "function") triggerCloudAutoSave(); renderAdminUsers(); if (msg) toast(msg);
+        if (appSettings.cloudUrl) { clearTimeout(window._usrVerT); window._usrVerT = setTimeout(() => usrVerifyDrive(true), 12000); }
+      }
       async function usrCreate() {
         if (!authIsOwner()) { toast("🔒 Doar administratorul poate crea utilizatori"); return; }
         const name = ($("nu-name")?.value || "").trim(), user = authNorm($("nu-user")?.value), pass = ($("nu-pass")?.value || "").trim(), role = "agent";
