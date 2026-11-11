@@ -8192,7 +8192,7 @@ body.role-agent #btn-admin-nav,body.role-agent #mob-nav-admin{display:none!impor
                 else await new Promise(z => setTimeout(z, 3000));
               }
               if (ok) { appSettings.cloudLastSave = data.savedAt; saveSettings(); }
-              else { appSettings.cloudLastFail = new Date().toISOString(); saveSettings(); logErr && logErr('Salvarea pe Drive nu a fost confirmată (backup-ul nu conține ultima salvare)'); }
+              else { appSettings.cloudLastFail = new Date().toISOString(); saveSettings(); logErr && logErr('Salvarea pe Drive nu a fost confirmată (backup-ul nu conține ultima salvare) · mărime date ' + (payload.length / 1024).toFixed(0) + ' KB'); }
               console.log('[Cloud] Save ' + (ok ? 'confirmat' : 'NECONFIRMAT'));
               resolve(ok);
             }, 2500);
