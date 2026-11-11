@@ -8069,9 +8069,11 @@ body.role-agent #btn-admin-nav,body.role-agent #mob-nav-admin{display:none!impor
           if (data.settings) {
             const currentUrl = appSettings.cloudUrl;
             const currentPass = appSettings.adminPass;
-            const localUsers = Array.isArray(appSettings.users) ? appSettings.users : [];
+            const localUsers = Array.isArray(appSettings.users) ? appSettings.users : [], localDel = appSettings.usersDel || {};
             appSettings = { ...appSettings, ...data.settings, cloudUrl: currentUrl };
-            if (!(Array.isArray(data.settings.users) && data.settings.users.length) && localUsers.length) appSettings.users = localUsers;
+            // conturile se îmbină (nu se suprascriu): un cont creat aici și încă nesalvat pe Drive nu se pierde
+            const mu = authMergeUsers(localUsers, localDel, data.settings.users, data.settings.usersDel);
+            appSettings.users = mu.users; appSettings.usersDel = mu.del;
             // If cloud has no password but local does, keep local (password was set after last cloud save)
             if (!appSettings.adminPass && currentPass) appSettings.adminPass = currentPass;
             saveSettings();
@@ -8150,6 +8152,14 @@ body.role-agent #btn-admin-nav,body.role-agent #mob-nav-admin{display:none!impor
         if (!_isAdmin || !authIsOwner()) { console.warn('[Cloud] Not admin, skip save'); return false; }
         if (!(await cloudOwnerCheck())) { toast('🔒 Backup-ul de pe Drive aparține altui administrator — salvarea a fost blocată'); return false; }
         try {
+          // înainte de salvare: preluăm conturile create / modificate între timp de pe alt dispozitiv
+          try {
+            const remote = await cloudPeek();
+            if (remote && remote.settings) {
+              const mu = authMergeUsers(appSettings.users, appSettings.usersDel, remote.settings.users, remote.settings.usersDel);
+              appSettings.users = mu.users; appSettings.usersDel = mu.del; saveSettings();
+            }
+          } catch (e) {}
           const data = collectAllData();
           const payload = JSON.stringify({ data });
           console.log('[Cloud] Saving', (payload.length/1024).toFixed(1), 'KB to Drive...');
@@ -8170,15 +8180,22 @@ body.role-agent #btn-admin-nav,body.role-agent #mob-nav-admin{display:none!impor
             form.appendChild(input);
             document.body.appendChild(form);
             form.submit();
-            // Can't read cross-origin iframe response, assume success after delay
-            setTimeout(() => {
+            // Nu putem citi răspunsul (alt domeniu) → confirmăm citind backup-ul până apare exact această salvare
+            setTimeout(async () => {
               form.remove();
               iframe.remove();
-              console.log('[Cloud] Save submitted to Drive');
-              appSettings.cloudLastSave = new Date().toISOString();
-              saveSettings();
-              resolve(true);
-            }, 3000);
+              console.log('[Cloud] Save submitted to Drive — verific…');
+              let ok = false;
+              for (let t = 0; t < 8 && !ok; t++) {
+                const r = await cloudPeek();
+                if (r && r.savedAt === data.savedAt) ok = true;
+                else await new Promise(z => setTimeout(z, 3000));
+              }
+              if (ok) { appSettings.cloudLastSave = data.savedAt; saveSettings(); }
+              else { appSettings.cloudLastFail = new Date().toISOString(); saveSettings(); logErr && logErr('Salvarea pe Drive nu a fost confirmată (backup-ul nu conține ultima salvare)'); }
+              console.log('[Cloud] Save ' + (ok ? 'confirmat' : 'NECONFIRMAT'));
+              resolve(ok);
+            }, 2500);
           });
         } catch(e) { console.warn('[Cloud] Save error:', e.message); return false; }
       }
@@ -14627,6 +14644,19 @@ function sendWeeklyReport() {
         return us;
       }
       const authOwner = () => authUsers().find(u => u.owner) || null;
+      // îmbinare conturi între dispozitive: pentru fiecare cont câștigă varianta modificată mai recent; ștergerile se păstrează
+      function authMergeUsers(aUsers, aDel, bUsers, bDel) {
+        const del = { ...(bDel || {}), ...(aDel || {}) };
+        Object.keys(bDel || {}).forEach(k => { del[k] = Math.max(del[k] || 0, bDel[k] || 0); });
+        const map = new Map();
+        [...(Array.isArray(bUsers) ? bUsers : []), ...(Array.isArray(aUsers) ? aUsers : [])].forEach(u => {
+          if (!u || !u.id) return;
+          const cur = map.get(u.id);
+          if (!cur || (u.upd || 0) >= (cur.upd || 0)) map.set(u.id, u);
+        });
+        const users = [...map.values()].filter(u => u.owner || !(del[u.id] && del[u.id] >= (u.upd || 0)));
+        return { users, del };
+      }
       const authIsOwner = () => !!(_authUser && _authUser.owner);
       const authNorm = u => String(u || "").trim().toLowerCase();
       // SHA-256 (crypto.subtle; rezervă JS pentru pagini deschise din fișier)
@@ -14731,7 +14761,7 @@ function sendWeeklyReport() {
         if (pass !== ($("lg-pass2")?.value || "")) { authErr("Parolele nu coincid."); return; }
         const salt = authSalt();
         if (authOwner()) { authShowLogin("Există deja un administrator. Autentifică-te."); return; }
-        const u = { id: "u_" + Date.now(), name, user, role: "admin", owner: true, salt, hash: await authHash(pass, salt), active: true, createdAt: new Date().toISOString(), lastLogin: new Date().toISOString() };
+        const u = { id: "u_" + Date.now(), upd: Date.now(), name, user, role: "admin", owner: true, salt, hash: await authHash(pass, salt), active: true, createdAt: new Date().toISOString(), lastLogin: new Date().toISOString() };
         authUsers().push(u);
         appSettings.adminPass = ""; // înlocuită de contul de administrator (nu mai păstrăm parole în clar)
         saveSettings();
@@ -14790,7 +14820,7 @@ function sendWeeklyReport() {
     <h3>👥 Utilizatori</h3>
     <p style="font-size:12px;color:var(--txt2);line-height:1.6;margin-bottom:14px">Doar tu (administratorul) ai acces la Admin și poți crea utilizatori. Conturile create aici sunt <strong>agenți</strong>: Total Casă, Etapizat, Comandă Agent, Clienți în Zonă și Consultant AI, fără Admin. Conturile ajung pe dispozitivele colegilor prin backup-ul de pe Drive${appSettings.cloudUrl ? "" : ' — <span style="color:var(--red)">⚠ backup-ul cloud nu e configurat (⚙ Setări Generale), conturile există doar pe acest dispozitiv</span>'}.</p>
     ${appSettings.cloudUrl ? `<div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:12px;padding:10px 12px;background:var(--surface2);border-radius:var(--r-sm);font-size:12px">
-      <span>☁ Ultima salvare pe Drive: <strong>${appSettings.cloudLastSave ? fmtD(appSettings.cloudLastSave) : "niciodată"}</strong>${window._usrRemoteTs ? " · verificat " + fmtD(window._usrRemoteTs) : ""}</span>
+      <span>☁ Ultima salvare confirmată: <strong>${appSettings.cloudLastSave ? fmtD(appSettings.cloudLastSave) : "niciodată"}</strong>${window._usrRemoteTs ? " · versiunea de pe Drive: <strong>" + (window._usrRemoteSaved ? fmtD(window._usrRemoteSaved) : "necunoscută") + "</strong> (verificat " + fmtD(window._usrRemoteTs) + ")" : ""}${appSettings.cloudLastFail && (!appSettings.cloudLastSave || appSettings.cloudLastFail > appSettings.cloudLastSave) ? ' · <span style="color:var(--red);font-weight:700">⚠ ultima salvare (' + fmtD(appSettings.cloudLastFail) + ') nu a ajuns pe Drive</span>' : ""}</span>
       <span style="flex:1"></span>
       <button class="btn btn-primary btn-sm" onclick="usrSaveNow()">☁ Salvează acum pe Drive</button>
       <button class="btn btn-ghost btn-sm" onclick="usrVerifyDrive()">🔍 Verifică pe Drive</button>
@@ -14824,16 +14854,18 @@ function sendWeeklyReport() {
         const r = await cloudPeek();
         if (r === null) { toast("⚠ Nu am putut citi backup-ul de pe Drive (verifică internetul / adresa scriptului)"); return; }
         window._usrRemote = (r.settings && Array.isArray(r.settings.users)) ? r.settings.users : [];
+        window._usrRemoteSaved = r.savedAt || "";
         window._usrRemoteTs = new Date().toISOString();
         if (adminSection === "users") renderAdminUsers();
         const miss = authUsers().filter(u => usrDriveState(u).indexOf("✅") < 0).length;
         if (!silent) toast(miss ? `⏳ ${miss} cont(uri) nu sunt încă pe Drive — apasă „☁ Salvează acum”` : "✅ Toate conturile sunt salvate pe Drive — colegii se pot autentifica");
       }
       async function usrSaveNow() {
-        toast("☁ Salvez pe Drive…");
+        toast("☁ Salvez pe Drive și verific… (până la 30 de secunde)");
         const ok = await cloudSave();
-        if (!ok) { toast("⚠ Salvarea pe Drive nu a reușit"); return; }
-        setTimeout(() => usrVerifyDrive(), 2500);
+        await usrVerifyDrive(true);
+        if (!ok) { toast("⚠ Salvarea NU a ajuns pe Drive. Verifică în script.google.com → proiectul backup → Executions (erori la doPost) sau trimite-mi o captură."); return; }
+        toast("✅ Salvat și confirmat pe Drive — agenții se pot autentifica");
       }
       function usrGenPass() { const a = "abcdefghjkmnpqrstuvwxyz23456789"; return Array.from({ length: 8 }, () => a[Math.floor(Math.random() * a.length)]).join(""); }
       function usrSave(msg) {
@@ -14848,7 +14880,7 @@ function sendWeeklyReport() {
         if (authUsers().some(u => authNorm(u.user) === user)) { toast("⚠ Există deja un utilizator „" + user + "”"); return; }
         if (pass.length < 6) { toast("⚠ Parola trebuie să aibă minim 6 caractere"); return; }
         const salt = authSalt();
-        authUsers().push({ id: "u_" + Date.now(), name, user, role, salt, hash: await authHash(pass, salt), active: true, createdAt: new Date().toISOString(), lastLogin: null });
+        authUsers().push({ id: "u_" + Date.now(), upd: Date.now(), name, user, role, salt, hash: await authHash(pass, salt), active: true, createdAt: new Date().toISOString(), lastLogin: null });
         usrSave(`✅ ${name} creat — utilizator „${user}”, parola „${pass}”`);
       }
       async function usrResetPass(id) {
@@ -14857,20 +14889,21 @@ function sendWeeklyReport() {
         const p = await showPrompt(`Parolă nouă pentru ${u.name || u.user} (minim 6 caractere):`, usrGenPass());
         if (p == null) return;
         if (String(p).trim().length < 6) { toast("⚠ Parola trebuie să aibă minim 6 caractere"); return; }
-        u.salt = authSalt(); u.hash = await authHash(String(p).trim(), u.salt);
+        u.salt = authSalt(); u.hash = await authHash(String(p).trim(), u.salt); u.upd = Date.now();
         usrSave(`🔑 Parolă schimbată pentru ${u.name || u.user}: „${String(p).trim()}”`);
       }
       function usrToggle(id) {
         if (!authIsOwner()) { toast("🔒 Doar administratorul poate gestiona utilizatorii"); return; }
         const u = authUsers().find(x => x.id === id); if (!u) return;
         if (u.owner) { toast("⚠ Contul de administrator nu poate fi dezactivat"); return; }
-        u.active = u.active === false; usrSave(u.active ? "✅ Cont activat" : "⏸ Cont dezactivat — nu se mai poate autentifica");
+        u.active = u.active === false; u.upd = Date.now(); usrSave(u.active ? "✅ Cont activat" : "⏸ Cont dezactivat — nu se mai poate autentifica");
       }
       async function usrDelete(id) {
         if (!authIsOwner()) { toast("🔒 Doar administratorul poate gestiona utilizatorii"); return; }
         const u = authUsers().find(x => x.id === id); if (!u) return;
         if (u.owner) { toast("⚠ Contul de administrator nu poate fi șters"); return; }
         if (!(await safeConfirm(`Ștergi contul „${u.name || u.user}”?`))) return;
+        appSettings.usersDel = { ...(appSettings.usersDel || {}), [id]: Date.now() };
         appSettings.users = authUsers().filter(x => x.id !== id); usrSave("🗑 Cont șters");
       }
       // ═══════════════════════════════════════════════════════
